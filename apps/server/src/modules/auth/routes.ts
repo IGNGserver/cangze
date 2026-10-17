@@ -169,6 +169,7 @@ export function authRoutes(auth: AuthService, publicOrigin: () => string | null)
         return {
           code,
           expiresAt: new Date(expiresAt).toISOString(),
+          ttlSeconds: Math.round((expiresAt - Date.now()) / 1000),
           uri: `cangze://pair?origin=${encodeURIComponent(origin)}&code=${encodeURIComponent(code)}`,
         };
       },

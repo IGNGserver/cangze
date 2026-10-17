@@ -11,9 +11,12 @@ import type { HubEvents } from './core/hub-events.ts';
 import { createLogger, LogRing } from './core/logger.ts';
 import { migrate, openDatabase, type Db } from './db/index.ts';
 import type { RouteSpec } from './http/route.ts';
-import { installAuth } from './modules/auth/hook.ts';
+import { AuditService, decisionForError } from './modules/audit/service.ts';
+import { adminPrincipal, installAuth } from './modules/auth/hook.ts';
 import { authRoutes } from './modules/auth/routes.ts';
 import { AuthService } from './modules/auth/service.ts';
+import { HaGateway } from './modules/ha/gateway.ts';
+import { haRoutes } from './modules/ha/routes.ts';
 import { networkRoutes } from './modules/network/routes.ts';
 import { NetworkPolicy } from './modules/network/policy.ts';
 import { SecretsService } from './modules/secrets/service.ts';
@@ -33,6 +36,8 @@ export interface Services {
   auth: AuthService;
   network: NetworkPolicy;
   stream: StreamHub;
+  audit: AuditService;
+  ha: HaGateway;
   startedAt: Date;
 }
 
@@ -53,8 +58,9 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
   const master = opts.memory
     ? { key: Buffer.alloc(32, 7), source: 'env' as const }
     : loadMasterKey(join(config.dataDir, 'master.key'), config.masterKey);
-  if (master.source === 'created')
+  if (master.source === 'created') {
     logger.warn({ module: 'secrets' }, 'generated a new master key in the data directory');
+  }
 
   const bus = new EventBus<HubEvents>();
   const settings = new SettingsService(db, bus);
@@ -65,8 +71,39 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
     allowedHosts: config.allowedHosts,
   });
   const stream = new StreamHub(logger);
+  const audit = new AuditService(db, stream);
+  const ha = new HaGateway(settings, secrets, stream, bus, logger.child({ module: 'ha' }));
 
-  return { config, logger, ring, db, bus, settings, secrets, auth, network, stream, startedAt: new Date() };
+  // Every write to Home Assistant, allowed or not, lands in the audit log.
+  ha.addWriteObserver((req, outcome) => {
+    audit.record({
+      principal: req.principal,
+      action: `${req.kind === 'service' ? 'call_service' : 'ha_config'}:${req.domain}.${req.service}`,
+      target: req.entityIds.join(',') || null,
+      args: req.data,
+      decision: outcome.ok ? 'allowed' : decisionForError(outcome.error.code),
+      reason: outcome.ok ? null : outcome.error.message,
+      result: outcome.ok ? (outcome.result.response ?? null) : null,
+      haContextId: outcome.ok ? outcome.result.contextId : null,
+      durationMs: outcome.durationMs,
+    });
+  });
+
+  return {
+    config,
+    logger,
+    ring,
+    db,
+    bus,
+    settings,
+    secrets,
+    auth,
+    network,
+    stream,
+    audit,
+    ha,
+    startedAt: new Date(),
+  };
 }
 
 export function buildRouteSpecs(s: Services): RouteSpec[] {
@@ -81,6 +118,7 @@ export function buildRouteSpecs(s: Services): RouteSpec[] {
       publicOrigin: s.config.publicOrigin,
       trustedProxies: s.config.trustedProxies,
     }),
+    ...haRoutes(s.ha, s.secrets, (req) => adminPrincipal(req as never)),
   ];
 }
 
@@ -105,9 +143,11 @@ export async function buildServer(s: Services, webDir?: string): Promise<Fastify
 export function startServices(s: Services): void {
   s.auth.init();
   s.stream.start();
+  s.ha.start();
 }
 
-export function stopServices(s: Services): void {
+export async function stopServices(s: Services): Promise<void> {
+  await s.ha.stop();
   s.stream.stop();
   s.db.close();
 }

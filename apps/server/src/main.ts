@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     try {
       await app.close();
     } finally {
-      stopServices(services);
+      await stopServices(services);
       process.exit(0);
     }
   };

@@ -52,6 +52,8 @@ export const CreatedDeviceToken = z.object({ device: DeviceToken, token: z.strin
 export const PairingCode = z.object({
   code: z.string(),
   expiresAt: z.string(),
+  /** Seconds until expiry; clients count down from this instead of comparing clocks. */
+  ttlSeconds: z.number(),
   /** Value to encode in a QR code: `cangze://pair?origin=…&code=…`. */
   uri: z.string(),
 });
@@ -70,3 +72,4 @@ export const WebSession = z.object({
   createdAt: z.string(),
   lastSeenAt: z.string(),
 });
+export type WebSession = z.infer<typeof WebSession>;

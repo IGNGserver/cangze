@@ -12,7 +12,25 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('@fluentui/react-icons')) return 'icons';
+          if (id.includes('recharts') || id.includes('d3-')) return 'charts';
+          if (id.includes('@ant-design/x')) return 'antd-x';
+          if (
+            id.includes('antd') ||
+            id.includes('@ant-design') ||
+            id.includes('rc-') ||
+            id.includes('@rc-component')
+          )
+            return 'antd';
+          return 'vendor';
+        },
+      },
+    },
   },
 });

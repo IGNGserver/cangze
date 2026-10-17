@@ -1,0 +1,28 @@
+:root {
+  --cz-rail-width: 80px;
+}
+html,
+body,
+#root,
+#root > .ant-app {
+  height: 100%;
+  margin: 0;
+}
+body {
+  -webkit-font-smoothing: antialiased;
+  background: #f5f5f5;
+}
+html[data-theme='dark'] body {
+  background: #1f1f1f;
+}
+* {
+  box-sizing: border-box;
+}
+.cz-scroll {
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.cz-mono {
+  font-family: 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+}

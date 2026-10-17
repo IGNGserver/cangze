@@ -15,6 +15,12 @@ pnpm dev          # server on :8080 (tsx watch) + web on :5173 (Vite, proxies /a
 pnpm verify       # version · boundaries · i18n · format · lint · typecheck · test · OpenAPI
 ```
 
+No Home Assistant at hand? Start the built-in fake one and connect to it from _Settings → Home Assistant_:
+
+```bash
+pnpm --filter @cangze/server fake-ha   # prints its URL and token
+```
+
 - Every change goes through a pull request; CI must be green.
 - Contracts first: change `packages/contracts`, run `pnpm openapi:write`, commit `docs/openapi.json`.
 - Database changes are new files in `apps/server/src/db/migrations/` — never edit a released migration.

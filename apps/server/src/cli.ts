@@ -20,7 +20,7 @@ switch (command) {
   case 'reset-admin': {
     const services = createServices(loadConfig(), { logger: createLogger('warn', new LogRing()) });
     services.auth.resetAdmin();
-    stopServices(services);
+    await stopServices(services);
     process.stdout.write(
       'Admin key cleared. Restart the container and use the new bootstrap code from the log.\n',
     );
