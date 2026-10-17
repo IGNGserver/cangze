@@ -1,0 +1,24 @@
+name: cangze
+
+services:
+  cangze-hub:
+    image: node:20-alpine
+    container_name: cangze-hub
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HA_URL=${HA_URL:-http://homeassistant:8123}
+      - HA_TOKEN=${HA_TOKEN:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o}
+    volumes:
+      - cangze-data:/app/data
+    command: ["sh", "-c", "echo 'Cangze Hub Skeleton Ready' && sleep infinity"]
+
+volumes:
+  cangze-data:
