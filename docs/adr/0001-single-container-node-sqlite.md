@@ -12,7 +12,8 @@ file is something a non-expert has to keep healthy, back up and upgrade.
 
 - One container runs one Node 24 process that serves the REST API, the WebSocket stream and the built web UI.
 - Persistence is a single SQLite database (`better-sqlite3`, WAL mode) under `/data`, accessed through
-  Drizzle ORM with hand-written, append-only SQL migrations.
+  prepared statements in small per-module repositories, with hand-written, append-only SQL migrations.
+  An ORM would duplicate the schema in a second place without buying much for a model of this size.
 - Scheduling, the run queue and the event bus are in-process and backed by SQLite tables. No Redis.
 - HTTPS termination is optional and provided by a `caddy` service behind a compose profile.
 

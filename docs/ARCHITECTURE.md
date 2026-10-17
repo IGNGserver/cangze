@@ -15,7 +15,7 @@ inside HA. Key decisions are recorded in [`docs/adr`](adr).
 │ (scheduler)    ──┘        ▲            (default deny)   (coordination)        │
 │                    pi-agent-core + pi-ai ─→ LLM providers                     │
 │ audit · usage ledger · notifications · backup · encrypted secrets             │
-│ SQLite (WAL) + Drizzle migrations                                  /data      │
+│ SQLite (WAL) + append-only migrations                              /data      │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -33,7 +33,7 @@ inside HA. Key decisions are recorded in [`docs/adr`](adr).
 | Module          | Responsibility                                                                                 |
 | --------------- | ---------------------------------------------------------------------------------------------- |
 | `core`          | config, logger (pino + in-memory ring buffer), errors, ids, crypto helpers, event bus          |
-| `db`            | SQLite connection, pragmas, append-only migrations, Drizzle schema                             |
+| `db`            | SQLite connection, pragmas, append-only migrations (no ORM)                                    |
 | `network`       | request admission: private-network HTTP, public HTTPS, opt-in public HTTP, Host allowlist      |
 | `auth`          | first-run bootstrap code, admin key (scrypt), cookie sessions, device tokens, login rate limit |
 | `secrets`       | AES-256-GCM secret box keyed by the master key (`/data/master.key` or `CANGZE_MASTER_KEY`)     |

@@ -18,7 +18,7 @@ Home Assistant（不内置 HA、不依赖 HA 插件），以 Pi Agent（`@earend
 
 ## 工程结构
 
-- `apps/server`：Fastify 5 + SQLite（better-sqlite3 + Drizzle），按 `src/modules/<模块>` 划分。
+- `apps/server`：Fastify 5 + SQLite（better-sqlite3，预编译语句，不用 ORM），按 `src/modules/<模块>` 划分；`src/context.ts` 装配服务。
 - `apps/web`：React 19 + Vite + antd 6 + @ant-design/x 2.x，Fluent 2 风格主题。
 - `packages/contracts`：前后端共用的 zod 模型与 WS 事件协议；OpenAPI 由它生成并提交在 `docs/openapi.json`。
 
