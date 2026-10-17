@@ -28,7 +28,8 @@ export function resolveCaller(auth: AuthService, req: FastifyRequest): Caller | 
 
 export function installAuth(app: FastifyInstance, auth: AuthService, network: NetworkPolicy): void {
   app.addHook('preHandler', async (req) => {
-    const mode = req.routeOptions.config?.auth ?? 'admin';
+    // API routes declare their mode; everything else (SPA shell, static assets) is public.
+    const mode = req.routeOptions.config?.auth ?? (req.url.startsWith('/api/') ? 'admin' : 'public');
     req.caller = resolveCaller(auth, req);
     if (mode === 'public') return;
     if (!req.caller) throw unauthorized();
