@@ -1,0 +1,12 @@
+{
+  "app": {
+    "name": "Cangze",
+    "tagline": "The AI hub for your Home Assistant"
+  },
+  "status": {
+    "loading": "Connecting to the hub…",
+    "online": "Hub online",
+    "offline": "Cannot reach the hub",
+    "version": "Version {{version}}"
+  }
+}

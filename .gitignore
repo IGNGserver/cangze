@@ -2,13 +2,22 @@
 .env
 .env.local
 *.env
+!.env.example
 
-# 依赖与临时产物
+# 依赖与产物（只允许出现在 $BUILD_SCRATCH_ROOT 的同步副本里）
 node_modules/
 dist/
+coverage/
 .build/
-__pycache__/
-*.pyc
+*.tsbuildinfo
+test-results/
+playwright-report/
+
+# 运行数据
+/data/
+*.db
+*.db-wal
+*.db-shm
 
 # 操作系统与工具
 .DS_Store

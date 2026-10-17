@@ -1,0 +1,38 @@
+{
+  "name": "cangze",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cangze — an open-source AI hub for your existing Home Assistant.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=24.11 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @cangze/server --filter @cangze/web dev",
+    "build": "pnpm -r --if-present build",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm -r --if-present typecheck && tsc -p tsconfig.scripts.json --noEmit",
+    "test": "vitest run",
+    "format:check": "prettier --check .",
+    "format:write": "prettier --write .",
+    "verify:version": "node scripts/verify-version.mjs",
+    "verify:boundaries": "node scripts/verify-boundaries.mjs",
+    "verify:i18n": "node scripts/verify-i18n.mjs",
+    "openapi:write": "pnpm --filter @cangze/server openapi:write",
+    "openapi:check": "pnpm --filter @cangze/server openapi:check",
+    "verify": "pnpm verify:version && pnpm verify:boundaries && pnpm verify:i18n && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm openapi:check"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.10.0",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.5"
+  }
+}

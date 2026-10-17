@@ -1,0 +1,86 @@
+name: release
+
+# 推 v*.*.* tag 触发；默认发布 prerelease（镜像打版本号与 next 标签）。
+# 只有手动触发并选择 release 时才发布正式版并更新镜像 latest 标签。
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release, e.g. v0.1.0'
+        required: true
+      release_type:
+        description: 'prerelease or release'
+        type: choice
+        options: [prerelease, release]
+        default: prerelease
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      FORMAL: ${{ github.event.inputs.release_type == 'release' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: check tag matches VERSION
+        run: |
+          test "v$(cat VERSION)" = "$TAG" || { echo "tag $TAG does not match VERSION $(cat VERSION)"; exit 1; }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: image tags
+        id: tags
+        run: |
+          v="${TAG#v}"
+          tags="ghcr.io/igngserver/cangze:${v}"
+          if [ "$FORMAL" = "true" ]; then tags="${tags},ghcr.io/igngserver/cangze:latest"; else tags="${tags},ghcr.io/igngserver/cangze:next"; fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/IGNGserver/cangze
+            org.opencontainers.image.version=${{ env.TAG }}
+            org.opencontainers.image.licenses=Apache-2.0
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          notes="docs/releases/${TAG}.md"
+          flags=()
+          if [ "$FORMAL" != "true" ]; then flags+=(--prerelease); fi
+          if [ -f "$notes" ]; then flags+=(--notes-file "$notes"); else flags+=(--generate-notes); fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists; not modifying a published release"
+          else
+            gh release create "$TAG" --title "Cangze $TAG" --verify-tag "${flags[@]}"
+          fi
