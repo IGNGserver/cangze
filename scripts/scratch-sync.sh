@@ -17,6 +17,6 @@ mkdir -p "$dest"
 rsync -a --delete \
   --exclude '.git' --exclude 'node_modules' --exclude 'dist' --exclude 'coverage' \
   --exclude 'test-results' --exclude 'playwright-report' --exclude '/data' \
-  --filter 'P /pnpm-lock.yaml' --filter 'P /docs/openapi.json' \
+  --filter 'P /pnpm-lock.yaml' --filter 'P /docs/openapi.json' --filter 'P /.devdata' \
   "$src/" "$dest/"
 echo "$dest"

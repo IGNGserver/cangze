@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { AppError, unauthorized } from '../../core/errors.ts';
+import type { Principal } from '../../core/principal.ts';
 import type { NetworkPolicy } from '../network/policy.ts';
 import { SESSION_COOKIE, type AuthService, type Caller } from './service.ts';
 
@@ -41,6 +42,13 @@ export function installAuth(app: FastifyInstance, auth: AuthService, network: Ne
       }
     }
   });
+}
+
+/** Principal for actions the admin performs directly through the API. */
+export function adminPrincipal(req: FastifyRequest): Principal {
+  return req.caller?.kind === 'device'
+    ? { kind: 'admin', via: 'device', deviceId: req.caller.deviceId }
+    : { kind: 'admin', via: 'web' };
 }
 
 export function cookieOptions(req: FastifyRequest) {

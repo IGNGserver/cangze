@@ -60,7 +60,8 @@ export async function createApp(opts: AppOptions): Promise<FastifyInstance> {
 
   const webDir = opts.webDir;
   if (webDir && existsSync(join(webDir, 'index.html'))) {
-    await app.register(fastifyStatic, { root: webDir, wildcard: false, index: false, maxAge: '1h' });
+    // Wildcard mode: missing files fall through to the not-found handler (SPA fallback below).
+    await app.register(fastifyStatic, { root: webDir, wildcard: true, index: false, maxAge: '1h' });
     const sendIndex = (reply: FastifyReply) =>
       reply.header('cache-control', 'no-cache').sendFile('index.html', webDir);
     app.get('/', (_req, reply) => sendIndex(reply));
