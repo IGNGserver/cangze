@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { QueryBool } from './common.ts';
 
 export const HaConnectionState = z.enum([
   'unconfigured',
@@ -120,7 +121,7 @@ export const HaEntityQuery = z.object({
   floor: z.string().max(128).optional(),
   label: z.string().max(128).optional(),
   device: z.string().max(128).optional(),
-  includeHidden: z.coerce.boolean().default(false),
+  includeHidden: QueryBool.default(false),
   limit: z.coerce.number().int().min(1).max(5000).default(2000),
 });
 

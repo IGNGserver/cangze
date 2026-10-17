@@ -15,6 +15,14 @@ export const IsoDate = z.string().describe('ISO 8601 timestamp');
 
 export const IdParams = z.object({ id: Id });
 
+/**
+ * Boolean query parameter. `z.coerce.boolean()` would turn the string "false" into `true`,
+ * so accept only explicit spellings.
+ */
+export const QueryBool = z
+  .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+  .transform((v) => v === true || v === 'true' || v === '1');
+
 export const Ok = z.object({ ok: z.literal(true) });
 export type Ok = z.infer<typeof Ok>;
 

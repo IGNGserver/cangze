@@ -273,7 +273,7 @@ export class FakeHa {
   url = '';
   rejectAuth = false;
 
-  async start(): Promise<this> {
+  async start(port = 0): Promise<this> {
     this.server = createServer((req, res) => {
       if (req.headers.authorization !== `Bearer ${FAKE_TOKEN}`) {
         res.writeHead(401).end();
@@ -287,7 +287,7 @@ export class FakeHa {
     });
     this.wss = new WebSocketServer({ server: this.server, path: '/api/websocket' });
     this.wss.on('connection', (ws) => this.onConnection(ws));
-    await new Promise<void>((r) => this.server.listen(0, '127.0.0.1', () => r()));
+    await new Promise<void>((r) => this.server.listen(port, '127.0.0.1', () => r()));
     this.url = `http://127.0.0.1:${(this.server.address() as AddressInfo).port}`;
     return this;
   }
