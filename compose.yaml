@@ -1,24 +1,44 @@
+# 藏泽（Cangze）· Docker Compose 部署
+#
+#   cp .env.example .env     # 可选：按需修改端口、版本等
+#   docker compose up -d
+#   docker compose logs cangze | grep -i bootstrap   # 首次启动的一次性引导码
+#
+# 启用 HTTPS（自动证书，需要公网域名指向本机 80/443）：
+#   在 .env 中设置 CANGZE_DOMAIN 与 CANGZE_PUBLIC_ORIGIN，然后 docker compose --profile https up -d
 name: cangze
 
 services:
-  cangze-hub:
-    image: node:20-alpine
-    container_name: cangze-hub
+  cangze:
+    image: ${CANGZE_IMAGE:-ghcr.io/igngserver/cangze}:${CANGZE_VERSION:-latest}
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      - '${CANGZE_BIND:-0.0.0.0}:${CANGZE_PORT:-8080}:8080'
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - HA_URL=${HA_URL:-http://homeassistant:8123}
-      - HA_TOKEN=${HA_TOKEN:-}
-      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
-      - LLM_API_KEY=${LLM_API_KEY:-}
-      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
-      - LLM_MODEL=${LLM_MODEL:-gpt-4o}
+      CANGZE_PUBLIC_ORIGIN: ${CANGZE_PUBLIC_ORIGIN:-}
+      CANGZE_TRUSTED_PROXIES: ${CANGZE_TRUSTED_PROXIES:-}
+      CANGZE_ALLOWED_HOSTS: ${CANGZE_ALLOWED_HOSTS:-}
+      CANGZE_MASTER_KEY: ${CANGZE_MASTER_KEY:-}
+      CANGZE_LOG_LEVEL: ${CANGZE_LOG_LEVEL:-info}
     volumes:
-      - cangze-data:/app/data
-    command: ["sh", "-c", "echo 'Cangze Hub Skeleton Ready' && sleep infinity"]
+      - cangze-data:/data
+
+  caddy:
+    profiles: [https]
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    depends_on: [cangze]
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      CANGZE_DOMAIN: ${CANGZE_DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
 
 volumes:
   cangze-data:
+  caddy-data:
+  caddy-config:

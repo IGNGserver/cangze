@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+docs/openapi.json
+LICENSE
+**/dist
+**/coverage
+**/migrations/*.sql

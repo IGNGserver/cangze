@@ -1,0 +1,12 @@
+{
+  "app": {
+    "name": "藏泽",
+    "tagline": "你的 Home Assistant AI 中枢"
+  },
+  "status": {
+    "loading": "正在连接中枢…",
+    "online": "中枢在线",
+    "offline": "无法连接中枢",
+    "version": "版本 {{version}}"
+  }
+}

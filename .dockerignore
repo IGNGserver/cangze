@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/coverage
+.git
+.github
+data
+docs
+*.md
+!README.md
+test-results
+playwright-report
