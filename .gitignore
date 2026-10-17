@@ -1,0 +1,16 @@
+# 环境配置与凭据
+.env
+.env.local
+*.env
+
+# 依赖与临时产物
+node_modules/
+dist/
+.build/
+__pycache__/
+*.pyc
+
+# 操作系统与工具
+.DS_Store
+.idea/
+.vscode/
