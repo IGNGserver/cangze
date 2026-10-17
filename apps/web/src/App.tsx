@@ -12,6 +12,9 @@ import { ThemeProvider } from './theme/ThemeProvider.tsx';
 const DevicesPage = lazy(() =>
   import('./pages/devices/DevicesPage.tsx').then((m) => ({ default: m.DevicesPage })),
 );
+const SessionsPage = lazy(() =>
+  import('./pages/sessions/SessionsPage.tsx').then((m) => ({ default: m.SessionsPage })),
+);
 const SettingsPage = lazy(() =>
   import('./pages/settings/SettingsPage.tsx').then((m) => ({ default: m.SettingsPage })),
 );
@@ -36,7 +39,7 @@ export function App() {
               <Routes>
                 <Route element={<AppShell />}>
                   <Route index element={<Navigate to="/sessions" replace />} />
-                  <Route path="/sessions/*" element={<Placeholder titleKey="nav.sessions" />} />
+                  <Route path="/sessions/:id?" element={<SessionsPage />} />
                   <Route path="/agents/*" element={<Placeholder titleKey="nav.agents" />} />
                   <Route path="/automations/*" element={<Placeholder titleKey="nav.automations" />} />
                   <Route path="/devices" element={<DevicesPage />} />

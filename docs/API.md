@@ -61,3 +61,26 @@ Server → client:
   `notifications`, `ha:status`, `ha:states`, `system`.
 - The server pings every 25 s and drops clients that do not answer, and closes clients whose send buffer
   exceeds 8 MB (`1013`). Cross-site pages using the cookie are closed with `1008`.
+
+## Sessions
+
+A session's conversation is a tree; `GET /api/v1/sessions/:id` returns the **active branch** (`entries`), the running
+reply (`live`), pending approvals and `streamSeq`. Subscribe to `session:<id>` with `since: streamSeq` to continue
+from the snapshot without gaps.
+
+| Event `data.kind`                         | Meaning                                                                           |
+| ----------------------------------------- | --------------------------------------------------------------------------------- |
+| `run_start` / `run_end`                   | a reply started / finished (`status`: `completed`, `aborted`, `error`)            |
+| `partial`                                 | the assistant message being streamed (full snapshot, throttled to ~12/s)          |
+| `entry`                                   | a persisted entry (user, assistant, toolResult, notice, compaction, model_change) |
+| `tool_start` / `tool_update` / `tool_end` | tool execution progress                                                           |
+| `approval`                                | an approval was created or decided                                                |
+| `queued`                                  | messages waiting to be injected into the running reply                            |
+| `session`                                 | title / model / pin / archive changed                                             |
+| `reload`                                  | the active branch moved (edit, branch switch); reload the snapshot                |
+
+- `POST /sessions/:id/messages` starts a reply, or — while one is running — injects the message after the current
+  step (`whenBusy: "steer"`, default) or after the reply (`"followUp"`).
+- `POST /sessions/:id/edit` re-asks from an edited user message as a new branch; `/regenerate` answers a message
+  again; `/branch` switches to the branch containing an entry. Old branches are never deleted.
+- High-risk actions pause the tool until `POST /approvals/:id/decide { approve }`.

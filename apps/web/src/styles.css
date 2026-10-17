@@ -22,6 +22,31 @@ html[data-theme='dark'] body {
   overflow: auto;
   scrollbar-width: thin;
 }
+div.x-markdown pre {
+  background: var(--cz-code-bg, #f5f5f5);
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow: auto;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+html[data-theme='dark'] div.x-markdown pre {
+  --cz-code-bg: #1f1f1f;
+}
+div.x-markdown :not(pre) > code {
+  background: rgba(127, 127, 127, 0.15);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.92em;
+}
+div.x-markdown table {
+  border-collapse: collapse;
+}
+div.x-markdown th,
+div.x-markdown td {
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  padding: 4px 8px;
+}
 .cz-mono {
   font-family: 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
   font-size: 12px;

@@ -90,12 +90,16 @@ class StreamClient {
     }
   }
 
-  subscribe(topic: string, listener: Listener, onGap?: GapListener): () => void {
+  /**
+   * Subscribe to a topic. Pass `since` (the seq of a REST snapshot) to receive every event after it,
+   * so a snapshot plus the stream never misses or duplicates an event.
+   */
+  subscribe(topic: string, listener: Listener, onGap?: GapListener, since?: number): () => void {
     let st = this.topics.get(topic);
     if (!st) {
-      st = { lastSeq: undefined, listeners: new Set(), gapListeners: new Set() };
+      st = { lastSeq: since, listeners: new Set(), gapListeners: new Set() };
       this.topics.set(topic, st);
-      this.send({ op: 'subscribe', topic });
+      this.send({ op: 'subscribe', topic, since });
     }
     st.listeners.add(listener);
     if (onGap) st.gapListeners.add(onGap);
@@ -117,6 +121,7 @@ export function useTopic<T = unknown>(
   topic: string | null,
   onEvent: (data: T) => void,
   onGap?: () => void,
+  since?: number,
 ): void {
   const ref = useRef({ onEvent, onGap });
   ref.current = { onEvent, onGap };
@@ -126,7 +131,10 @@ export function useTopic<T = unknown>(
       topic,
       (d) => ref.current.onEvent(d as T),
       () => ref.current.onGap?.(),
+      since,
     );
+    // `since` only matters when subscribing to a new topic
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topic]);
 }
 

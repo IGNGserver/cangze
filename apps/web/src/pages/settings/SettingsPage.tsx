@@ -7,6 +7,8 @@ import { AboutSettings } from './AboutSettings.tsx';
 import { ClientsSettings } from './ClientsSettings.tsx';
 import { GeneralSettings } from './GeneralSettings.tsx';
 import { HaSettings } from './HaSettings.tsx';
+import { ModelsSettings } from './ModelsSettings.tsx';
+import { RiskSettings } from './RiskSettings.tsx';
 import { SecuritySettings } from './SecuritySettings.tsx';
 
 export interface SettingsTab {
@@ -18,7 +20,9 @@ export interface SettingsTab {
 /** Tabs are registered here; later milestones add models, policies and backups. */
 export const SETTINGS_TABS: SettingsTab[] = [
   { key: 'general', labelKey: 'settings.tabs.general', render: () => <GeneralSettings /> },
+  { key: 'models', labelKey: 'settings.tabs.models', render: () => <ModelsSettings /> },
   { key: 'home-assistant', labelKey: 'settings.tabs.ha', render: () => <HaSettings /> },
+  { key: 'risk', labelKey: 'settings.tabs.risk', render: () => <RiskSettings /> },
   { key: 'security', labelKey: 'settings.tabs.security', render: () => <SecuritySettings /> },
   { key: 'clients', labelKey: 'settings.tabs.clients', render: () => <ClientsSettings /> },
   { key: 'about', labelKey: 'settings.tabs.about', render: () => <AboutSettings /> },

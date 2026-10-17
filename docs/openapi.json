@@ -10,6 +10,342 @@
     }
   },
   "paths": {
+    "/api/v1/approvals/{id}/decide": {
+      "post": {
+        "summary": "Approve or deny a pending action",
+        "tags": [
+          "approvals"
+        ],
+        "operationId": "postApiV1ApprovalsIdDecide",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "principal": {
+                      "type": "string"
+                    },
+                    "sessionId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "runId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "agentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "toolName": {
+                      "type": "string"
+                    },
+                    "toolCallId": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "args": {},
+                    "risk": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "high"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "approved",
+                        "denied",
+                        "expired"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string"
+                    },
+                    "decidedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "note": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "principal",
+                    "sessionId",
+                    "runId",
+                    "agentId",
+                    "toolName",
+                    "toolCallId",
+                    "summary",
+                    "args",
+                    "risk",
+                    "status",
+                    "createdAt",
+                    "expiresAt",
+                    "decidedAt",
+                    "note"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "approve": {
+                    "type": "boolean"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "approve"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approvals": {
+      "get": {
+        "summary": "List approvals",
+        "tags": [
+          "approvals"
+        ],
+        "operationId": "getApiV1Approvals",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "denied",
+                "expired"
+              ]
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "agentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "principal": {
+                        "type": "string"
+                      },
+                      "sessionId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "runId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "agentId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "toolName": {
+                        "type": "string"
+                      },
+                      "toolCallId": {
+                        "type": "string"
+                      },
+                      "summary": {
+                        "type": "string"
+                      },
+                      "args": {},
+                      "risk": {
+                        "type": "string",
+                        "enum": [
+                          "normal",
+                          "high"
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "approved",
+                          "denied",
+                          "expired"
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "expiresAt": {
+                        "type": "string"
+                      },
+                      "decidedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "note": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "principal",
+                      "sessionId",
+                      "runId",
+                      "agentId",
+                      "toolName",
+                      "toolCallId",
+                      "summary",
+                      "args",
+                      "risk",
+                      "status",
+                      "createdAt",
+                      "expiresAt",
+                      "decidedAt",
+                      "note"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/admin-key": {
       "post": {
         "summary": "Change the admin key (signs out other web sessions)",
@@ -1373,8 +1709,20 @@
             "in": "query",
             "required": false,
             "schema": {
-              "default": false,
-              "type": "boolean"
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "0",
+                    "1",
+                    "true",
+                    "false"
+                  ]
+                }
+              ]
             }
           },
           {
@@ -2174,6 +2522,3104 @@
         }
       }
     },
+    "/api/v1/models/defaults": {
+      "get": {
+        "summary": "Default models",
+        "tags": [
+          "models"
+        ],
+        "operationId": "getApiV1ModelsDefaults",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chat": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 300,
+                          "pattern": "^[a-z0-9][a-z0-9_-]*\\/.+$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "utility": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 300,
+                          "pattern": "^[a-z0-9][a-z0-9_-]*\\/.+$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "thinkingLevel": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "minimal",
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "chat",
+                    "utility",
+                    "thinkingLevel"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set default models",
+        "tags": [
+          "models"
+        ],
+        "operationId": "putApiV1ModelsDefaults",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chat": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 300,
+                          "pattern": "^[a-z0-9][a-z0-9_-]*\\/.+$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "utility": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 300,
+                          "pattern": "^[a-z0-9][a-z0-9_-]*\\/.+$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "thinkingLevel": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "minimal",
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "chat",
+                    "utility",
+                    "thinkingLevel"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chat": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 300,
+                        "pattern": "^[a-z0-9][a-z0-9_-]*\\/.+$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "utility": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 300,
+                        "pattern": "^[a-z0-9][a-z0-9_-]*\\/.+$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "thinkingLevel": {
+                    "type": "string",
+                    "enum": [
+                      "off",
+                      "minimal",
+                      "low",
+                      "medium",
+                      "high",
+                      "xhigh",
+                      "max"
+                    ]
+                  }
+                },
+                "required": [
+                  "chat",
+                  "utility",
+                  "thinkingLevel"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/models": {
+      "get": {
+        "summary": "Models of all configured providers",
+        "tags": [
+          "models"
+        ],
+        "operationId": "getApiV1Models",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "ref": {
+                        "type": "string"
+                      },
+                      "providerId": {
+                        "type": "string"
+                      },
+                      "providerName": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "reasoning": {
+                        "type": "boolean"
+                      },
+                      "vision": {
+                        "type": "boolean"
+                      },
+                      "contextWindow": {
+                        "type": "number"
+                      },
+                      "maxTokens": {
+                        "type": "number"
+                      },
+                      "thinkingLevels": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "minimal",
+                            "low",
+                            "medium",
+                            "high",
+                            "xhigh",
+                            "max"
+                          ]
+                        }
+                      },
+                      "cost": {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "number"
+                          },
+                          "output": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "input",
+                          "output"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "ref",
+                      "providerId",
+                      "providerName",
+                      "id",
+                      "name",
+                      "reasoning",
+                      "vision",
+                      "contextWindow",
+                      "maxTokens",
+                      "thinkingLevels",
+                      "cost"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers/{id}/test": {
+      "post": {
+        "summary": "Send a tiny request to check the key and connectivity",
+        "tags": [
+          "models"
+        ],
+        "operationId": "postApiV1ProvidersIdTest",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "model": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latencyMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "reply": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "model",
+                    "latencyMs",
+                    "reply"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "modelId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers/{id}": {
+      "delete": {
+        "summary": "Remove a provider and its key",
+        "tags": [
+          "models"
+        ],
+        "operationId": "deleteApiV1ProvidersId",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a provider",
+        "tags": [
+          "models"
+        ],
+        "operationId": "patchApiV1ProvidersId",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "builtin",
+                        "custom"
+                      ]
+                    },
+                    "builtinId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "api": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "openai-completions",
+                            "openai-responses",
+                            "anthropic-messages"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "baseUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "hasKey": {
+                      "type": "boolean"
+                    },
+                    "keyHint": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "name": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "contextWindow": {
+                            "default": 128000,
+                            "type": "integer",
+                            "minimum": 1024,
+                            "maximum": 10000000
+                          },
+                          "maxTokens": {
+                            "default": 8192,
+                            "type": "integer",
+                            "minimum": 256,
+                            "maximum": 1000000
+                          },
+                          "reasoning": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "vision": {
+                            "default": false,
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "contextWindow",
+                          "maxTokens",
+                          "reasoning",
+                          "vision"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "builtinId",
+                    "name",
+                    "api",
+                    "baseUrl",
+                    "hasKey",
+                    "keyHint",
+                    "enabled",
+                    "models",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "apiKey": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "models": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "name": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "contextWindow": {
+                          "default": 128000,
+                          "type": "integer",
+                          "minimum": 1024,
+                          "maximum": 10000000
+                        },
+                        "maxTokens": {
+                          "default": 8192,
+                          "type": "integer",
+                          "minimum": 256,
+                          "maximum": 1000000
+                        },
+                        "reasoning": {
+                          "default": false,
+                          "type": "boolean"
+                        },
+                        "vision": {
+                          "default": false,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers/catalog": {
+      "get": {
+        "summary": "Built-in providers that can be configured",
+        "tags": [
+          "models"
+        ],
+        "operationId": "getApiV1ProvidersCatalog",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "modelCount": {
+                        "type": "number"
+                      },
+                      "configured": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "modelCount",
+                      "configured"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers/discover": {
+      "post": {
+        "summary": "List models of an OpenAI-compatible endpoint",
+        "tags": [
+          "models"
+        ],
+        "operationId": "postApiV1ProvidersDiscover",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "models"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "baseUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "apiKey": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                },
+                "required": [
+                  "baseUrl"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers": {
+      "get": {
+        "summary": "Configured model providers (keys are never returned)",
+        "tags": [
+          "models"
+        ],
+        "operationId": "getApiV1Providers",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "builtin",
+                          "custom"
+                        ]
+                      },
+                      "builtinId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "api": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "openai-completions",
+                              "openai-responses",
+                              "anthropic-messages"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "baseUrl": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "hasKey": {
+                        "type": "boolean"
+                      },
+                      "keyHint": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "models": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "name": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "contextWindow": {
+                              "default": 128000,
+                              "type": "integer",
+                              "minimum": 1024,
+                              "maximum": 10000000
+                            },
+                            "maxTokens": {
+                              "default": 8192,
+                              "type": "integer",
+                              "minimum": 256,
+                              "maximum": 1000000
+                            },
+                            "reasoning": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "vision": {
+                              "default": false,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "contextWindow",
+                            "maxTokens",
+                            "reasoning",
+                            "vision"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "builtinId",
+                      "name",
+                      "api",
+                      "baseUrl",
+                      "hasKey",
+                      "keyHint",
+                      "enabled",
+                      "models",
+                      "createdAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add a provider",
+        "tags": [
+          "models"
+        ],
+        "operationId": "postApiV1Providers",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "builtin",
+                        "custom"
+                      ]
+                    },
+                    "builtinId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "api": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "openai-completions",
+                            "openai-responses",
+                            "anthropic-messages"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "baseUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "hasKey": {
+                      "type": "boolean"
+                    },
+                    "keyHint": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "name": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "contextWindow": {
+                            "default": 128000,
+                            "type": "integer",
+                            "minimum": 1024,
+                            "maximum": 10000000
+                          },
+                          "maxTokens": {
+                            "default": 8192,
+                            "type": "integer",
+                            "minimum": 256,
+                            "maximum": 1000000
+                          },
+                          "reasoning": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "vision": {
+                            "default": false,
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "contextWindow",
+                          "maxTokens",
+                          "reasoning",
+                          "vision"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "builtinId",
+                    "name",
+                    "api",
+                    "baseUrl",
+                    "hasKey",
+                    "keyHint",
+                    "enabled",
+                    "models",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "builtin"
+                      },
+                      "builtinId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "apiKey": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4096
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "builtinId"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "custom"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "api": {
+                        "type": "string",
+                        "enum": [
+                          "openai-completions",
+                          "openai-responses",
+                          "anthropic-messages"
+                        ]
+                      },
+                      "baseUrl": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "apiKey": {
+                        "type": "string",
+                        "maxLength": 4096
+                      },
+                      "models": {
+                        "minItems": 1,
+                        "maxItems": 200,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "name": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "contextWindow": {
+                              "default": 128000,
+                              "type": "integer",
+                              "minimum": 1024,
+                              "maximum": 10000000
+                            },
+                            "maxTokens": {
+                              "default": 8192,
+                              "type": "integer",
+                              "minimum": 256,
+                              "maximum": 1000000
+                            },
+                            "reasoning": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "vision": {
+                              "default": false,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "name",
+                      "api",
+                      "baseUrl",
+                      "models"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/abort": {
+      "post": {
+        "summary": "Stop the running reply",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "postApiV1SessionsIdAbort",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/branch": {
+      "post": {
+        "summary": "Switch the active branch to the one containing an entry",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "postApiV1SessionsIdBranch",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "pinned": {
+                      "type": "boolean"
+                    },
+                    "archived": {
+                      "type": "boolean"
+                    },
+                    "modelRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "thinkingLevel": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "minimal",
+                            "low",
+                            "medium",
+                            "high",
+                            "xhigh",
+                            "max"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "running": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "lastMessageAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "instructions": {
+                      "type": "string"
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "input": {
+                          "type": "number"
+                        },
+                        "output": {
+                          "type": "number"
+                        },
+                        "cacheRead": {
+                          "type": "number"
+                        },
+                        "cacheWrite": {
+                          "type": "number"
+                        },
+                        "cost": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "input",
+                        "output",
+                        "cacheRead",
+                        "cacheWrite",
+                        "cost"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "contextTokens": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "contextWindow": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "parentId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "seq": {
+                            "type": "number"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "message",
+                              "compaction",
+                              "notice",
+                              "model_change"
+                            ]
+                          },
+                          "role": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "runId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "branch": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "index": {
+                                    "type": "number"
+                                  },
+                                  "count": {
+                                    "type": "number"
+                                  },
+                                  "siblingIds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "index",
+                                  "count",
+                                  "siblingIds"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "parentId",
+                          "seq",
+                          "kind",
+                          "role",
+                          "runId",
+                          "createdAt",
+                          "data",
+                          "branch"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "live": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "runId": {
+                              "type": "string"
+                            },
+                            "startedAt": {
+                              "type": "string"
+                            },
+                            "partial": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "tools": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "toolCallId": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "args": {},
+                                  "partial": {}
+                                },
+                                "required": [
+                                  "toolCallId",
+                                  "name",
+                                  "args"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "queued": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "runId",
+                            "startedAt",
+                            "partial",
+                            "tools",
+                            "queued"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "approvals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "principal": {
+                            "type": "string"
+                          },
+                          "sessionId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "runId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "agentId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "toolName": {
+                            "type": "string"
+                          },
+                          "toolCallId": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "args": {},
+                          "risk": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "high"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "approved",
+                              "denied",
+                              "expired"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "expiresAt": {
+                            "type": "string"
+                          },
+                          "decidedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "principal",
+                          "sessionId",
+                          "runId",
+                          "agentId",
+                          "toolName",
+                          "toolCallId",
+                          "summary",
+                          "args",
+                          "risk",
+                          "status",
+                          "createdAt",
+                          "expiresAt",
+                          "decidedAt",
+                          "note"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "streamSeq": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "pinned",
+                    "archived",
+                    "modelRef",
+                    "thinkingLevel",
+                    "running",
+                    "createdAt",
+                    "updatedAt",
+                    "lastMessageAt",
+                    "instructions",
+                    "usage",
+                    "contextTokens",
+                    "contextWindow",
+                    "entries",
+                    "live",
+                    "approvals",
+                    "streamSeq"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entryId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "entryId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/compact": {
+      "post": {
+        "summary": "Summarize older messages to free context",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "postApiV1SessionsIdCompact",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "compacted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "compacted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/edit": {
+      "post": {
+        "summary": "Edit a user message into a new branch and answer it",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "postApiV1SessionsIdEdit",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "queued": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "runId",
+                    "queued"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entryId": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100000
+                  }
+                },
+                "required": [
+                  "entryId",
+                  "text"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/messages": {
+      "post": {
+        "summary": "Send a message (steers or queues when a reply is running)",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "postApiV1SessionsIdMessages",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "queued": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "runId",
+                    "queued"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "maxLength": 100000
+                  },
+                  "images": {
+                    "default": [],
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "mimeType": {
+                          "type": "string",
+                          "enum": [
+                            "image/jpeg",
+                            "image/png",
+                            "image/webp",
+                            "image/gif"
+                          ]
+                        },
+                        "data": {
+                          "type": "string",
+                          "maxLength": 7000000
+                        }
+                      },
+                      "required": [
+                        "mimeType",
+                        "data"
+                      ]
+                    }
+                  },
+                  "whenBusy": {
+                    "default": "steer",
+                    "type": "string",
+                    "enum": [
+                      "steer",
+                      "followUp"
+                    ]
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/regenerate": {
+      "post": {
+        "summary": "Answer a message again as a new branch",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "postApiV1SessionsIdRegenerate",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "queued": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "runId",
+                    "queued"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entryId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "entryId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}": {
+      "delete": {
+        "summary": "Delete a session and its conversation",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "deleteApiV1SessionsId",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Session with the active branch, live run and pending approvals",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "getApiV1SessionsId",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "pinned": {
+                      "type": "boolean"
+                    },
+                    "archived": {
+                      "type": "boolean"
+                    },
+                    "modelRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "thinkingLevel": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "minimal",
+                            "low",
+                            "medium",
+                            "high",
+                            "xhigh",
+                            "max"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "running": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "lastMessageAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "instructions": {
+                      "type": "string"
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "input": {
+                          "type": "number"
+                        },
+                        "output": {
+                          "type": "number"
+                        },
+                        "cacheRead": {
+                          "type": "number"
+                        },
+                        "cacheWrite": {
+                          "type": "number"
+                        },
+                        "cost": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "input",
+                        "output",
+                        "cacheRead",
+                        "cacheWrite",
+                        "cost"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "contextTokens": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "contextWindow": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "parentId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "seq": {
+                            "type": "number"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "message",
+                              "compaction",
+                              "notice",
+                              "model_change"
+                            ]
+                          },
+                          "role": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "runId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "branch": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "index": {
+                                    "type": "number"
+                                  },
+                                  "count": {
+                                    "type": "number"
+                                  },
+                                  "siblingIds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "index",
+                                  "count",
+                                  "siblingIds"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "parentId",
+                          "seq",
+                          "kind",
+                          "role",
+                          "runId",
+                          "createdAt",
+                          "data",
+                          "branch"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "live": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "runId": {
+                              "type": "string"
+                            },
+                            "startedAt": {
+                              "type": "string"
+                            },
+                            "partial": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "tools": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "toolCallId": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "args": {},
+                                  "partial": {}
+                                },
+                                "required": [
+                                  "toolCallId",
+                                  "name",
+                                  "args"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "queued": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "runId",
+                            "startedAt",
+                            "partial",
+                            "tools",
+                            "queued"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "approvals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "principal": {
+                            "type": "string"
+                          },
+                          "sessionId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "runId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "agentId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "toolName": {
+                            "type": "string"
+                          },
+                          "toolCallId": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "args": {},
+                          "risk": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "high"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "approved",
+                              "denied",
+                              "expired"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "expiresAt": {
+                            "type": "string"
+                          },
+                          "decidedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "principal",
+                          "sessionId",
+                          "runId",
+                          "agentId",
+                          "toolName",
+                          "toolCallId",
+                          "summary",
+                          "args",
+                          "risk",
+                          "status",
+                          "createdAt",
+                          "expiresAt",
+                          "decidedAt",
+                          "note"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "streamSeq": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "pinned",
+                    "archived",
+                    "modelRef",
+                    "thinkingLevel",
+                    "running",
+                    "createdAt",
+                    "updatedAt",
+                    "lastMessageAt",
+                    "instructions",
+                    "usage",
+                    "contextTokens",
+                    "contextWindow",
+                    "entries",
+                    "live",
+                    "approvals",
+                    "streamSeq"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update title, model, instructions, pin or archive state",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "patchApiV1SessionsId",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "pinned": {
+                      "type": "boolean"
+                    },
+                    "archived": {
+                      "type": "boolean"
+                    },
+                    "modelRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "thinkingLevel": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "minimal",
+                            "low",
+                            "medium",
+                            "high",
+                            "xhigh",
+                            "max"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "running": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "lastMessageAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "pinned",
+                    "archived",
+                    "modelRef",
+                    "thinkingLevel",
+                    "running",
+                    "createdAt",
+                    "updatedAt",
+                    "lastMessageAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "pinned": {
+                    "type": "boolean"
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  },
+                  "modelRef": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 300,
+                        "pattern": "^[a-z0-9][a-z0-9_-]*\\/.+$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "thinkingLevel": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "off",
+                          "minimal",
+                          "low",
+                          "medium",
+                          "high",
+                          "xhigh",
+                          "max"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "instructions": {
+                    "type": "string",
+                    "maxLength": 20000
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "summary": "List sessions",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "getApiV1Sessions",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "0",
+                    "1",
+                    "true",
+                    "false"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "pinned": {
+                        "type": "boolean"
+                      },
+                      "archived": {
+                        "type": "boolean"
+                      },
+                      "modelRef": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "thinkingLevel": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "off",
+                              "minimal",
+                              "low",
+                              "medium",
+                              "high",
+                              "xhigh",
+                              "max"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "running": {
+                        "type": "boolean"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "type": "string"
+                      },
+                      "lastMessageAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "pinned",
+                      "archived",
+                      "modelRef",
+                      "thinkingLevel",
+                      "running",
+                      "createdAt",
+                      "updatedAt",
+                      "lastMessageAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a session",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "postApiV1Sessions",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "pinned": {
+                      "type": "boolean"
+                    },
+                    "archived": {
+                      "type": "boolean"
+                    },
+                    "modelRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "thinkingLevel": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "minimal",
+                            "low",
+                            "medium",
+                            "high",
+                            "xhigh",
+                            "max"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "running": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "lastMessageAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "pinned",
+                    "archived",
+                    "modelRef",
+                    "thinkingLevel",
+                    "running",
+                    "createdAt",
+                    "updatedAt",
+                    "lastMessageAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "modelRef": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 300,
+                    "pattern": "^[a-z0-9][a-z0-9_-]*\\/.+$"
+                  },
+                  "thinkingLevel": {
+                    "type": "string",
+                    "enum": [
+                      "off",
+                      "minimal",
+                      "low",
+                      "medium",
+                      "high",
+                      "xhigh",
+                      "max"
+                    ]
+                  },
+                  "instructions": {
+                    "type": "string",
+                    "maxLength": 20000
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/settings/ha/test": {
       "post": {
         "summary": "Test Home Assistant connection parameters without saving them",
@@ -2579,6 +6025,213 @@
         }
       }
     },
+    "/api/v1/settings/risk": {
+      "get": {
+        "summary": "Risk policy for actions taken by sessions",
+        "tags": [
+          "settings"
+        ],
+        "operationId": "getApiV1SettingsRisk",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "confirmInSessions": {
+                      "type": "boolean"
+                    },
+                    "highRiskDomains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "highRiskServices": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "highRiskCoverClasses": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "configurationIsHighRisk": {
+                      "type": "boolean"
+                    },
+                    "approvalTimeoutSeconds": {
+                      "type": "integer",
+                      "minimum": 30,
+                      "maximum": 86400
+                    }
+                  },
+                  "required": [
+                    "confirmInSessions",
+                    "highRiskDomains",
+                    "highRiskServices",
+                    "highRiskCoverClasses",
+                    "configurationIsHighRisk",
+                    "approvalTimeoutSeconds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update the risk policy",
+        "tags": [
+          "settings"
+        ],
+        "operationId": "putApiV1SettingsRisk",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "confirmInSessions": {
+                      "type": "boolean"
+                    },
+                    "highRiskDomains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "highRiskServices": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "highRiskCoverClasses": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "configurationIsHighRisk": {
+                      "type": "boolean"
+                    },
+                    "approvalTimeoutSeconds": {
+                      "type": "integer",
+                      "minimum": 30,
+                      "maximum": 86400
+                    }
+                  },
+                  "required": [
+                    "confirmInSessions",
+                    "highRiskDomains",
+                    "highRiskServices",
+                    "highRiskCoverClasses",
+                    "configurationIsHighRisk",
+                    "approvalTimeoutSeconds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "confirmInSessions": {
+                    "type": "boolean"
+                  },
+                  "highRiskDomains": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "highRiskServices": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "highRiskCoverClasses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "configurationIsHighRisk": {
+                    "type": "boolean"
+                  },
+                  "approvalTimeoutSeconds": {
+                    "type": "integer",
+                    "minimum": 30,
+                    "maximum": 86400
+                  }
+                },
+                "required": [
+                  "confirmInSessions",
+                  "highRiskDomains",
+                  "highRiskServices",
+                  "highRiskCoverClasses",
+                  "configurationIsHighRisk",
+                  "approvalTimeoutSeconds"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/settings/security": {
       "get": {
         "summary": "Network security settings",
@@ -2930,6 +6583,80 @@
                     "startedAt"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tools": {
+      "get": {
+        "summary": "Tools available to sessions and subagents",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "getApiV1Tools",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "risk": {
+                        "type": "string",
+                        "enum": [
+                          "read",
+                          "control",
+                          "configure",
+                          "system"
+                        ]
+                      },
+                      "group": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "label",
+                      "description",
+                      "risk",
+                      "group"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               }
             }
