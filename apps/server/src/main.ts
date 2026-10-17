@@ -1,11 +1,9 @@
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
-import { createApp } from './app.ts';
 import { loadConfig } from './core/config.ts';
-import { createLogger, LogRing } from './core/logger.ts';
 import { VERSION } from './core/version.ts';
-import { systemRoutes } from './modules/system/routes.ts';
+import { buildServer, createServices, startServices, stopServices } from './context.ts';
 
 function defaultWebDir(): string | undefined {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -17,23 +15,24 @@ function defaultWebDir(): string | undefined {
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  const ring = new LogRing();
-  const logger = createLogger(config.logLevel, ring);
-  const startedAt = new Date();
-
-  const app = await createApp({
-    logger,
-    webDir: config.webDir ?? defaultWebDir(),
-    routes: systemRoutes({ startedAt, readiness: {}, setupRequired: () => true }),
-  });
+  const services = createServices(config);
+  const app = await buildServer(services, config.webDir ?? defaultWebDir());
+  startServices(services);
 
   await app.listen({ host: config.host, port: config.port });
-  logger.info({ version: VERSION, port: config.port }, 'cangze started');
+  services.logger.info({ version: VERSION, port: config.port, dataDir: config.dataDir }, 'cangze started');
 
+  let closing = false;
   const shutdown = async (signal: string) => {
-    logger.info({ signal }, 'shutting down');
-    await app.close();
-    process.exit(0);
+    if (closing) return;
+    closing = true;
+    services.logger.info({ signal }, 'shutting down');
+    try {
+      await app.close();
+    } finally {
+      stopServices(services);
+      process.exit(0);
+    }
   };
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
   process.once('SIGINT', () => void shutdown('SIGINT'));
