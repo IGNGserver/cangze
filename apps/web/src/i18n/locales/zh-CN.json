@@ -470,6 +470,10 @@
     "memory_delete": "删除记忆"
   },
   "agents": {
+    "indirectActions": "允许间接动作",
+    "indirectActionsHint": "脚本、场景和自动化可能影响目标之外的设备；仅为经过审查的动作启用。",
+    "emergencyStop": "紧急停止",
+    "emergencyStopHint": "关闭触发器、取消排队任务并终止当前运行？已完成的设备操作不会撤销。",
     "new": "新建子代理",
     "newHint": "子代理是在后台按触发器自动运行的 Agent，拥有自己的记忆和对话。先从模板开始，再调整权限与触发器。",
     "empty": "还没有子代理",

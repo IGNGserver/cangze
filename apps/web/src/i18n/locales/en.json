@@ -470,6 +470,10 @@
     "memory_delete": "Delete memory"
   },
   "agents": {
+    "indirectActions": "Allow indirect actions",
+    "indirectActionsHint": "Scripts, scenes and automations may affect devices beyond their target. Enable only for reviewed actions.",
+    "emergencyStop": "Emergency stop",
+    "emergencyStopHint": "Disable triggers, cancel queued tasks and abort the current run? Completed device actions cannot be undone.",
     "new": "New agent",
     "newHint": "Agents run in the background on their triggers, with their own memory and conversation. Start from a template, then adjust permissions and triggers.",
     "empty": "No agents yet",

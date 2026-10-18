@@ -15,6 +15,7 @@ export interface AgentRow {
   name: string;
   description: string;
   enabled: number;
+  halted: number;
   current_revision: number;
   conversation_id: string;
   created_at: number;
@@ -239,8 +240,10 @@ export class AgentsService {
   setEnabled(agentId: string, enabled: boolean): AgentRow {
     const r = this.row(agentId);
     this.db
-      .prepare('UPDATE agents SET enabled = ?, updated_at = ? WHERE id = ?')
-      .run(enabled ? 1 : 0, Date.now(), r.id);
+      .prepare(
+        'UPDATE agents SET enabled = ?, halted = CASE WHEN ? THEN 0 ELSE halted END, updated_at = ? WHERE id = ?',
+      )
+      .run(enabled ? 1 : 0, enabled ? 1 : 0, Date.now(), r.id);
     this.changed({ kind: 'upsert', agentId: r.id });
     return this.row(r.id);
   }

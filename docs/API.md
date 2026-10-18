@@ -87,6 +87,8 @@ from the snapshot without gaps.
 
 ## Subagents
 
+- `POST /agents/:id/stop` disables automatic triggers, cancels queued tasks and aborts the active run.
+
 - `GET/POST /agents`, `GET/PUT/DELETE /agents/:id` — a `PUT` must carry `baseRevision`; a stale revision returns
   `409 revision_conflict` with `details.currentRevision`. Every save creates a new immutable revision
   (`GET /agents/:id/revisions`).

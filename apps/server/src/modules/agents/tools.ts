@@ -20,7 +20,7 @@ const DEFINITION_HELP = `An agent definition is JSON with:
 - permissions: rules {id, effect:"allow"|"deny", access:"read"|"control"|"configure", targets:{all?, entities?:["light.*"], domains?, areas?, floors?, devices?, labels?}, services?:["turn_on"], constraints?:{numeric?:[{field,min,max}], timeWindow?:{start:"22:00",end:"06:00",days?:[]}, maxCallsPerHour?}}
   Default deny: grant only what the task needs. Control includes read.
 - triggers: {id, kind, ...} kinds: cron {expression:"0 7 * * *"}, interval {minutes}, ha_state {entityIds, to?, from?, attribute?, forSeconds?}, ha_event {eventType, dataMatch?}, ha_trigger {trigger:{platform:"sun",event:"sunset"}}, manual {}
-- highRisk: "deny" | "approve" | "allow"; limits {maxRunSeconds, maxToolCalls, dailyCostLimit, overlap, misfire}; priority 1-100; respectManualMinutes.`;
+- highRisk: "deny" | "approve" | "allow"; allowIndirectActions (default false; scripts/scenes/automations can affect devices beyond their target); limits {maxRunSeconds, maxToolCalls, dailyCostLimit, overlap, misfire}; priority 1-100; respectManualMinutes.`;
 
 /** Tools that let main sessions create and direct subagents. Never grantable to subagents. */
 export function agentManagementTools(

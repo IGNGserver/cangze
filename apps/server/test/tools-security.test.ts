@@ -17,6 +17,17 @@ const env = {
 } as unknown as ToolEnv;
 
 describe('entity ids in Home Assistant requests', () => {
+  it('denies external statistics to a partially authorized agent', async () => {
+    const { ha, query } = stubGateway();
+    const tool = haTools(ha).find((t) => t.name === 'ha_statistics')!;
+    await expect(
+      tool.execute({ ...env, access: { readAll: false, canRead: () => false } }, {
+        statistic_ids: ['external:private'],
+        period: 'day',
+      } as never),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(query).not.toHaveBeenCalled();
+  });
   const cases: Array<[tool: string, valid: string]> = [
     ['ha_camera_snapshot', 'camera.front_door'],
     ['ha_calendar_events', 'calendar.family'],

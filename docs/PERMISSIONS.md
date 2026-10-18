@@ -22,6 +22,14 @@ Every decision lands in the audit log with the principal `agent:<id>@<revision>`
 
 ## Rules
 
+Trigger data is also a read: state triggers require readable entities; opaque HA event/native-trigger
+payloads require unrestricted read access. External statistics require unrestricted read access too.
+Subagents cannot execute scripts, scenes or automation actions unless `allowIndirectActions` is explicitly
+enabled: their downstream effects cannot be inferred from the target entity. Numeric brightness limits
+cover both `brightness` and `brightness_pct`; bounded light turn-on requests must specify brightness.
+Disabling an agent cancels queued automatic runs; manual tasks remain explicit requests. Emergency stop
+disables triggers, cancels every queued task and aborts the active run. Already completed HA writes are not undone.
+
 ```jsonc
 {
   "id": "living-lights",

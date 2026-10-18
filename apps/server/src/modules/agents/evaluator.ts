@@ -22,7 +22,13 @@ export function createAgentEvaluator(
   };
   return async (req) => {
     const p = req.principal;
+    if (agents.row(p.agentId).halted) throw new AppError(403, 'policy_denied', 'Agent is emergency stopped');
     const def = agents.definition(p.agentId, p.revision);
+    const indirect =
+      ['script', 'scene', 'automation'].includes(req.domain) ||
+      req.entityIds.some((id) => /^(script|scene|automation)\./.test(id));
+    if (indirect && !def.allowIndirectActions)
+      throw new AppError(403, 'policy_denied', 'Indirect actions require explicit permission');
     const ruleIds = assertWrite(def.permissions, req, ha.registry, {
       timeZone: ha.getStatus().timeZone,
       callsInLastHour: (ruleId) => recent(`${p.agentId}:${ruleId}`).length,
@@ -39,6 +45,8 @@ export function createAgentEvaluator(
       if (def.highRisk === 'approve')
         await policy.requireApproval(req, risk.reason, policy.riskPolicy.get().approvalTimeoutSeconds);
     }
+    if (agents.row(p.agentId).halted)
+      throw new AppError(403, 'policy_denied', 'Agent was stopped while awaiting approval');
     const now = Date.now();
     for (const id of ruleIds) recent(`${p.agentId}:${id}`).push(now);
   };

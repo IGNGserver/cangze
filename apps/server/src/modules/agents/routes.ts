@@ -67,6 +67,18 @@ export function agentRoutes(
 
   return [
     defineRoute({
+      method: 'POST',
+      url: '/api/v1/agents/:id/stop',
+      summary: 'Emergency stop a subagent',
+      tags: ['agents'],
+      params: IdParams,
+      response: Ok,
+      handler: ({ params }) => {
+        runs.emergencyStop(params.id);
+        return { ok: true as const };
+      },
+    }),
+    defineRoute({
       method: 'GET',
       url: '/api/v1/agents',
       summary: 'List subagents',

@@ -86,6 +86,11 @@ export class RunsService {
     private readonly logger: Logger,
   ) {
     this.settings = settings.define('scheduler', SchedulerSetting);
+    agents.onChange(({ agentId, kind }) => {
+      if (kind === 'delete' || agents.row(agentId).enabled) return;
+      for (const r of this.list({ agentId, status: 'queued', limit: 10000 }))
+        if (r.triggerKind !== 'manual') this.abort(r.id);
+    });
     this.approvals.onChange((a) => {
       if (!a.runId || !a.agentId) return;
       if (a.status === 'pending') this.setStatus(a.runId, 'waiting_approval');
@@ -226,6 +231,7 @@ export class RunsService {
 
   enqueue(input: EnqueueInput): RunSummary {
     const agent = this.agents.row(input.agentId);
+    if (agent.halted) throw conflict('Agent was emergency stopped; enable it before dispatching tasks');
     if (!agent.enabled && input.triggerKind !== 'manual') throw conflict('Agent is disabled');
     const def = this.agents.definition(agent.id);
     const id = newId('run');
@@ -294,6 +300,14 @@ export class RunsService {
     }
   }
 
+  emergencyStop(agentId: string): void {
+    const id = this.agents.row(agentId).id;
+    this.db.prepare('UPDATE agents SET halted = 1 WHERE id = ?').run(id);
+    this.agents.setEnabled(id, false);
+    for (const r of this.list({ agentId: id, status: 'queued', limit: 10000 })) this.abort(r.id);
+    for (const [runId, active] of this.active) if (active.agentId === id) this.abort(runId);
+  }
+
   private setStatus(id: string, status: RunStatus): void {
     this.db.prepare('UPDATE runs SET status = ? WHERE id = ? AND finished_at IS NULL').run(status, id);
     this.publish(id);
@@ -340,6 +354,8 @@ export class RunsService {
       return this.fail(r, 'failed', 'agent definition missing');
     }
     const agent = this.agents.row(r.agent_id);
+    if (agent.halted) return this.fail(r, 'aborted', 'agent emergency stopped');
+    if (!agent.enabled && r.trigger_kind !== 'manual') return this.fail(r, 'aborted', 'agent disabled');
     if (
       def.limits.dailyCostLimit !== null &&
       this.usage.costToday('agent', agent.id) >= def.limits.dailyCostLimit

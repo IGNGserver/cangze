@@ -294,6 +294,7 @@ describe('subagents', () => {
     await h.call('DELETE', '/api/v1/settings/ha');
     const agent = await createAgent({
       ...LIVING_LIGHTS,
+      permissions: [{ id: 'all', access: 'read', targets: { all: true } }],
       triggers: [{ id: 'sunset', kind: 'ha_trigger', trigger: { platform: 'sun', event: 'sunset' } }],
     });
     expect(h.s.scheduler.triggerStates(agent.id)[0]).toMatchObject({ error: 'waiting for Home Assistant' });
@@ -331,5 +332,109 @@ describe('subagents', () => {
     );
     expect(eff.control).not.toContain('lock.front_door');
     expect(eff.read).toContain('binary_sensor.hall_motion');
+  });
+
+  it('consumes an overdue schedule once and preserves interval deadlines on resync', async () => {
+    h.s.runs.stop();
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      triggers: [{ id: 'timer', kind: 'interval', minutes: 10 }],
+      limits: { misfire: 'run_once' },
+    });
+    h.s.scheduler.stop();
+    h.s.db
+      .prepare('UPDATE trigger_state SET next_fire_at = ? WHERE agent_id = ?')
+      .run(Date.now() - 3600000, agent.id);
+    h.s.scheduler.start();
+    expect(h.s.runs.list({ agentId: agent.id })).toHaveLength(1);
+    const next = h.s.scheduler.nextFire(agent.id);
+    h.s.scheduler.syncAll();
+    expect(h.s.scheduler.nextFire(agent.id)).toBe(next);
+    h.s.scheduler.stop();
+    h.s.scheduler.start();
+    expect(h.s.runs.list({ agentId: agent.id })).toHaveLength(1);
+  });
+
+  it('cancels queued automatic tasks when disabled and all tasks on emergency stop', async () => {
+    const agent = await createAgent();
+    h.s.runs.stop();
+    const automatic = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'cron' });
+    const manual = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual' });
+    h.s.agents.setEnabled(agent.id, false);
+    expect(h.s.runs.get(automatic.id).status).toBe('aborted');
+    expect(h.s.runs.get(manual.id).status).toBe('queued');
+    h.s.runs.emergencyStop(agent.id);
+    expect(h.s.runs.get(manual.id).status).toBe('aborted');
+    expect(() => h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual' })).toThrow(/emergency stopped/);
+    h.s.agents.setEnabled(agent.id, true);
+    expect(h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual' }).status).toBe('queued');
+  });
+
+  it('does not send unreadable state-trigger data to a run', async () => {
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      permissions: [],
+      triggers: [{ id: 'secret', kind: 'ha_state', entityIds: ['lock.front_door'] }],
+    });
+    ha.humanSet('lock.front_door', 'unlocked');
+    await new Promise((r) => setTimeout(r, 100));
+    expect(h.s.runs.list({ agentId: agent.id })).toHaveLength(0);
+  });
+
+  it('cancels duration waits even if leaving the state does not match from', async () => {
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      triggers: [
+        {
+          id: 'hold',
+          kind: 'ha_state',
+          entityIds: ['light.living_lamp'],
+          from: 'off',
+          to: 'on',
+          forSeconds: 1,
+        },
+      ],
+    });
+    const ctx = { id: 'hold', user_id: null, parent_id: null };
+    ha.setState('light.living_lamp', 'off', undefined, ctx);
+    ha.setState('light.living_lamp', 'on', undefined, ctx);
+    await new Promise((r) => setTimeout(r, 200));
+    ha.setState('light.living_lamp', 'unavailable', undefined, ctx);
+    ha.setState('light.living_lamp', 'on', undefined, ctx);
+    await new Promise((r) => setTimeout(r, 1000));
+    expect(h.s.runs.list({ agentId: agent.id })).toHaveLength(0);
+  });
+
+  it('restores a persisted state duration wait without restarting its deadline', async () => {
+    h.s.runs.stop();
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      triggers: [
+        { id: 'hold', kind: 'ha_state', entityIds: ['light.living_lamp'], to: 'off', forSeconds: 1 },
+      ],
+    });
+    ha.setState('light.living_lamp', 'off', undefined, { id: 'persistent', user_id: null, parent_id: null });
+    await waitFor(() =>
+      Boolean(h.s.db.prepare('SELECT 1 FROM trigger_waits WHERE agent_id = ?').get(agent.id)),
+    );
+    h.s.scheduler.stop();
+    h.s.db.prepare('UPDATE trigger_waits SET deadline = ? WHERE agent_id = ?').run(Date.now() - 1, agent.id);
+    h.s.scheduler.start();
+    await waitFor(() => h.s.runs.list({ agentId: agent.id }).length === 1);
+    expect(h.s.db.prepare('SELECT 1 FROM trigger_waits WHERE agent_id = ?').get(agent.id)).toBeUndefined();
+  });
+
+  it('denies indirect HA actions even when a script entity is otherwise granted', async () => {
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      permissions: [{ id: 'script', access: 'control', targets: { domains: ['script'] } }],
+    });
+    await expect(
+      h.s.ha.callService(
+        { kind: 'agent', agentId: agent.id, revision: 1, runId: 'test' },
+        { domain: 'script', service: 'turn_on', target: { entity_id: ['script.good_night'] } },
+      ),
+    ).rejects.toMatchObject({ code: 'policy_denied' });
+    expect(ha.calls).toHaveLength(0);
   });
 });

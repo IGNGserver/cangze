@@ -130,6 +130,16 @@ export function AgentDetailView({ id }: { id: string }) {
           </Typography.Text>
         </div>
         <Space wrap>
+          <Popconfirm
+            title={t('agents.emergencyStopHint')}
+            onConfirm={() =>
+              api.post(`/agents/${id}/stop`).catch((e) => {
+                void message.error(errorText(t, e));
+              })
+            }
+          >
+            <Button danger>{t('agents.emergencyStop')}</Button>
+          </Popconfirm>
           <Switch
             checkedChildren={t('agents.enabled')}
             unCheckedChildren={t('agents.disabled')}

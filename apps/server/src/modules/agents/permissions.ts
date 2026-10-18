@@ -143,10 +143,28 @@ export function evaluateWrite(
         continue;
       }
       const bad = r.constraints.numeric.find((c) => {
-        const v = req.data[c.field];
+        let v = req.data[c.field];
+        if (req.domain === 'light' && ['brightness', 'brightness_pct'].includes(c.field)) {
+          const alternate = c.field === 'brightness' ? 'brightness_pct' : 'brightness';
+          if (req.data[alternate] !== undefined) {
+            const converted = Number(req.data[alternate]) * (c.field === 'brightness' ? 2.55 : 100 / 255);
+            if (
+              !Number.isFinite(converted) ||
+              (c.min !== undefined && converted < c.min) ||
+              (c.max !== undefined && converted > c.max)
+            )
+              return true;
+            v ??= converted;
+          }
+          if (v === undefined && req.service === 'turn_on') return true;
+          if (req.data.brightness_step !== undefined || req.data.brightness_step_pct !== undefined)
+            return true;
+        }
         if (v === undefined) return false;
         const n = Number(v);
-        return Number.isNaN(n) || (c.min !== undefined && n < c.min) || (c.max !== undefined && n > c.max);
+        return (
+          !Number.isFinite(n) || (c.min !== undefined && n < c.min) || (c.max !== undefined && n > c.max)
+        );
       });
       if (bad) {
         failures.push(
