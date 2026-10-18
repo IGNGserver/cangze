@@ -4,3 +4,6 @@ LICENSE
 **/dist
 **/coverage
 **/migrations/*.sql
+apps/e2e/.e2e
+**/playwright-report
+**/test-results

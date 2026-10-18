@@ -8,10 +8,9 @@ import { useHaStatus } from '../api/queries.ts';
 import { useModelDefaults } from '../api/sessions.ts';
 import { Logo } from '../components/Logo.tsx';
 import { errorText } from '../lib/errors.ts';
+import { WELCOME_DONE_KEY } from '../lib/welcome.ts';
 import { HaSettings } from './settings/HaSettings.tsx';
 import { ModelsSettings } from './settings/ModelsSettings.tsx';
-
-export const WELCOME_DONE_KEY = 'cangze.welcomeDone';
 
 export function WelcomePage() {
   const { t } = useTranslation();

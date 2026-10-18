@@ -1,8 +1,9 @@
 // zh-CN 与 en 的界面文案键必须完全一致，且值不得为空。
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const dir = new URL('../apps/web/src/i18n/locales/', import.meta.url).pathname;
+const dir = fileURLToPath(new URL('../apps/web/src/i18n/locales/', import.meta.url));
 const locales = ['zh-CN', 'en'];
 
 function flatten(obj, prefix = '', out = {}) {

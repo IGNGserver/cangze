@@ -102,7 +102,9 @@ export function Composer({
             />
           </Tooltip>
         }
-        suffix={
+        // Sender only submits on Enter while its own SendButton reports "enabled", so the send button
+        // must be the built-in one (a plain Button leaves Enter disabled for good).
+        suffix={(_, { components: { SendButton } }) => (
           <Flex gap={4} align="center">
             {running && (
               <Tooltip title={t('chat.stop')}>
@@ -115,17 +117,14 @@ export function Composer({
                 />
               </Tooltip>
             )}
-            <Button
-              type="primary"
-              shape="circle"
+            <SendButton
               icon={<Send20Filled />}
               loading={sending}
-              disabled={!text.trim() && !images.length}
-              onClick={() => void send(text)}
+              disabled={sending || (!text.trim() && !images.length)}
               aria-label={t('chat.send')}
             />
           </Flex>
-        }
+        )}
         footer={
           running ? (
             <Flex align="center" gap={8} style={{ padding: '0 12px 8px' }}>

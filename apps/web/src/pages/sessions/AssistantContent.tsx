@@ -113,6 +113,7 @@ export function AssistantContent({
             content={b.text}
             streaming={{ hasNextChunk: streaming, enableAnimation: false }}
             openLinksInNewTab
+            escapeRawHtml
           />
         ))}
       {items.length > 0 && <ThoughtChain items={items} style={{ marginTop: 8 }} />}

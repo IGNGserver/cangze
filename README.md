@@ -8,6 +8,14 @@ language models understand, control and automate your home — safely.
 
 [简体中文](README.zh-CN.md)
 
+> **Status: 0.1.0 prerelease.** Feature complete for a first release and covered by unit and end-to-end
+> tests, but young. Back up regularly and expect rough edges.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/session-dark.png">
+  <img alt="A session: the model searched the lights, then asked for approval before unlocking the front door" src="docs/images/session-light.png">
+</picture>
+
 ## Highlights
 
 - **Sessions** — create as many equal conversations as you like. Each one has its own model, context and
@@ -18,8 +26,25 @@ language models understand, control and automate your home — safely.
 - **Deep Home Assistant integration** — states, history, logbook, statistics, services with schema
   validation, areas/floors/devices/labels, automations, scripts, scenes, calendars, to-do lists.
 - **Conflict handling** — human changes win, priorities between agents, flap and loop protection.
+- **Approvals** — unlocking doors, disarming alarms, opening garage doors and configuration changes ask you
+  first, in the session or in the notification center.
+- **Backups** — scheduled and manual backups of the single database, optionally encrypted with a passphrase,
+  restored from the UI.
 - **Private by default** — one container, one SQLite file, encrypted credentials, no telemetry. Safe network
   defaults with optional HTTPS via Caddy.
+
+<table>
+  <tr>
+    <td><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/devices-dark.png">
+  <img alt="Devices with live state and quick controls" src="docs/images/devices-light.png">
+</picture></td>
+    <td><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/agent-dark.png">
+  <img alt="A subagent with its definition, permissions, triggers, memory and runs" src="docs/images/agent-light.png">
+</picture></td>
+  </tr>
+</table>
 
 ## Quick start
 
@@ -30,14 +55,19 @@ docker compose up -d
 docker compose logs cangze | grep -i bootstrap
 ```
 
-Open `http://<host>:8080`, enter the bootstrap code from the log, choose your admin key, connect Home
-Assistant (URL + long-lived access token) and add a model provider.
+Open `http://<host>:8080`, enter the bootstrap code from the log, choose your admin key, and the welcome
+wizard walks you through connecting Home Assistant (URL + long-lived access token of a dedicated user) and
+adding a model provider — OpenAI, Anthropic, DeepSeek, Qwen, Gemini and others are built in, and any
+OpenAI- or Anthropic-compatible endpoint (Ollama, vLLM, LM Studio, gateways) works too.
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for HTTPS, reverse proxies, backups and upgrades.
 
 ## Documentation
 
+- [Deployment](docs/DEPLOYMENT.md) · [Backup and restore](docs/BACKUP_RESTORE.md)
+- [Permissions](docs/PERMISSIONS.md) · [API](docs/API.md) ([OpenAPI](docs/openapi.json))
 - [Architecture](docs/ARCHITECTURE.md) · [Architecture decisions](docs/adr)
+- [Release notes](docs/releases)
 - [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md)
 
 ## License

@@ -19,6 +19,13 @@ const Target = Type.Object(
 
 const CONFIG_KINDS = ['automation', 'script', 'scene'] as const;
 
+const ENTITY_ID = /^[a-z0-9_]+\.[a-z0-9_]+$/;
+
+/** Entity ids end up in REST paths; accept only the canonical form of the expected domain. */
+function assertEntity(id: string, domain: string): void {
+  if (!ENTITY_ID.test(id) || domainOf(id) !== domain) throw badRequest(`Not a ${domain} entity id: ${id}`);
+}
+
 function fmtState(state: string, attrs: Record<string, unknown>): string {
   const unit = attrs.unit_of_measurement;
   return typeof unit === 'string' ? `${state} ${unit}` : state;
@@ -361,7 +368,7 @@ export function haTools(ha: HaGateway): ToolDef[] {
       description: 'Current image of a camera entity. Only useful with models that accept images.',
       parameters: Type.Object({ entity_id: Type.String() }),
       execute: async (env, p) => {
-        if (domainOf(p.entity_id) !== 'camera') throw badRequest('Not a camera entity');
+        assertEntity(p.entity_id, 'camera');
         assertReadable(env, [p.entity_id]);
         if (!env.model.input.includes('image')) {
           return {
@@ -393,6 +400,7 @@ export function haTools(ha: HaGateway): ToolDef[] {
         days: Type.Optional(Type.Number({ minimum: 1, maximum: 62, default: 7 })),
       }),
       execute: async (env, p) => {
+        assertEntity(p.entity_id, 'calendar');
         assertReadable(env, [p.entity_id]);
         const start = new Date();
         const end = new Date(start.getTime() + (p.days ?? 7) * 86_400_000);
@@ -423,6 +431,7 @@ export function haTools(ha: HaGateway): ToolDef[] {
         'Items of a to-do list entity. Add or complete items with ha_call_service (todo.add_item, todo.update_item).',
       parameters: Type.Object({ entity_id: Type.String() }),
       execute: async (env, p) => {
+        assertEntity(p.entity_id, 'todo');
         assertReadable(env, [p.entity_id]);
         const res = await ha.query<{ items: Array<{ summary: string; status: string; due?: string }> }>({
           type: 'todo/item/list',

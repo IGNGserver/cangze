@@ -11,6 +11,23 @@ import type { Logger } from 'pino';
 import { AppError } from './core/errors.ts';
 import { registerRoutes, type RouteSpec } from './http/route.ts';
 
+/**
+ * Content Security Policy for the web UI. Ant Design injects its CSS-in-JS as <style> tags, so
+ * inline styles are allowed; scripts only ever come from this origin.
+ */
+export const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 export interface AppOptions {
   logger: Logger;
   routes: RouteSpec[];
@@ -45,6 +62,18 @@ export async function createApp(opts: AppOptions): Promise<FastifyInstance> {
         message: status >= 500 ? 'Internal server error' : err.message,
       },
     });
+  });
+
+  app.addHook('onSend', (req, reply, _payload, done) => {
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('referrer-policy', 'no-referrer');
+    reply.header('x-frame-options', 'DENY');
+    reply.header('cross-origin-opener-policy', 'same-origin');
+    reply.header('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    reply.header('content-security-policy', CSP);
+    // Only meaningful (and only honoured) over HTTPS, e.g. behind the bundled Caddy profile.
+    if (req.protocol === 'https') reply.header('strict-transport-security', 'max-age=31536000');
+    done();
   });
 
   app.addHook('onResponse', (req, reply, done) => {

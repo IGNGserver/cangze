@@ -749,11 +749,20 @@ function summarizeIds(ids: string[]): string {
   return ids.length <= 3 ? ids.join(', ') : `${ids.slice(0, 3).join(', ')} (+${ids.length - 3})`;
 }
 
+const CLIENT_ERROR_CODES = new Set(['invalid_format', 'service_validation_error', 'not_found']);
+
 export function toAppError(err: unknown): AppError {
   if (err instanceof AppError) return err;
   if (err && typeof err === 'object' && 'code' in err && 'message' in err) {
     const e = err as { code: string | number; message: string };
-    return new AppError(502, `ha_${String(e.code)}`, e.message);
+    // HA rejected the request itself (bad service data, unknown service/entity): the caller's mistake, not a
+    // gateway failure, so the model and the UI can correct it.
+    const status = CLIENT_ERROR_CODES.has(String(e.code))
+      ? String(e.code) === 'not_found'
+        ? 404
+        : 400
+      : 502;
+    return new AppError(status, `ha_${String(e.code)}`, e.message);
   }
   return new AppError(502, 'ha_error', describeError(err));
 }

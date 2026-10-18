@@ -12,7 +12,15 @@ docker compose up -d
 docker compose logs cangze | grep -i bootstrap
 ```
 
-Pin `CANGZE_VERSION` in `.env` to a concrete version for predictable upgrades.
+`compose.yaml` defaults to the release it was published with (`CANGZE_VERSION`, e.g. `0.1.0`). Image tags:
+
+| Tag      | Meaning                                                                 |
+| -------- | ----------------------------------------------------------------------- |
+| `0.1.0`  | one release, never moved                                                |
+| `next`   | the newest prerelease                                                   |
+| `latest` | the newest formal release (none yet while the project is in prerelease) |
+
+Set `CANGZE_VERSION` in `.env` to upgrade on your own schedule.
 
 ## First run
 

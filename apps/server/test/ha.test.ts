@@ -112,7 +112,8 @@ describe('Home Assistant gateway', () => {
     const res = await h.call('POST', '/api/v1/ha/services/light/explode', {
       target: { entity_id: 'light.bedroom' },
     });
-    expect(res.statusCode).toBe(502);
+    // HA's own rejection is the caller's mistake, not a gateway failure
+    expect(res.statusCode).toBe(404);
     expect(res.json().error.code).toBe('ha_not_found');
   });
 
