@@ -403,6 +403,25 @@ export class ProvidersService {
     }
   }
 
+  /**
+   * Load the API implementations of configured providers in the background so the first chat
+   * after a start does not pay for loading the provider SDK.
+   */
+  warmUp(): void {
+    const apis = new Set<string>();
+    for (const r of this.rows()) {
+      if (!r.enabled) continue;
+      for (const m of this.models.getModels(r.id)) apis.add(m.api);
+    }
+    const modules: Record<string, () => Promise<unknown>> = {
+      'openai-completions': () => import('@earendil-works/pi-ai/api/openai-completions'),
+      'openai-responses': () => import('@earendil-works/pi-ai/api/openai-responses'),
+      'anthropic-messages': () => import('@earendil-works/pi-ai/api/anthropic-messages'),
+      'google-generative-ai': () => import('@earendil-works/pi-ai/api/google-generative-ai'),
+    };
+    for (const api of apis) void modules[api]?.().catch(() => undefined);
+  }
+
   /** List model ids from an OpenAI-compatible `/models` endpoint. */
   async discover(baseUrl: string, apiKey?: string): Promise<string[]> {
     const url = `${baseUrl.replace(/\/+$/, '')}/models`;

@@ -68,7 +68,9 @@
     "ha_unavailable": "Home Assistant is not connected",
     "empty_target": "The target does not match any entity",
     "token_required": "A long-lived access token is required",
-    "internal": "Internal server error"
+    "internal": "Internal server error",
+    "pageCrashed": "This page crashed",
+    "reload": "Reload"
   },
   "ha": {
     "state": {
@@ -411,6 +413,252 @@
     "ha_list_configs": "List automations/scripts/scenes",
     "ha_get_config": "Read configuration",
     "ha_save_config": "Save configuration",
-    "ha_delete_config": "Delete configuration"
+    "ha_delete_config": "Delete configuration",
+    "tools_catalog": "Tool catalog",
+    "agents_list": "List agents",
+    "agent_get": "Read agent",
+    "agent_create": "Create agent",
+    "agent_update": "Update agent",
+    "agent_set_enabled": "Enable/disable agent",
+    "agent_delete": "Delete agent",
+    "agent_run": "Dispatch task",
+    "agent_runs": "Agent runs",
+    "memory_list": "Read memory",
+    "memory_write": "Write memory",
+    "memory_delete": "Delete memory"
+  },
+  "agents": {
+    "new": "New agent",
+    "newHint": "Agents run in the background on their triggers, with their own memory and conversation. Start from a template, then adjust permissions and triggers.",
+    "empty": "No agents yet",
+    "pick": "Pick an agent",
+    "noDescription": "No description",
+    "next": "next {{when}}",
+    "revisionInfo": "revision {{rev}} · {{slug}}",
+    "enabled": "On",
+    "disabled": "Off",
+    "runNow": "Run now",
+    "run": "Run",
+    "runHint": "Optionally add a task for this run; empty runs the instructions once.",
+    "taskPlaceholder": "e.g. Check all doors and windows and tell me",
+    "deleteConfirm": "Delete this agent with its memory and run history?",
+    "unsaved": "Unsaved changes",
+    "conflict": "Another session changed this agent (now revision {{rev}}). Discard your edits, or keep your version and save over it.",
+    "discard": "Discard",
+    "keepMine": "Keep mine",
+    "saved": "Saved as revision {{rev}}",
+    "tabs": {
+      "overview": "Overview",
+      "definition": "Definition",
+      "permissions": "Permissions",
+      "triggers": "Triggers",
+      "memory": "Memory",
+      "runs": "Runs",
+      "revisions": "Revisions"
+    },
+    "stats": {
+      "runs": "Runs",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "costToday": "Cost today"
+    },
+    "model": "Model",
+    "contextMode": "Context",
+    "context": {
+      "isolated": "Isolated runs",
+      "continuous": "Continuous conversation"
+    },
+    "contextHint": "Isolated: each run gets memory and recent results only. Continuous: all runs share one compacted conversation.",
+    "tools": "Tools",
+    "toolsHint": "Grant only what the task needs. Memory tools are always available.",
+    "rules": "Rules",
+    "highRisk": "High-risk actions",
+    "highRiskHint": "Locks, alarms, garage doors and configuration changes are handled like this even when rules allow them.",
+    "highRiskOptions": {
+      "deny": "Always deny",
+      "approve": "Ask me",
+      "allow": "Allow"
+    },
+    "nextFire": "Next trigger",
+    "recentRuns": "Recent runs",
+    "allRuns": "All runs",
+    "noRuns": "No runs yet",
+    "name": "Name",
+    "description": "Description",
+    "instructions": "Instructions",
+    "instructionsHint": "Say what to do when triggered, when not to act, and what to report.",
+    "risk": {
+      "read": "read",
+      "control": "control",
+      "configure": "configure",
+      "system": "system"
+    },
+    "memoryTools": {
+      "memory_list": "Read memory",
+      "memory_write": "Write memory",
+      "memory_delete": "Delete memory"
+    },
+    "priority": "Priority",
+    "priorityHint": "Higher priority agents may override lower priority agents' recent changes.",
+    "respectManual": "Respect manual changes",
+    "respectManualHint": "Leave devices alone for this long after a person changed them.",
+    "minutes": "min",
+    "limits": "Limits",
+    "maxRunSeconds": "Max run time (s)",
+    "maxToolCalls": "Max tool calls per run",
+    "dailyCost": "Daily cost limit",
+    "notifyOnFailure": "Notify me on failure",
+    "perm": {
+      "hint": "Default deny: the agent can only read and control what is explicitly allowed here. The hub enforces every rule.",
+      "allow": "Allow",
+      "deny": "Deny",
+      "access": {
+        "read": "Read",
+        "control": "Control",
+        "configure": "Configure"
+      },
+      "all": "All entities",
+      "areas": "Areas",
+      "floors": "Floors",
+      "domains": "Domains",
+      "labels": "Labels",
+      "entities": "Entities",
+      "entitiesHint": "Wildcards allowed, e.g. light.* or sensor.living_*",
+      "services": "Allowed services",
+      "servicesHint": "Empty = any service; e.g. turn_on, turn_off or light.turn_on",
+      "constraints": "Constraints",
+      "numeric": "Value ranges",
+      "addNumeric": "Add value range",
+      "timeWindow": "Allowed time window",
+      "maxCalls": "Max calls per hour",
+      "note": "Note",
+      "add": "Add rule",
+      "preview": "Effective access",
+      "canControl": "Can control {{n}}",
+      "canRead": "Read only {{n}}",
+      "denied": "Denied {{n}}",
+      "canConfigure": "May change Home Assistant configuration",
+      "noConfigure": "Cannot change Home Assistant configuration"
+    },
+    "triggerKinds": {
+      "cron": "Schedule",
+      "interval": "Interval",
+      "ha_state": "State change",
+      "ha_event": "HA event",
+      "ha_trigger": "HA trigger",
+      "manual": "Manual"
+    },
+    "trig": {
+      "overlap": "If still running",
+      "overlapOptions": {
+        "skip": "Skip",
+        "queue": "Queue",
+        "replace": "Replace"
+      },
+      "misfire": "Missed while down",
+      "misfireOptions": {
+        "skip": "Skip",
+        "run_once": "Run once"
+      },
+      "none": "No triggers: run manually or let a session dispatch tasks.",
+      "name": "Name (optional)",
+      "saveFirst": "Save before testing",
+      "test": "Fire once",
+      "tested": "Run queued",
+      "cron": "Cron expression",
+      "cronHint": "minute hour day month weekday, in Home Assistant's time zone. 0 7 * * * = every day at 7:00.",
+      "presets": {
+        "07:00": "Daily 07:00",
+        "21:00": "Daily 21:00",
+        "hourly": "Hourly",
+        "weekdays 08:00": "Weekdays 08:00"
+      },
+      "every": "Every",
+      "entities": "Entities",
+      "from": "From",
+      "to": "To",
+      "attribute": "Attribute (optional)",
+      "for": "For",
+      "eventType": "Event type",
+      "dataMatch": "Event data match (JSON)",
+      "haTrigger": "Home Assistant trigger (JSON)",
+      "haTriggerHint": "Any HA trigger, e.g. {\"platform\":\"sun\",\"event\":\"sunset\"}",
+      "debounce": "Debounce",
+      "fired": "Fired {{n}} times",
+      "last": "last {{when}}",
+      "nextAt": "next {{when}}",
+      "add": "Add trigger"
+    },
+    "memoryHint": "What the agent remembers across runs. You can read and edit it at any time.",
+    "memoryEmpty": "Memory is empty",
+    "addNote": "Add note",
+    "noteTitle": "Title",
+    "clearMemory": "Clear memory",
+    "clearMemoryConfirm": "Clear all memory of this agent?",
+    "filterStatus": "Filter by status",
+    "col": {
+      "status": "Status",
+      "agent": "Agent",
+      "queued": "Time",
+      "trigger": "Trigger",
+      "result": "Result",
+      "error": "Error"
+    },
+    "status": {
+      "queued": "Queued",
+      "running": "Running",
+      "waiting_approval": "Waiting for approval",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "aborted": "Aborted",
+      "skipped": "Skipped"
+    },
+    "revision": "Revision",
+    "requestedBy": "Requested by",
+    "abort": "Abort run",
+    "readOnlyTranscript": "Agent conversations are read-only.",
+    "current": "current",
+    "restore": "Load as draft",
+    "restoreHint": "Loads this version into the editor; saving makes it a new revision.",
+    "templates": {
+      "blank": {
+        "name": "Blank agent",
+        "description": "Write instructions, permissions and triggers from scratch.",
+        "instructions": "Describe what this agent should do when triggered."
+      },
+      "nightWatch": {
+        "name": "Night security check",
+        "description": "Every night at 23:00, checks locks, doors, windows and the alarm and reports issues.",
+        "instructions": "Every night check that all locks are locked, door and window sensors are closed and the alarm is armed. Only read; do not change anything. If all is fine, confirm briefly; otherwise list each entity and its state. Keep long-standing issues in memory to compare next time."
+      },
+      "energyReport": {
+        "name": "Daily energy report",
+        "description": "Every evening at 21:00, sums up today's energy use and compares with previous days.",
+        "instructions": "Use long-term statistics for the main energy sensors (device_class energy or power), compute today's total, compare with the previous days stored in memory and point out unusually high consumers. Store today's total in memory."
+      },
+      "awayCheck": {
+        "name": "Away check",
+        "description": "When everyone has left, turns off lights and plugs that were left on.",
+        "instructions": "When everyone is away: find lights and switches that are still on (except devices that must stay on, such as fridges, routers or network gear, by name or as noted in memory), turn them off and report what you turned off. Never touch locks or alarms. Add a state trigger on your person entities."
+      }
+    }
+  },
+  "automations": {
+    "subtitle": "Agent schedules, the run queue and Home Assistant's own automations",
+    "tabs": {
+      "schedule": "Schedule",
+      "runs": "Runs",
+      "approvals": "Approvals",
+      "ha": "HA automations"
+    },
+    "noSchedule": "Nothing scheduled",
+    "noApprovals": "Nothing waiting for approval",
+    "noHa": "No automations in Home Assistant",
+    "col": {
+      "name": "Name",
+      "enabled": "Enabled",
+      "last": "Last triggered"
+    },
+    "trigger": "Trigger now"
   }
 }

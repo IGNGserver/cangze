@@ -6,6 +6,7 @@ import { ApiError } from './api/client.ts';
 import { AuthGate } from './auth/AuthGate.tsx';
 import { AppShell } from './layout/AppShell.tsx';
 import { Placeholder } from './pages/Placeholder.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { ThemeProvider } from './theme/ThemeProvider.tsx';
 
 // Pages are split into their own chunks so the first paint only loads the shell.
@@ -14,6 +15,12 @@ const DevicesPage = lazy(() =>
 );
 const SessionsPage = lazy(() =>
   import('./pages/sessions/SessionsPage.tsx').then((m) => ({ default: m.SessionsPage })),
+);
+const AgentsPage = lazy(() =>
+  import('./pages/agents/AgentsPage.tsx').then((m) => ({ default: m.AgentsPage })),
+);
+const AutomationsPage = lazy(() =>
+  import('./pages/automations/AutomationsPage.tsx').then((m) => ({ default: m.AutomationsPage })),
 );
 const SettingsPage = lazy(() =>
   import('./pages/settings/SettingsPage.tsx').then((m) => ({ default: m.SettingsPage })),
@@ -35,20 +42,22 @@ export function App() {
       <ThemeProvider>
         <AuthGate>
           <BrowserRouter>
-            <Suspense fallback={<Spin fullscreen />}>
-              <Routes>
-                <Route element={<AppShell />}>
-                  <Route index element={<Navigate to="/sessions" replace />} />
-                  <Route path="/sessions/:id?" element={<SessionsPage />} />
-                  <Route path="/agents/*" element={<Placeholder titleKey="nav.agents" />} />
-                  <Route path="/automations/*" element={<Placeholder titleKey="nav.automations" />} />
-                  <Route path="/devices" element={<DevicesPage />} />
-                  <Route path="/logs/*" element={<Placeholder titleKey="nav.logs" />} />
-                  <Route path="/settings/:tab?" element={<SettingsPage />} />
-                  <Route path="*" element={<Navigate to="/sessions" replace />} />
-                </Route>
-              </Routes>
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<Spin fullscreen />}>
+                <Routes>
+                  <Route element={<AppShell />}>
+                    <Route index element={<Navigate to="/sessions" replace />} />
+                    <Route path="/sessions/:id?" element={<SessionsPage />} />
+                    <Route path="/agents/:id?" element={<AgentsPage />} />
+                    <Route path="/automations" element={<AutomationsPage />} />
+                    <Route path="/devices" element={<DevicesPage />} />
+                    <Route path="/logs/*" element={<Placeholder titleKey="nav.logs" />} />
+                    <Route path="/settings/:tab?" element={<SettingsPage />} />
+                    <Route path="*" element={<Navigate to="/sessions" replace />} />
+                  </Route>
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
           </BrowserRouter>
         </AuthGate>
       </ThemeProvider>

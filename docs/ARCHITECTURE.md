@@ -110,7 +110,7 @@ a `notice` entry and a notification is raised.
 Triggers enqueue rows in `runs`. A worker pool (global concurrency, default 2) claims queued runs.
 Per-agent overlap policy: `skip`, `queue` or `replace`. Misfired schedules after downtime: `run_once` or
 `skip`. Each run has a wall-clock timeout, a token budget and the agent has a daily cost budget. Event
-triggers are debounced per trigger. Runs that wait for approval release their worker slot.
+triggers are debounced per trigger. Runs that wait for approval keep their worker slot (status `waiting_approval`) until the decision or timeout.
 
 ## Coordination
 

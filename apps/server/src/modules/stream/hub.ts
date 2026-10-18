@@ -35,6 +35,7 @@ function capacityFor(topic: string): number {
 export class StreamHub {
   private readonly topics = new Map<string, Topic>();
   private readonly clients = new Set<Client>();
+  private readonly taps = new Map<string, Set<(data: unknown) => void>>();
   private heartbeat?: NodeJS.Timeout;
 
   constructor(private readonly logger: Logger) {}
@@ -81,7 +82,28 @@ export class StreamHub {
     return (this.topics.get(topic)?.subscribers.size ?? 0) > 0;
   }
 
+  /** Server-side listener for a topic (e.g. to enforce limits on a run's events). */
+  tap(topic: string, fn: (data: unknown) => void): () => void {
+    let set = this.taps.get(topic);
+    if (!set) {
+      set = new Set();
+      this.taps.set(topic, set);
+    }
+    set.add(fn);
+    return () => {
+      set!.delete(fn);
+      if (!set!.size) this.taps.delete(topic);
+    };
+  }
+
   publish(topicName: string, data: unknown): number {
+    for (const fn of this.taps.get(topicName) ?? []) {
+      try {
+        fn(data);
+      } catch {
+        // listeners must not break publishing
+      }
+    }
     const t = this.topic(topicName);
     const seq = ++t.seq;
     t.buffer.push({ seq, data });

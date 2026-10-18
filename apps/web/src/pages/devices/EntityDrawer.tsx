@@ -2,7 +2,6 @@ import type { HaEntity, HaService } from '@cangze/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { App, Button, Descriptions, Drawer, Flex, Input, Select, Space, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client.ts';
@@ -10,8 +9,6 @@ import { useCallService } from '../../api/ha.ts';
 import { formatState } from '../../lib/entities.tsx';
 import { errorText } from '../../lib/errors.ts';
 import { HistoryChart } from './HistoryChart.tsx';
-
-dayjs.extend(relativeTime);
 
 export function EntityDrawer({
   entity,

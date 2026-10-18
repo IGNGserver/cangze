@@ -51,3 +51,13 @@ div.x-markdown td {
   font-family: 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
   font-size: 12px;
 }
+.cz-tabs-fill {
+  display: flex;
+  flex-direction: column;
+}
+.cz-tabs-fill > .ant-tabs-content-holder {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 24px;
+}

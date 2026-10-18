@@ -24,10 +24,27 @@ class StreamClient {
   private retry = 1000;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private wanted = false;
+  private listening = false;
 
   start(): void {
     this.wanted = true;
     if (!this.ws) this.open();
+    if (!this.listening && typeof window !== 'undefined') {
+      this.listening = true;
+      window.addEventListener('online', () => this.poke());
+      document.addEventListener(
+        'visibilitychange',
+        () => document.visibilityState === 'visible' && this.poke(),
+      );
+    }
+  }
+
+  /** Reconnect right away instead of waiting for the backoff timer (network back, tab visible, API reachable). */
+  poke(): void {
+    if (!this.wanted || this.ws) return;
+    if (this.timer) clearTimeout(this.timer);
+    this.retry = 1000;
+    this.open();
   }
 
   stop(): void {

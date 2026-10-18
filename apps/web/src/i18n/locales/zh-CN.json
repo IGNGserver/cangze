@@ -68,7 +68,9 @@
     "ha_unavailable": "Home Assistant 未连接",
     "empty_target": "目标没有匹配任何实体",
     "token_required": "需要长期访问令牌",
-    "internal": "服务器内部错误"
+    "internal": "服务器内部错误",
+    "pageCrashed": "页面出错了",
+    "reload": "重新加载"
   },
   "ha": {
     "state": {
@@ -411,6 +413,252 @@
     "ha_list_configs": "列出自动化/脚本/场景",
     "ha_get_config": "读取配置",
     "ha_save_config": "保存配置",
-    "ha_delete_config": "删除配置"
+    "ha_delete_config": "删除配置",
+    "tools_catalog": "查看可授予工具",
+    "agents_list": "列出子代理",
+    "agent_get": "读取子代理",
+    "agent_create": "创建子代理",
+    "agent_update": "修改子代理",
+    "agent_set_enabled": "启停子代理",
+    "agent_delete": "删除子代理",
+    "agent_run": "派发任务",
+    "agent_runs": "查看运行记录",
+    "memory_list": "读取记忆",
+    "memory_write": "写入记忆",
+    "memory_delete": "删除记忆"
+  },
+  "agents": {
+    "new": "新建子代理",
+    "newHint": "子代理是在后台按触发器自动运行的 Agent，拥有自己的记忆和对话。先从模板开始，再调整权限与触发器。",
+    "empty": "还没有子代理",
+    "pick": "选择一个子代理",
+    "noDescription": "没有描述",
+    "next": "下次 {{when}}",
+    "revisionInfo": "修订 {{rev}} · {{slug}}",
+    "enabled": "启用",
+    "disabled": "停用",
+    "runNow": "立即运行",
+    "run": "运行",
+    "runHint": "可以附加一个本次任务说明；留空则按指令执行一次。",
+    "taskPlaceholder": "例如：检查所有门窗并告诉我结果",
+    "deleteConfirm": "删除这个子代理及其记忆和运行记录？",
+    "unsaved": "有未保存的更改",
+    "conflict": "这个子代理已被其他会话修改（当前修订 {{rev}}）。可以放弃你的修改，或保留你的版本覆盖保存。",
+    "discard": "放弃修改",
+    "keepMine": "保留我的版本",
+    "saved": "已保存为修订 {{rev}}",
+    "tabs": {
+      "overview": "概览",
+      "definition": "设定",
+      "permissions": "权限",
+      "triggers": "触发器",
+      "memory": "记忆",
+      "runs": "运行记录",
+      "revisions": "版本"
+    },
+    "stats": {
+      "runs": "运行次数",
+      "succeeded": "成功",
+      "failed": "失败",
+      "costToday": "今日费用"
+    },
+    "model": "模型",
+    "contextMode": "上下文模式",
+    "context": {
+      "isolated": "每次独立",
+      "continuous": "连续对话"
+    },
+    "contextHint": "独立：每次运行只带记忆与最近几次结果；连续：所有运行共用一段持续压缩的对话。",
+    "tools": "可用工具",
+    "toolsHint": "只授予完成任务所需的工具。记忆工具始终可用。",
+    "rules": "权限规则",
+    "highRisk": "高风险操作",
+    "highRiskHint": "门锁、安防、车库门与配置修改等，即使规则允许也按此处理。",
+    "highRiskOptions": {
+      "deny": "一律拒绝",
+      "approve": "请我批准",
+      "allow": "直接执行"
+    },
+    "nextFire": "下次触发",
+    "recentRuns": "最近运行",
+    "allRuns": "全部记录",
+    "noRuns": "还没有运行记录",
+    "name": "名称",
+    "description": "描述",
+    "instructions": "指令",
+    "instructionsHint": "写清楚被触发时要做什么、什么情况下不做、要报告什么。",
+    "risk": {
+      "read": "只读",
+      "control": "控制",
+      "configure": "配置",
+      "system": "系统"
+    },
+    "memoryTools": {
+      "memory_list": "读取记忆",
+      "memory_write": "写入记忆",
+      "memory_delete": "删除记忆"
+    },
+    "priority": "优先级",
+    "priorityHint": "高优先级子代理可以覆盖低优先级子代理刚做的改动。",
+    "respectManual": "尊重人工操作",
+    "respectManualHint": "有人手动改过的设备，这段时间内不去动它。",
+    "minutes": "分钟",
+    "limits": "限制",
+    "maxRunSeconds": "单次最长（秒）",
+    "maxToolCalls": "单次最多工具调用",
+    "dailyCost": "每日费用上限",
+    "notifyOnFailure": "失败时通知我",
+    "perm": {
+      "hint": "默认拒绝：子代理只能读取和控制这里明确允许的设备，所有限制由中枢强制执行。",
+      "allow": "允许",
+      "deny": "禁止",
+      "access": {
+        "read": "读取",
+        "control": "控制",
+        "configure": "配置"
+      },
+      "all": "所有实体",
+      "areas": "区域",
+      "floors": "楼层",
+      "domains": "类型（domain）",
+      "labels": "标签",
+      "entities": "实体",
+      "entitiesHint": "可以用通配符，例如 light.* 或 sensor.living_*",
+      "services": "允许的服务",
+      "servicesHint": "留空表示任意服务；例如 turn_on、turn_off 或 light.turn_on",
+      "constraints": "限制条件",
+      "numeric": "数值范围",
+      "addNumeric": "添加数值限制",
+      "timeWindow": "允许的时间段",
+      "maxCalls": "每小时最多调用次数",
+      "note": "备注",
+      "add": "添加规则",
+      "preview": "实际生效范围",
+      "canControl": "可控制 {{n}} 个",
+      "canRead": "仅可读取 {{n}} 个",
+      "denied": "被禁止 {{n}} 个",
+      "canConfigure": "可以修改 Home Assistant 配置",
+      "noConfigure": "不能修改 Home Assistant 配置"
+    },
+    "triggerKinds": {
+      "cron": "定时",
+      "interval": "间隔",
+      "ha_state": "状态变化",
+      "ha_event": "HA 事件",
+      "ha_trigger": "HA 触发器",
+      "manual": "手动"
+    },
+    "trig": {
+      "overlap": "上次未结束时",
+      "overlapOptions": {
+        "skip": "跳过本次",
+        "queue": "排队等待",
+        "replace": "中止上次"
+      },
+      "misfire": "停机期间错过的定时",
+      "misfireOptions": {
+        "skip": "跳过",
+        "run_once": "补跑一次"
+      },
+      "none": "还没有触发器，只能手动运行或由会话派发任务。",
+      "name": "名称（可选）",
+      "saveFirst": "先保存再测试",
+      "test": "测试触发",
+      "tested": "已触发一次运行",
+      "cron": "Cron 表达式",
+      "cronHint": "分 时 日 月 周，按 Home Assistant 的时区。例如 0 7 * * * 表示每天 7 点。",
+      "presets": {
+        "07:00": "每天 07:00",
+        "21:00": "每天 21:00",
+        "hourly": "每小时",
+        "weekdays 08:00": "工作日 08:00"
+      },
+      "every": "每隔",
+      "entities": "实体",
+      "from": "从",
+      "to": "变为",
+      "attribute": "属性（可选）",
+      "for": "持续",
+      "eventType": "事件类型",
+      "dataMatch": "事件数据匹配（JSON）",
+      "haTrigger": "Home Assistant 触发器配置（JSON）",
+      "haTriggerHint": "任意 HA 触发器，例如 {\"platform\":\"sun\",\"event\":\"sunset\"} 或 {\"platform\":\"zone\",...}",
+      "debounce": "防抖",
+      "fired": "已触发 {{n}} 次",
+      "last": "上次 {{when}}",
+      "nextAt": "下次 {{when}}",
+      "add": "添加触发器"
+    },
+    "memoryHint": "子代理在多次运行之间记住的事情。你可以随时查看和修改。",
+    "memoryEmpty": "记忆为空",
+    "addNote": "添加记忆",
+    "noteTitle": "标题",
+    "clearMemory": "清空记忆",
+    "clearMemoryConfirm": "清空这个子代理的全部记忆？",
+    "filterStatus": "按状态筛选",
+    "col": {
+      "status": "状态",
+      "agent": "子代理",
+      "queued": "时间",
+      "trigger": "触发方式",
+      "result": "结果",
+      "error": "错误"
+    },
+    "status": {
+      "queued": "排队中",
+      "running": "运行中",
+      "waiting_approval": "等待批准",
+      "succeeded": "成功",
+      "failed": "失败",
+      "aborted": "已中止",
+      "skipped": "已跳过"
+    },
+    "revision": "修订",
+    "requestedBy": "发起者",
+    "abort": "中止运行",
+    "readOnlyTranscript": "子代理的对话只能查看，不能参与。",
+    "current": "当前",
+    "restore": "以此为草稿",
+    "restoreHint": "恢复会把这个版本载入编辑器，保存后成为新的修订。",
+    "templates": {
+      "blank": {
+        "name": "空白子代理",
+        "description": "从零开始编写指令、权限与触发器。",
+        "instructions": "描述这个子代理被触发时要做什么。"
+      },
+      "nightWatch": {
+        "name": "夜间安全巡检",
+        "description": "每晚 23:00 检查门锁、门窗与安防状态，有异常时报告。",
+        "instructions": "每晚检查所有门锁是否上锁、门窗传感器是否关闭、安防系统是否布防。只读取，不做任何操作。如果一切正常，简短确认；如果有异常，逐项列出实体和状态。把发现的长期异常记到记忆里，下次对比。"
+      },
+      "energyReport": {
+        "name": "每日能耗日报",
+        "description": "每晚 21:00 汇总当天用电并和前几天对比。",
+        "instructions": "使用长期统计查询当天的主要能耗传感器（device_class 为 energy 或 power），计算总用电量，与记忆里前几天的数据对比，指出异常偏高的设备。把今天的总量写入记忆。"
+      },
+      "awayCheck": {
+        "name": "离家检查",
+        "description": "所有人离家后检查并关闭忘关的灯和插座。",
+        "instructions": "当所有人都离家时被触发：找出仍然开着的灯和开关（排除冰箱、路由器、网络设备等需要常开的设备，名称或记忆中标注的例外），关掉它们，并报告关了哪些。不要碰门锁和安防。请在触发器里添加 person 实体的状态变化。"
+      }
+    }
+  },
+  "automations": {
+    "subtitle": "子代理的计划、运行队列与 Home Assistant 原生自动化",
+    "tabs": {
+      "schedule": "计划",
+      "runs": "运行记录",
+      "approvals": "待审批",
+      "ha": "HA 自动化"
+    },
+    "noSchedule": "没有即将触发的定时任务",
+    "noApprovals": "没有等待批准的操作",
+    "noHa": "Home Assistant 中没有自动化",
+    "col": {
+      "name": "名称",
+      "enabled": "启用",
+      "last": "上次触发"
+    },
+    "trigger": "立即触发"
   }
 }

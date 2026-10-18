@@ -42,7 +42,15 @@ function assistantText(message: Record<string, unknown>): string {
     .join('\n');
 }
 
-export function MessageList({ sessionId, state }: { sessionId: string; state: ChatState }) {
+export function MessageList({
+  sessionId,
+  state,
+  readOnly = false,
+}: {
+  sessionId: string | null;
+  state: ChatState;
+  readOnly?: boolean;
+}) {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const [editing, setEditing] = useState<{ entryId: string; text: string } | null>(null);
@@ -140,19 +148,21 @@ export function MessageList({ sessionId, state }: { sessionId: string; state: Ch
         ),
         footer: (
           <Flex gap={2} align="center" justify="flex-end">
-            {branchSwitcher(e)}
+            {!readOnly && branchSwitcher(e)}
             <Tooltip title={t('chat.copy')}>
               <Button type="text" size="small" icon={<Copy16Regular />} onClick={() => copy(text)} />
             </Tooltip>
-            <Tooltip title={t('chat.edit')}>
-              <Button
-                type="text"
-                size="small"
-                icon={<Edit16Regular />}
-                disabled={state.running}
-                onClick={() => setEditing({ entryId: e.id, text })}
-              />
-            </Tooltip>
+            {!readOnly && (
+              <Tooltip title={t('chat.edit')}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<Edit16Regular />}
+                  disabled={state.running}
+                  onClick={() => setEditing({ entryId: e.id, text })}
+                />
+              </Tooltip>
+            )}
           </Flex>
         ),
       });
@@ -175,7 +185,7 @@ export function MessageList({ sessionId, state }: { sessionId: string; state: Ch
                   <Button type="text" size="small" icon={<Copy16Regular />} onClick={() => copy(text)} />
                 </Tooltip>
               )}
-              {isLast && !state.running && (
+              {isLast && !state.running && !readOnly && (
                 <Tooltip title={t('chat.regenerate')}>
                   <Button
                     type="text"
