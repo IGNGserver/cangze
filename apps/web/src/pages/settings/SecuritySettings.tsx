@@ -130,7 +130,7 @@ export function SecuritySettings() {
           <Form.Item
             name="newKey"
             label={t('settings.security.newKey')}
-            rules={[{ required: true, min: 12, message: t('auth.adminKeyMin', { n: 12 }) }]}
+            rules={[{ required: true, min: 6, message: t('auth.adminKeyMin', { n: 6 }) }]}
           >
             <Input.Password autoComplete="new-password" />
           </Form.Item>

@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
-export const ADMIN_KEY_MIN = 12;
+// The test platform intentionally permits six-digit admin keys for compatibility
+// with the requested deployment credential. Production deployments should use a
+// longer, unique key and protect the hub behind a trusted network or HTTPS.
+export const ADMIN_KEY_MIN = 6;
 
 export const AdminKey = z.string().min(ADMIN_KEY_MIN).max(256);
 
