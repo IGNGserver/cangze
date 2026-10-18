@@ -17,7 +17,7 @@ import type { SettingsService } from '../settings/service.ts';
 import type { StreamHub } from '../stream/hub.ts';
 import type { ToolRegistry } from '../tools/registry.ts';
 import type { ToolDef } from '../tools/types.ts';
-import { addUsage, ZERO_USAGE, type UsageLedger, type UsageTotals } from '../usage/ledger.ts';
+import { addUsage, normalizeUsage, ZERO_USAGE, type UsageLedger, type UsageTotals } from '../usage/ledger.ts';
 import { canRead, readsEverything } from './permissions.ts';
 import { SESSION_ONLY_GROUPS, type AgentsService } from './service.ts';
 
@@ -147,7 +147,7 @@ export class RunsService {
       finishedAt: iso(r.finished_at),
       error: r.error,
       summary: r.summary,
-      usage: json.parse<UsageTotals>(r.usage, ZERO_USAGE),
+      usage: normalizeUsage(json.parse<Partial<UsageTotals>>(r.usage, ZERO_USAGE)),
     };
   }
 
@@ -248,8 +248,8 @@ export class RunsService {
     }
     this.db
       .prepare(
-        `INSERT INTO runs (id, agent_id, revision, trigger_id, trigger_kind, trigger_payload, requested_by, report_session_id, task, status, chain_depth, queued_at, finished_at, error)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO runs (id, agent_id, revision, trigger_id, trigger_kind, trigger_payload, requested_by, report_session_id, task, status, chain_depth, queued_at, finished_at, error, usage)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -266,6 +266,7 @@ export class RunsService {
         now,
         status === 'skipped' ? now : null,
         error,
+        json.stringify(ZERO_USAGE),
       );
     this.publish(id);
     if (status === 'queued') void this.pump();
@@ -302,6 +303,7 @@ export class RunsService {
     const s = this.get(id);
     this.stream.publish('runs', { kind: 'upsert', run: s });
     this.stream.publish(`agent:${s.agentId}`, { kind: 'run', run: s });
+    this.stream.publish(`run:${s.id}`, { kind: 'run', run: s });
   }
 
   private async pump(): Promise<void> {
@@ -416,9 +418,11 @@ export class RunsService {
       input: [userMessage(this.triggerMessage(r))],
       onAssistant: (m) => {
         if (!m.usage) return;
-        const cur = json.parse<UsageTotals>(
-          (this.db.prepare('SELECT usage FROM runs WHERE id = ?').get(r.id) as { usage: string }).usage,
-          ZERO_USAGE,
+        const cur = normalizeUsage(
+          json.parse<Partial<UsageTotals>>(
+            (this.db.prepare('SELECT usage FROM runs WHERE id = ?').get(r.id) as { usage: string }).usage,
+            ZERO_USAGE,
+          ),
         );
         this.db
           .prepare('UPDATE runs SET usage = ? WHERE id = ?')

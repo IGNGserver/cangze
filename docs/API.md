@@ -93,7 +93,8 @@ from the snapshot without gaps.
 - `POST /agents/:id/run { task? }` queues a manual run; `GET /runs?agentId=&status=`, `GET /runs/:id` (read-only
   transcript, live state, pending approvals, `streamSeq`), `POST /runs/:id/abort`.
 - Live updates: `agents` (list changes), `agent:<id>` (definition, memory and run changes), `runs`, and `run:<id>` with the
-  same event kinds as `session:<id>`.
+  same conversation event kinds as `session:<id>`. The run topic also emits `{ kind: "run", run: RunSummary }`
+  when persisted status changes. Reload the run snapshot to reconcile status, usage and transcript together.
 - `GET /agents/:id/permissions` and `POST /agents/permissions/preview` resolve rules to entity lists.
 - `GET /scheduler/upcoming` lists the next scheduled firings.
 - Subagent conversations cannot be written to by clients.

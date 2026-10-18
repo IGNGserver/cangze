@@ -11,13 +11,26 @@ export interface UsageTotals {
 
 export const ZERO_USAGE: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 
-export function addUsage(a: UsageTotals, u: Usage): UsageTotals {
+/** Normalize legacy or partially written usage JSON before doing arithmetic or serving it. */
+export function normalizeUsage(value: Partial<UsageTotals> | null | undefined): UsageTotals {
+  const number = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   return {
-    input: a.input + (u.input ?? 0),
-    output: a.output + (u.output ?? 0),
-    cacheRead: a.cacheRead + (u.cacheRead ?? 0),
-    cacheWrite: a.cacheWrite + (u.cacheWrite ?? 0),
-    cost: Math.round((a.cost + (u.cost?.total ?? 0)) * 1e6) / 1e6,
+    input: number(value?.input),
+    output: number(value?.output),
+    cacheRead: number(value?.cacheRead),
+    cacheWrite: number(value?.cacheWrite),
+    cost: number(value?.cost),
+  };
+}
+
+export function addUsage(a: UsageTotals, u: Usage): UsageTotals {
+  const current = normalizeUsage(a);
+  return {
+    input: current.input + (u.input ?? 0),
+    output: current.output + (u.output ?? 0),
+    cacheRead: current.cacheRead + (u.cacheRead ?? 0),
+    cacheWrite: current.cacheWrite + (u.cacheWrite ?? 0),
+    cost: Math.round((current.cost + (u.cost?.total ?? 0)) * 1e6) / 1e6,
   };
 }
 

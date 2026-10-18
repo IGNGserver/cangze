@@ -126,6 +126,12 @@ test('agents: create from a template and run it', async () => {
   await expect(page.locator('.ant-tag').filter({ hasText: 'Succeeded' }).first()).toBeVisible({
     timeout: 30_000,
   });
+  await page.locator('tr.ant-table-row').first().click();
+  const drawer = page.locator('.ant-drawer');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText('Succeeded', { exact: true })).toBeVisible();
+  await expect(drawer.getByText('$0.0000', { exact: true })).toBeVisible();
+  await drawer.getByRole('button', { name: 'Close' }).click();
 });
 
 test('backup and restore', async () => {

@@ -91,8 +91,10 @@ interface RunDetail {
 
 /** Read-only live transcript of one subagent run. */
 export function useRunTranscript(runId: string | null) {
-  return useLiveConversation<RunDetail>(
-    ak.run(runId ?? ''),
+  const qc = useQueryClient();
+  const key = ak.run(runId ?? '');
+  const live = useLiveConversation<RunDetail>(
+    key,
     runId ? `run:${runId}` : null,
     () => api.get<RunDetail>(`/runs/${runId}`),
     (d) => ({
@@ -103,4 +105,10 @@ export function useRunTranscript(runId: string | null) {
       streamSeq: d.streamSeq,
     }),
   );
+  useTopic<{ kind: string; run?: RunSummary }>(runId ? 'runs' : null, (ev) => {
+    if (ev.kind !== 'upsert' || !ev.run || ev.run.id !== runId) return;
+    // Fetch a matching transcript and sequence, not just metadata over an old snapshot.
+    void qc.invalidateQueries({ queryKey: key });
+  });
+  return live;
 }
