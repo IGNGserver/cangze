@@ -61,7 +61,8 @@ Forward to port 8080, pass `X-Forwarded-For` and `X-Forwarded-Proto`, allow WebS
 docker compose pull && docker compose up -d
 ```
 
-Database migrations run automatically on start. Create a backup first (_Settings → Backup_).
+Database migrations run automatically on start. Create a backup first (_Settings → Data & backup_); see
+[BACKUP_RESTORE.md](BACKUP_RESTORE.md).
 
 ## Environment variables
 

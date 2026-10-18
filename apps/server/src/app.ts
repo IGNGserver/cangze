@@ -54,6 +54,13 @@ export async function createApp(opts: AppOptions): Promise<FastifyInstance> {
     done();
   });
 
+  // Binary uploads (backup restore).
+  app.addContentTypeParser(
+    'application/octet-stream',
+    { parseAs: 'buffer', bodyLimit: 1024 * 1024 * 1024 },
+    (_req, body, done) => done(null, body),
+  );
+
   for (const plugin of opts.plugins ?? []) await plugin(app);
 
   registerRoutes(app, opts.routes);

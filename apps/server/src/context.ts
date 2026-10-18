@@ -17,6 +17,8 @@ import { RunsService } from './modules/agents/runs.ts';
 import { AgentsService } from './modules/agents/service.ts';
 import { agentManagementTools, memoryTools } from './modules/agents/tools.ts';
 import { approvalRoutes } from './modules/approvals/routes.ts';
+import { backupRoutes } from './modules/backup/routes.ts';
+import { BackupService } from './modules/backup/service.ts';
 import { ApprovalsService } from './modules/approvals/service.ts';
 import { AuditService, decisionForError } from './modules/audit/service.ts';
 import { adminPrincipal, installAuth } from './modules/auth/hook.ts';
@@ -26,6 +28,8 @@ import { ConversationStore } from './modules/conversations/store.ts';
 import { CoordinationService } from './modules/coordination/service.ts';
 import { AgentRunner } from './modules/engine/runner.ts';
 import { HaGateway } from './modules/ha/gateway.ts';
+import { logRoutes } from './modules/logs/routes.ts';
+import { MaintenanceService } from './modules/maintenance/service.ts';
 import { haRoutes } from './modules/ha/routes.ts';
 import { networkRoutes } from './modules/network/routes.ts';
 import { NetworkPolicy } from './modules/network/policy.ts';
@@ -73,6 +77,9 @@ export interface Services {
   agents: AgentsService;
   runs: RunsService;
   scheduler: Scheduler;
+  backup: BackupService;
+  maintenance: MaintenanceService;
+  masterKey: Buffer;
   startedAt: Date;
 }
 
@@ -81,6 +88,8 @@ export interface CreateServicesOptions {
   memory?: boolean;
   logger?: Logger;
   ring?: LogRing;
+  /** Called when a restore was staged; production restarts the process. */
+  onRestartRequested?: () => void;
 }
 
 export function createServices(config: AppConfig, opts: CreateServicesOptions = {}): Services {
@@ -190,6 +199,23 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
     bus,
     logger.child({ module: 'scheduler' }),
   );
+  const backup = new BackupService(
+    db,
+    config.dataDir,
+    master.key,
+    settings,
+    secrets,
+    ha,
+    notifications,
+    logger.child({ module: 'backup' }),
+    opts.onRestartRequested ?? (() => logger.warn('restart requested but no supervisor hook installed')),
+  );
+  const maintenance = new MaintenanceService(db, settings, ha, logger.child({ module: 'maintenance' }));
+  // Schedules follow the home's time zone, which is known once Home Assistant is connected.
+  bus.on('ha.ready', () => {
+    backup.arm();
+    maintenance.rearm();
+  });
   sessions.addPromptSections(() => {
     const rows = agents.rows();
     if (!rows.length) {
@@ -238,6 +264,9 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
     agents,
     runs,
     scheduler,
+    backup,
+    maintenance,
+    masterKey: master.key,
     startedAt: new Date(),
   };
 }
@@ -261,6 +290,8 @@ export function buildRouteSpecs(s: Services): RouteSpec[] {
     ...policyRoutes(s.policy),
     ...agentRoutes(s.agents, s.runs, s.scheduler, s.usage, s.ha),
     ...notificationRoutes(s.notifications),
+    ...backupRoutes(s.backup, s.secrets),
+    ...logRoutes(s.ring, s.audit, s.usage, s.db, s.maintenance),
   ];
 }
 
@@ -290,9 +321,13 @@ export function startServices(s: Services): void {
   s.runs.start();
   s.scheduler.start();
   s.providers.warmUp();
+  s.backup.start();
+  s.maintenance.start();
 }
 
 export async function stopServices(s: Services): Promise<void> {
+  s.backup.stop();
+  s.maintenance.stop();
   s.scheduler.stop();
   s.runs.stop();
   s.sessions.abortAll();
