@@ -4,7 +4,7 @@ import { createLogger, LogRing } from '../src/core/logger.ts';
 import { buildServer, createServices, startServices, type Services } from '../src/context.ts';
 
 export const ADMIN_KEY = 'correct horse battery staple';
-export const ORIGIN = 'http://127.0.0.1:8080';
+export const ORIGIN = 'http://127.0.0.1:38417';
 
 export interface Harness {
   s: Services;
@@ -27,7 +27,7 @@ export async function harness(
     const res = await app.inject({
       method: 'POST',
       url: '/api/v1/setup',
-      headers: { host: '127.0.0.1:8080', origin: ORIGIN },
+      headers: { host: '127.0.0.1:38417', origin: ORIGIN },
       payload: { bootstrapCode: s.auth.currentBootstrapCode(), adminKey: ADMIN_KEY },
     });
     if (res.statusCode !== 200) throw new Error(`setup failed: ${res.body}`);
@@ -41,7 +41,7 @@ export async function harness(
       app.inject({
         method: method as never,
         url,
-        headers: { host: '127.0.0.1:8080', origin: ORIGIN, cookie: h.cookie },
+        headers: { host: '127.0.0.1:38417', origin: ORIGIN, cookie: h.cookie },
         ...(body !== undefined ? { payload: body as never } : {}),
       }),
   };

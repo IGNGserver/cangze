@@ -6,7 +6,7 @@ Cangze ships as one multi-arch image (`linux/amd64`, `linux/arm64`):
 ## Docker Compose
 
 ```bash
-VERSION=0.1.0
+VERSION=0.1.1
 curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
 curl -fsSL "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/.env.example" -o .env   # optional
 docker compose up -d
@@ -17,11 +17,11 @@ The URLs above are pinned to a release and are intentionally not read from the `
 release, the Compose file can also be downloaded from
 `https://github.com/IGNGserver/cangze/releases/latest/download/compose.yaml`.
 
-`compose.yaml` defaults to the release it was published with (`CANGZE_VERSION`, e.g. `0.1.0`). Image tags:
+`compose.yaml` defaults to the release it was published with (`CANGZE_VERSION`, e.g. `0.1.1`). Image tags:
 
 | Tag      | Meaning                                                                 |
 | -------- | ----------------------------------------------------------------------- |
-| `0.1.0`  | one release, never moved                                                |
+| `0.1.1`  | one release, never moved                                                |
 | `next`   | the newest prerelease                                                   |
 | `latest` | the newest formal release (none yet while the project is in prerelease) |
 
@@ -32,7 +32,7 @@ Set `CANGZE_VERSION` in `.env` to upgrade on your own schedule.
 
 ## First run
 
-1. Open `http://<host>:8080` from a device on your local network.
+1. Open `http://<host>:38417` from a device on your local network.
 2. Enter the one-time **bootstrap code** printed in the container log. It is valid until setup completes;
    restart the container to print a new one.
 3. Choose an admin key (or let Cangze generate one). Store it in a password manager — it is the only
@@ -68,7 +68,7 @@ Caddy obtains and renews certificates automatically; ports 80 and 443 must reach
 
 ## Your own reverse proxy
 
-Forward to port 8080, pass `X-Forwarded-For` and `X-Forwarded-Proto`, allow WebSocket upgrades on
+Forward to port 38417, pass `X-Forwarded-For` and `X-Forwarded-Proto`, allow WebSocket upgrades on
 `/api/v1/stream`, and set `CANGZE_TRUSTED_PROXIES` to the proxy's address or network.
 
 ## Upgrades
@@ -82,11 +82,11 @@ Database migrations run automatically on start. Create a backup first (_Settings
 
 ## Environment variables
 
-| Variable                      | Default            | Purpose                                                               |
-| ----------------------------- | ------------------ | --------------------------------------------------------------------- |
-| `CANGZE_PORT` / `CANGZE_BIND` | `8080` / `0.0.0.0` | published port and bind address (compose)                             |
-| `CANGZE_PUBLIC_ORIGIN`        | –                  | public URL; enables secure cookies and adds the host to the allowlist |
-| `CANGZE_TRUSTED_PROXIES`      | –                  | CIDRs whose `X-Forwarded-*` headers are trusted                       |
-| `CANGZE_ALLOWED_HOSTS`        | –                  | extra accepted `Host` names                                           |
-| `CANGZE_MASTER_KEY`           | –                  | base64 32-byte key; otherwise `/data/master.key` is generated         |
-| `CANGZE_LOG_LEVEL`            | `info`             | `fatal` … `trace`                                                     |
+| Variable                      | Default             | Purpose                                                               |
+| ----------------------------- | ------------------- | --------------------------------------------------------------------- |
+| `CANGZE_PORT` / `CANGZE_BIND` | `38417` / `0.0.0.0` | published port and bind address (compose)                             |
+| `CANGZE_PUBLIC_ORIGIN`        | –                   | public URL; enables secure cookies and adds the host to the allowlist |
+| `CANGZE_TRUSTED_PROXIES`      | –                   | CIDRs whose `X-Forwarded-*` headers are trusted                       |
+| `CANGZE_ALLOWED_HOSTS`        | –                   | extra accepted `Host` names                                           |
+| `CANGZE_MASTER_KEY`           | –                   | base64 32-byte key; otherwise `/data/master.key` is generated         |
+| `CANGZE_LOG_LEVEL`            | `info`              | `fatal` … `trace`                                                     |

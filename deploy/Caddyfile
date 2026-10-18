@@ -3,5 +3,5 @@
 # CANGZE_TRUSTED_PROXIES=172.16.0.0/12（compose 默认网络网段，让中枢信任 Caddy 转发的客户端地址与协议）。
 {$CANGZE_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy cangze:8080
+	reverse_proxy cangze:38417
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ADMIN_KEY, cookieFrom, harness, ORIGIN } from './helpers.ts';
 
-const local = { host: '127.0.0.1:8080', origin: ORIGIN };
+const local = { host: '127.0.0.1:38417', origin: ORIGIN };
 
 describe('setup and login', () => {
   it('requires setup before anything else and rejects a wrong bootstrap code', async () => {
@@ -109,7 +109,7 @@ describe('setup and login', () => {
     const res = await h.app.inject({
       method: 'POST',
       url: '/api/v1/auth/devices',
-      headers: { host: '127.0.0.1:8080', origin: 'https://evil.example', cookie: h.cookie },
+      headers: { host: '127.0.0.1:38417', origin: 'https://evil.example', cookie: h.cookie },
       payload: { name: 'x' },
     });
     expect(res.statusCode).toBe(403);
@@ -117,7 +117,7 @@ describe('setup and login', () => {
     const noOrigin = await h.app.inject({
       method: 'POST',
       url: '/api/v1/auth/devices',
-      headers: { host: '127.0.0.1:8080', cookie: h.cookie },
+      headers: { host: '127.0.0.1:38417', cookie: h.cookie },
       payload: { name: 'x' },
     });
     expect(noOrigin.statusCode).toBe(403);
@@ -156,7 +156,7 @@ describe('device tokens and pairing', () => {
     const { token, device } = created.json();
     expect(token).toMatch(/^czd_/);
 
-    const bearer = { host: '127.0.0.1:8080', authorization: `Bearer ${token}` };
+    const bearer = { host: '127.0.0.1:38417', authorization: `Bearer ${token}` };
     const state = await h.app.inject({ method: 'GET', url: '/api/v1/auth/state', headers: bearer });
     expect(state.json()).toMatchObject({ authenticated: true, via: 'device', deviceId: device.id });
     // bearer requests are not subject to the Origin check

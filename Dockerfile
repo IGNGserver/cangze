@@ -24,13 +24,13 @@ RUN pnpm --filter @cangze/web build \
 FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production \
   CANGZE_DATA_DIR=/data \
-  CANGZE_PORT=8080
+  CANGZE_PORT=38417
 WORKDIR /app
 COPY --from=build /out /app
 RUN mkdir -p /data && chown node:node /data
 USER node
 VOLUME ["/data"]
-EXPOSE 8080
+EXPOSE 38417
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:8080/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:38417/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 CMD ["node", "--enable-source-maps", "dist/main.js"]

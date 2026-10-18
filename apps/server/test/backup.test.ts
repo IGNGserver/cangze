@@ -33,7 +33,7 @@ async function fileHub(dataDir = mkdtempSync(join(tmpdir(), 'cz-bak-')), onResta
   const setup = await app.inject({
     method: 'POST',
     url: '/api/v1/setup',
-    headers: { host: '127.0.0.1', origin: ORIGIN.replace(':8080', '') },
+    headers: { host: '127.0.0.1', origin: ORIGIN.replace(':38417', '') },
     payload: { bootstrapCode: s.auth.currentBootstrapCode(), adminKey: ADMIN_KEY },
   });
   const cookie = cookieFrom(setup);
@@ -52,7 +52,7 @@ describe('backup archive', () => {
     const db = Buffer.concat([Buffer.from('SQLite format 3\u0000'), Buffer.alloc(100, 1)]);
     const manifest = {
       format: 1 as const,
-      appVersion: '0.1.0',
+      appVersion: '0.1.1',
       schemaVersion: 1,
       createdAt: 'now',
       masterKeyFingerprint: 'x',

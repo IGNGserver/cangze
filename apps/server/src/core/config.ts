@@ -4,7 +4,7 @@ import { z } from 'zod';
 const Env = z.object({
   CANGZE_DATA_DIR: z.string().default('./data'),
   CANGZE_HOST: z.string().default('0.0.0.0'),
-  CANGZE_PORT: z.coerce.number().int().min(1).max(65535).default(8080),
+  CANGZE_PORT: z.coerce.number().int().min(1).max(65535).default(38417),
   CANGZE_LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   /** Base64 encoded 32-byte key. When unset, a key file is created in the data directory. */
   CANGZE_MASTER_KEY: z.string().optional(),
