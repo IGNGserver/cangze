@@ -289,6 +289,40 @@ describe('subagents', () => {
     expect(badCron.statusCode).toBe(400);
   });
 
+  it('arms a native Home Assistant trigger after the connection becomes ready', async () => {
+    await h.s.ha.stop();
+    await h.call('DELETE', '/api/v1/settings/ha');
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      triggers: [{ id: 'sunset', kind: 'ha_trigger', trigger: { platform: 'sun', event: 'sunset' } }],
+    });
+    expect(h.s.scheduler.triggerStates(agent.id)[0]).toMatchObject({ error: 'waiting for Home Assistant' });
+    await h.call('PUT', '/api/v1/settings/ha', { url: ha.url, token: FAKE_TOKEN, verifyTls: true });
+    await waitFor(() => h.s.ha.connected);
+    await waitFor(() => h.s.scheduler.triggerStates(agent.id)[0]?.error === null);
+  });
+
+  it('always returns complete numeric usage for newly queued runs', async () => {
+    const agent = await createAgent();
+    h.s.runs.stop();
+    const run = (await h.call('POST', `/api/v1/agents/${agent.id}/run`, {})).json();
+    expect(run.usage).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
+  });
+
+  it('normalizes legacy partial usage instead of exposing nulls', async () => {
+    const agent = await createAgent();
+    h.s.runs.stop();
+    const run = (await h.call('POST', `/api/v1/agents/${agent.id}/run`, {})).json();
+    h.s.db.prepare('UPDATE runs SET usage = ? WHERE id = ?').run('{"cost":null}', run.id);
+    expect(h.s.runs.get(run.id).usage).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      cost: 0,
+    });
+  });
+
   it('previews effective permissions', async () => {
     const agent = await createAgent();
     const eff = (await h.call('GET', `/api/v1/agents/${agent.id}/permissions`)).json();

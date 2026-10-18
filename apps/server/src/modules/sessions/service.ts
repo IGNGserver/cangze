@@ -21,7 +21,7 @@ import type { HaGateway } from '../ha/gateway.ts';
 import type { ProvidersService } from '../providers/service.ts';
 import type { StreamHub } from '../stream/hub.ts';
 import type { ToolRegistry } from '../tools/registry.ts';
-import { addUsage, ZERO_USAGE, type UsageLedger, type UsageTotals } from '../usage/ledger.ts';
+import { addUsage, normalizeUsage, ZERO_USAGE, type UsageLedger, type UsageTotals } from '../usage/ledger.ts';
 
 interface Row {
   id: string;
@@ -50,6 +50,7 @@ const TITLE_PROMPT =
 
 export class SessionsService {
   private readonly runs = new Map<string, ActiveRun>();
+  private readonly runLocks = new Map<string, Promise<void>>();
   private readonly sectionProviders: PromptSectionProvider[] = [];
 
   constructor(
@@ -114,7 +115,7 @@ export class SessionsService {
     return {
       ...this.summary(r),
       instructions: r.instructions,
-      usage: json.parse<UsageTotals>(r.usage, ZERO_USAGE),
+      usage: normalizeUsage(json.parse<Partial<UsageTotals>>(r.usage, ZERO_USAGE)),
       contextTokens: ctxTokens,
       contextWindow: info?.contextWindow ?? null,
       entries: this.store.view(r.conversation_id),
@@ -231,55 +232,61 @@ export class SessionsService {
       whenBusy: 'steer' | 'followUp';
     },
   ) {
-    const r = this.row(id);
     if (!input.text.trim() && !input.images.length)
       throw new AppError(400, 'empty_message', 'Message is empty');
     const msg = userMessage(input.text, input.images);
-    const active = this.runs.get(id);
-    if (active) {
-      if (input.whenBusy === 'followUp') active.followUp(msg);
-      else active.steer(msg);
-      this.stream.publish(`session:${id}`, { kind: 'queued', count: active.queued });
-      return { runId: active.runId, queued: true };
-    }
-    const runId = await this.startRun(r, this.store.activeLeaf(r.conversation_id), [msg]);
-    return { runId, queued: false };
+    return this.withRunLock(id, async () => {
+      const r = this.row(id);
+      const active = this.runs.get(id);
+      if (active) {
+        if (input.whenBusy === 'followUp') active.followUp(msg);
+        else active.steer(msg);
+        this.stream.publish(`session:${id}`, { kind: 'queued', count: active.queued });
+        return { runId: active.runId, queued: true };
+      }
+      const runId = await this.startRun(r, this.store.activeLeaf(r.conversation_id), [msg]);
+      return { runId, queued: false };
+    });
   }
 
   /** Edit a user message: the edit becomes a sibling branch and the conversation continues from it. */
   async edit(id: string, entryId: string, text: string) {
-    const r = this.row(id);
-    this.assertIdle(id);
-    const original = this.store.get(entryId);
-    if (
-      original.conversationId !== r.conversation_id ||
-      original.kind !== 'message' ||
-      original.role !== 'user'
-    ) {
-      throw new AppError(400, 'not_user_message', 'Only user messages can be edited');
-    }
-    const prev = original.data.message as Extract<Message, { role: 'user' }>;
-    const images = Array.isArray(prev.content) ? prev.content.filter((c) => c.type === 'image') : [];
-    const runId = await this.startRun(r, original.parentId, [
-      userMessage(text, images as Array<{ data: string; mimeType: string }>),
-    ]);
-    return { runId, queued: false };
+    return this.withRunLock(id, async () => {
+      const r = this.row(id);
+      this.assertIdle(id);
+      const original = this.store.get(entryId);
+      if (
+        original.conversationId !== r.conversation_id ||
+        original.kind !== 'message' ||
+        original.role !== 'user'
+      ) {
+        throw new AppError(400, 'not_user_message', 'Only user messages can be edited');
+      }
+      const prev = original.data.message as Extract<Message, { role: 'user' }>;
+      const images = Array.isArray(prev.content) ? prev.content.filter((c) => c.type === 'image') : [];
+      const runId = await this.startRun(r, original.parentId, [
+        userMessage(text, images as Array<{ data: string; mimeType: string }>),
+      ]);
+      return { runId, queued: false };
+    });
   }
 
   /** Answer a user message again as a new branch. */
   async regenerate(id: string, entryId: string) {
-    const r = this.row(id);
-    this.assertIdle(id);
-    const e = this.store.get(entryId);
-    if (e.conversationId !== r.conversation_id) throw notFound('Entry');
-    // Regenerating an assistant reply means answering its user message again.
-    let anchor = e;
-    while (!(anchor.kind === 'message' && anchor.role === 'user')) {
-      if (!anchor.parentId) throw new AppError(400, 'nothing_to_regenerate', 'No user message to answer');
-      anchor = this.store.get(anchor.parentId);
-    }
-    const runId = await this.startRun(r, anchor.id, []);
-    return { runId, queued: false };
+    return this.withRunLock(id, async () => {
+      const r = this.row(id);
+      this.assertIdle(id);
+      const e = this.store.get(entryId);
+      if (e.conversationId !== r.conversation_id) throw notFound('Entry');
+      // Regenerating an assistant reply means answering its user message again.
+      let anchor = e;
+      while (!(anchor.kind === 'message' && anchor.role === 'user')) {
+        if (!anchor.parentId) throw new AppError(400, 'nothing_to_regenerate', 'No user message to answer');
+        anchor = this.store.get(anchor.parentId);
+      }
+      const runId = await this.startRun(r, anchor.id, []);
+      return { runId, queued: false };
+    });
   }
 
   switchBranch(id: string, entryId: string): SessionDetail {
@@ -316,13 +323,33 @@ export class SessionsService {
   }
 
   async compact(id: string): Promise<boolean> {
-    const r = this.row(id);
-    this.assertIdle(id);
-    return this.compactConversation(r, true);
+    return this.withRunLock(id, async () => {
+      const r = this.row(id);
+      this.assertIdle(id);
+      return this.compactConversation(r, true);
+    });
   }
 
   private assertIdle(id: string): void {
     if (this.runs.has(id)) throw conflict('The session is busy; stop the current reply first');
+  }
+
+  /** Serialize the idle check and asynchronous run setup for one session. */
+  private async withRunLock<T>(id: string, work: () => Promise<T>): Promise<T> {
+    const previous = this.runLocks.get(id) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const current = previous.then(() => gate);
+    this.runLocks.set(id, current);
+    await previous;
+    try {
+      return await work();
+    } finally {
+      release();
+      if (this.runLocks.get(id) === current) this.runLocks.delete(id);
+    }
   }
 
   private async compactConversation(r: Row, force: boolean): Promise<boolean> {
@@ -388,12 +415,14 @@ export class SessionsService {
       input,
       onAssistant: (m) => {
         if (!m.usage) return;
-        const cur = json.parse<UsageTotals>(
-          (
-            this.db.prepare('SELECT usage FROM sessions WHERE id = ?').get(r.id) as
-              { usage: string } | undefined
-          )?.usage,
-          ZERO_USAGE,
+        const cur = normalizeUsage(
+          json.parse<Partial<UsageTotals>>(
+            (
+              this.db.prepare('SELECT usage FROM sessions WHERE id = ?').get(r.id) as
+                { usage: string } | undefined
+            )?.usage,
+            ZERO_USAGE,
+          ),
         );
         this.db
           .prepare('UPDATE sessions SET usage = ? WHERE id = ?')

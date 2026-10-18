@@ -266,7 +266,11 @@ export class HaGateway {
       conn.addEventListener('ready', () => {
         if (gen !== this.generation) return;
         this.logger.info({ module: 'ha' }, 'reconnected');
-        void this.loadAll(gen).then(() => this.setStatus({ state: 'connected', error: null }));
+        void this.loadAll(gen).then(() => {
+          if (gen !== this.generation) return;
+          this.setStatus({ state: 'connected', error: null });
+          this.bus.emit('ha.ready', { timeZone: this.status.timeZone ?? 'UTC' });
+        });
       });
       conn.addEventListener('reconnect-error', (_c, err) => {
         if (gen !== this.generation) return;
@@ -294,6 +298,7 @@ export class HaGateway {
         haVersion: conn.haVersion,
         connectedAt: new Date().toISOString(),
       });
+      this.bus.emit('ha.ready', { timeZone: this.status.timeZone ?? 'UTC' });
       this.logger.info(
         { module: 'ha', version: conn.haVersion, entities: this.registry.states.size },
         'connected to Home Assistant',
@@ -339,7 +344,6 @@ export class HaGateway {
       user: { id: user.id, name: user.name, isAdmin: user.is_admin },
     };
     await this.loadRegistries(gen);
-    this.bus.emit('ha.ready', { timeZone: config.time_zone });
   }
 
   private async loadRegistries(gen: number): Promise<void> {

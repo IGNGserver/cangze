@@ -249,6 +249,37 @@ describe('sessions', () => {
     expect(h.s.stream.seq(`session:${id}`)).toBeGreaterThan(0);
   });
 
+  it('serializes concurrent messages while an idle session is preparing a run', async () => {
+    faux.setResponses([
+      fauxAssistantMessage('first answer'),
+      fauxAssistantMessage('title'),
+      fauxAssistantMessage('second answer'),
+    ]);
+    const id = await newSession();
+    await h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'first' });
+    await settle(id);
+    // Reproduce the asynchronous preparation window (normally automatic compaction/model setup).
+    const service = h.s.sessions as unknown as {
+      compactConversation: (...args: unknown[]) => Promise<boolean>;
+    };
+    const compact = service.compactConversation.bind(service);
+    service.compactConversation = async (...args) => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return compact(...args);
+    };
+    const [a, b] = await Promise.all([
+      h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'second' }),
+      h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'third' }),
+    ]);
+    const results = [a.json(), b.json()];
+    expect(results.filter((r) => r.queued === false)).toHaveLength(1);
+    expect(results.filter((r) => r.queued === true)).toHaveLength(1);
+    expect(new Set(results.map((r) => r.runId)).size).toBe(1);
+    await settle(id);
+    const detail = (await h.call('GET', `/api/v1/sessions/${id}`)).json();
+    expect(texts(detail).filter((t: string) => t === 'user:second' || t === 'user:third')).toHaveLength(2);
+  });
+
   it('compacts older history into a summary', async () => {
     faux.setResponses([
       fauxAssistantMessage('r1'),
