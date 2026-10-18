@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 import type { EventBus } from '../../core/events.ts';
 import type { HubEvents } from '../../core/hub-events.ts';
 import type { Db } from '../../db/index.ts';
+import { canRead, readsEverything } from '../agents/permissions.ts';
 import type { RunsService } from '../agents/runs.ts';
 import type { AgentsService } from '../agents/service.ts';
 import type { CoordinationService } from '../coordination/service.ts';
@@ -24,6 +25,7 @@ interface StateRow {
   last_fired_at: number | null;
   next_fire_at: number | null;
   fire_count: number;
+  signature: string | null;
 }
 
 const key = (agentId: string, triggerId: string) => `${agentId}:${triggerId}`;
@@ -46,6 +48,7 @@ export class Scheduler {
   private readonly armed = new Map<string, Armed>();
   private readonly lastFire = new Map<string, number>();
   private started = false;
+  private zone: string | undefined;
 
   constructor(
     private readonly db: Db,
@@ -59,14 +62,24 @@ export class Scheduler {
     agents.onChange((c) => this.started && this.syncAgent(c.agentId));
     this.bus.on('ha.ready', () => {
       // Time zone may have changed and HA trigger subscriptions need a live connection.
+      const zone = this.timeZone();
+      if (zone !== this.zone) {
+        for (const [k, a] of this.armed)
+          if (a.trigger.kind === 'cron') {
+            a.stop();
+            this.armed.delete(k);
+          }
+        this.zone = zone;
+      }
       if (this.started) this.syncAll();
     });
   }
 
   start(): void {
+    if (this.started) return;
     this.started = true;
-    this.syncAll();
     this.catchUpMisfires();
+    this.syncAll();
   }
 
   stop(): void {
@@ -91,8 +104,24 @@ export class Scheduler {
   }
 
   private syncAgent(agentId: string): void {
+    const defNow = (() => {
+      try {
+        return this.agents.definition(agentId);
+      } catch {
+        return null;
+      }
+    })();
     for (const [k, a] of this.armed) {
       if (a.agentId === agentId) {
+        const replacement = defNow?.triggers.find((t) => t.id === a.trigger.id);
+        if (
+          replacement &&
+          JSON.stringify(replacement) === JSON.stringify(a.trigger) &&
+          this.agents.row(agentId).enabled &&
+          replacement.kind !== 'ha_trigger' &&
+          !a.error
+        )
+          continue;
         a.stop();
         this.armed.delete(k);
       }
@@ -103,14 +132,41 @@ export class Scheduler {
     } catch {
       return;
     }
-    if (!row.enabled) return;
+    if (!row.enabled) {
+      this.db.prepare('DELETE FROM trigger_waits WHERE agent_id = ?').run(agentId);
+      return;
+    }
     const def = this.agents.definition(agentId);
+    for (const wait of this.db
+      .prepare('SELECT DISTINCT trigger_id FROM trigger_waits WHERE agent_id = ?')
+      .all(agentId) as Array<{ trigger_id: string }>) {
+      if (!def.triggers.some((t) => t.enabled && key(agentId, t.id) === wait.trigger_id))
+        this.db.prepare('DELETE FROM trigger_waits WHERE trigger_id = ?').run(wait.trigger_id);
+    }
     for (const t of def.triggers) {
       if (!t.enabled || t.kind === 'manual') continue;
+      if (this.armed.has(key(agentId, t.id))) continue;
       try {
+        if (
+          (t.kind === 'ha_state' &&
+            !t.entityIds.every((id) => canRead(def.permissions, id, this.ha.registry))) ||
+          ((t.kind === 'ha_event' || t.kind === 'ha_trigger') && !readsEverything(def.permissions))
+        )
+          throw new Error('Trigger data is outside the agent read permissions');
+        const signature = JSON.stringify(t);
+        const state = this.db
+          .prepare('SELECT signature FROM trigger_state WHERE trigger_id = ?')
+          .get(key(agentId, t.id)) as { signature: string | null } | undefined;
+        if (state?.signature && state.signature !== signature) {
+          this.db.prepare('DELETE FROM trigger_state WHERE trigger_id = ?').run(key(agentId, t.id));
+          this.db.prepare('DELETE FROM trigger_waits WHERE trigger_id = ?').run(key(agentId, t.id));
+        }
         const armed = this.arm(agentId, row.current_revision, t);
         this.armed.set(key(agentId, t.id), armed);
         this.saveNext(agentId, t.id, armed.next?.() ?? null);
+        this.db
+          .prepare('UPDATE trigger_state SET signature = ? WHERE trigger_id = ?')
+          .run(signature, key(agentId, t.id));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         this.armed.set(key(agentId, t.id), {
@@ -134,51 +190,110 @@ export class Scheduler {
     switch (t.kind) {
       case 'cron': {
         const job = new Cron(t.expression, { timezone: this.timeZone(), protect: true }, () => {
-          fire({ scheduledFor: new Date().toISOString(), expression: t.expression });
           this.saveNext(agentId, t.id, job.nextRun());
+          fire({ scheduledFor: new Date().toISOString(), expression: t.expression });
         });
         return { agentId, revision, trigger: t, stop: () => job.stop(), next: () => job.nextRun() };
       }
       case 'interval': {
         const ms = t.minutes * 60_000;
-        let next = Date.now() + ms;
-        const timer = setInterval(() => {
-          next = Date.now() + ms;
-          fire({ everyMinutes: t.minutes });
+        const saved = this.db
+          .prepare('SELECT next_fire_at FROM trigger_state WHERE trigger_id = ?')
+          .get(key(agentId, t.id)) as { next_fire_at: number | null } | undefined;
+        let next = saved?.next_fire_at ?? Date.now() + ms;
+        if (next <= Date.now()) next += (Math.floor((Date.now() - next) / ms) + 1) * ms;
+        let timer: NodeJS.Timeout;
+        const tick = () => {
+          next += ms;
+          if (next <= Date.now()) next += (Math.floor((Date.now() - next) / ms) + 1) * ms;
           this.saveNext(agentId, t.id, new Date(next));
-        }, ms);
+          fire({ everyMinutes: t.minutes });
+          timer = setTimeout(tick, Math.max(1, next - Date.now()));
+          timer.unref();
+        };
+        timer = setTimeout(tick, next - Date.now());
         timer.unref();
         return {
           agentId,
           revision,
           trigger: t,
-          stop: () => clearInterval(timer),
+          stop: () => clearTimeout(timer),
           next: () => new Date(next),
         };
       }
       case 'ha_state': {
         const pending = new Map<string, NodeJS.Timeout>();
+        const triggerKey = key(agentId, t.id);
+        const stateStamp = (entityId: string) => {
+          const state = this.ha.registry.states.get(entityId);
+          return state ? (t.attribute ? state.last_updated : state.last_changed) : '';
+        };
+        const scheduleWait = (
+          entityId: string,
+          payload: Record<string, unknown>,
+          chainDepth: number,
+          deadline: number,
+          stamp: string,
+        ) => {
+          clearTimeout(pending.get(entityId));
+          const timer = setTimeout(
+            () => {
+              pending.delete(entityId);
+              const now = this.ha.registry.states.get(entityId);
+              if (!this.ha.connected) return; // retain the durable wait until HA can verify continuity
+              this.db
+                .prepare('DELETE FROM trigger_waits WHERE trigger_id = ? AND entity_id = ?')
+                .run(triggerKey, entityId);
+              if (this.ha.connected && now && stateStamp(entityId) === stamp)
+                fire({ ...payload, heldForSeconds: t.forSeconds }, chainDepth);
+            },
+            Math.max(1, deadline - Date.now()),
+          );
+          timer.unref();
+          pending.set(entityId, timer);
+        };
+        const restore = () => {
+          if (!this.ha.connected) return;
+          const waits = this.db
+            .prepare('SELECT * FROM trigger_waits WHERE trigger_id = ?')
+            .all(triggerKey) as Array<{
+            entity_id: string;
+            payload: string;
+            chain_depth: number;
+            deadline: number;
+            state_stamp: string;
+          }>;
+          for (const w of waits) {
+            if (stateStamp(w.entity_id) !== w.state_stamp) {
+              this.db
+                .prepare('DELETE FROM trigger_waits WHERE trigger_id = ? AND entity_id = ?')
+                .run(triggerKey, w.entity_id);
+            } else scheduleWait(w.entity_id, JSON.parse(w.payload), w.chain_depth, w.deadline, w.state_stamp);
+          }
+        };
+        const readyUnsub = this.bus.on('ha.ready', restore);
+        restore();
         const unsub = this.subscribeState(
           t,
           agentId,
           (payload, chainDepth, entityId) => {
             if (!t.forSeconds) return fire(payload, chainDepth);
-            clearTimeout(pending.get(entityId));
-            const timer = setTimeout(() => {
-              pending.delete(entityId);
-              // still in the target state?
-              const now = this.ha.registry.states.get(entityId);
-              const value = t.attribute ? JSON.stringify(now?.attributes[t.attribute]) : now?.state;
-              if (t.to === undefined || value === (t.attribute ? JSON.stringify(t.to) : t.to))
-                fire({ ...payload, heldForSeconds: t.forSeconds }, chainDepth);
-            }, t.forSeconds * 1000);
-            timer.unref();
-            pending.set(entityId, timer);
+            const stamp = stateStamp(entityId);
+            const deadline = Date.now() + t.forSeconds * 1000;
+            this.db
+              .prepare(
+                'INSERT OR REPLACE INTO trigger_waits (trigger_id, agent_id, entity_id, deadline, state_stamp, payload, chain_depth) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              )
+              .run(triggerKey, agentId, entityId, deadline, stamp, JSON.stringify(payload), chainDepth);
+            scheduleWait(entityId, payload, chainDepth, deadline, stamp);
           },
           (entityId) => {
             // left the target state: cancel a pending "for" timer
             clearTimeout(pending.get(entityId));
             pending.delete(entityId);
+            this.db
+              .prepare('DELETE FROM trigger_waits WHERE trigger_id = ? AND entity_id = ?')
+              .run(triggerKey, entityId);
           },
         );
         return {
@@ -187,6 +302,7 @@ export class Scheduler {
           trigger: t,
           stop: () => {
             unsub();
+            readyUnsub();
             for (const timer of pending.values()) clearTimeout(timer);
           },
         };
@@ -261,9 +377,9 @@ export class Scheduler {
       if (before === after) return; // attribute-only change irrelevant to this trigger
       const want = (v: string | undefined) =>
         v === undefined ? undefined : t.attribute ? JSON.stringify(v) : v;
+      onLeave(e.entityId);
       if (want(t.from) !== undefined && before !== want(t.from)) return;
       if (want(t.to) !== undefined && after !== want(t.to)) {
-        onLeave(e.entityId);
         return;
       }
       const depth = this.chainDepthFor(e.context, agentId);
@@ -300,6 +416,10 @@ export class Scheduler {
   }
 
   private fire(agentId: string, t: Trigger, payload: Record<string, unknown>, chainDepth: number): void {
+    const def = this.agents.definition(agentId);
+    if (t.kind === 'ha_state' && !t.entityIds.every((id) => canRead(def.permissions, id, this.ha.registry)))
+      return;
+    if ((t.kind === 'ha_event' || t.kind === 'ha_trigger') && !readsEverything(def.permissions)) return;
     const k = key(agentId, t.id);
     const now = Date.now();
     if (t.debounceSeconds && now - (this.lastFire.get(k) ?? 0) < t.debounceSeconds * 1000) return;
@@ -331,20 +451,34 @@ export class Scheduler {
     const now = Date.now();
     const rows = this.db
       .prepare('SELECT * FROM trigger_state WHERE next_fire_at IS NOT NULL AND next_fire_at < ?')
-      .all(now - 60_000) as StateRow[];
+      .all(now) as StateRow[];
     for (const r of rows) {
-      const [agentId, triggerId] = r.trigger_id.split(':') as [string, string];
+      const agentId = r.agent_id;
+      const triggerId = r.trigger_id.slice(agentId.length + 1);
       try {
         const def = this.agents.definition(agentId);
         const t = def.triggers.find((x) => x.id === triggerId);
         if (!t || !t.enabled || def.limits.misfire !== 'run_once' || !this.agents.row(agentId).enabled)
           continue;
-        this.runs.enqueue({
-          agentId,
-          triggerId,
-          triggerKind: t.kind,
-          payload: { misfired: true, scheduledFor: new Date(r.next_fire_at!).toISOString() },
-        });
+        if (!['cron', 'interval'].includes(t.kind) || (r.signature && r.signature !== JSON.stringify(t)))
+          continue;
+        this.db.transaction(() => {
+          // Persist consumption and queueing atomically; preserve the interval's original cadence.
+          const next =
+            t.kind === 'interval'
+              ? new Date(
+                  r.next_fire_at! +
+                    (Math.floor((now - r.next_fire_at!) / (t.minutes * 60000)) + 1) * t.minutes * 60000,
+                )
+              : null;
+          this.saveNext(agentId, triggerId, next);
+          this.runs.enqueue({
+            agentId,
+            triggerId,
+            triggerKind: t.kind,
+            payload: { misfired: true, scheduledFor: new Date(r.next_fire_at!).toISOString() },
+          });
+        })();
       } catch {
         // agent deleted meanwhile
       }

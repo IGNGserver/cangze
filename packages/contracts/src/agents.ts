@@ -115,6 +115,7 @@ export const AgentDefinition = z.object({
   permissions: z.array(PermissionRule).max(200).default([]),
   /** High-risk actions (locks, alarms, garage doors, configuration) even when rules allow them. */
   highRisk: z.enum(['deny', 'approve', 'allow']).default('approve'),
+  allowIndirectActions: z.boolean().default(false),
   contextMode: z.enum(['continuous', 'isolated']).default('isolated'),
   triggers: z.array(Trigger).max(50).default([]),
   limits: AgentLimits.default({

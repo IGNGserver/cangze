@@ -131,6 +131,12 @@ export function DefinitionForm({
         </Col>
       </Row>
       <Typography.Title level={5}>{t('agents.limits')}</Typography.Title>
+      <Form.Item label={t('agents.indirectActions')} extra={t('agents.indirectActionsHint')}>
+        <Switch
+          checked={value.allowIndirectActions}
+          onChange={(v) => onChange({ allowIndirectActions: v })}
+        />
+      </Form.Item>
       <Row gutter={16}>
         <Col xs={12} md={6}>
           <Form.Item label={t('agents.maxRunSeconds')}>

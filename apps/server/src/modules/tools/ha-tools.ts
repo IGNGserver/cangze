@@ -319,6 +319,8 @@ export function haTools(ha: HaGateway): ToolDef[] {
         days: Type.Optional(Type.Number({ minimum: 1, maximum: 366, default: 7 })),
       }),
       execute: async (env, p) => {
+        if (p.statistic_ids.some((id) => id.includes(':') || !id.includes('.')))
+          assertReadAll(env, 'External statistics');
         assertReadable(
           env,
           p.statistic_ids.filter((id) => id.includes('.') && !id.includes(':')),

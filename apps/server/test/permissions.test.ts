@@ -109,7 +109,11 @@ describe('write evaluation', () => {
   });
 
   it('denies when any entity is not covered (area expansion must not leak)', () => {
-    const d = evaluateWrite(rules, write('light', 'turn_on', ['light.living_lamp', 'switch.coffee']), reg);
+    const d = evaluateWrite(
+      rules,
+      write('light', 'turn_on', ['light.living_lamp', 'switch.coffee'], { brightness_pct: 40 }),
+      reg,
+    );
     expect(d.allowed).toBe(false);
     expect(d.reason).toContain('switch.coffee');
   });
@@ -129,6 +133,15 @@ describe('write evaluation', () => {
     );
     expect(tooBright.allowed).toBe(false);
     expect(tooBright.reason).toContain('brightness_pct=90');
+    expect(
+      evaluateWrite(rules, write('light', 'turn_on', ['light.living_lamp'], { brightness: 255 }), reg)
+        .allowed,
+    ).toBe(false);
+    expect(
+      evaluateWrite(rules, write('light', 'turn_on', ['light.living_lamp'], { brightness: 100 }), reg)
+        .allowed,
+    ).toBe(true);
+    expect(evaluateWrite(rules, write('light', 'turn_on', ['light.living_lamp']), reg).allowed).toBe(false);
   });
 
   it('handles target-less services by domain', () => {

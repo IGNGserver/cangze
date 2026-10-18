@@ -108,6 +108,11 @@ a `notice` entry and a notification is raised.
 
 ## Scheduler
 
+Schedule deadlines are persisted before timers are armed. Restart catch-up consumes each overdue deadline
+at most once; interval cadence survives reconnects and unrelated definition edits. State-duration waits
+are persisted, but downtime counts only when HA's state timestamp still matches on reconnect. Unreadable
+trigger payloads never enter model context. Emergency stop is distinct from pausing automatic triggers.
+
 Triggers enqueue rows in `runs`. A worker pool (global concurrency, default 2) claims queued runs.
 Per-agent overlap policy: `skip`, `queue` or `replace`. Misfired schedules after downtime: `run_once` or
 `skip`. Each run has a wall-clock timeout, a token budget and the agent has a daily cost budget. Event

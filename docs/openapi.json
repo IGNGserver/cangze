@@ -1130,6 +1130,10 @@
                               "allow"
                             ]
                           },
+                          "allowIndirectActions": {
+                            "default": false,
+                            "type": "boolean"
+                          },
                           "contextMode": {
                             "default": "isolated",
                             "type": "string",
@@ -1521,6 +1525,7 @@
                           "tools",
                           "permissions",
                           "highRisk",
+                          "allowIndirectActions",
                           "contextMode",
                           "triggers",
                           "limits",
@@ -1750,6 +1755,67 @@
                     "type": "string",
                     "maxLength": 10000
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{id}/stop": {
+      "post": {
+        "summary": "Emergency stop a subagent",
+        "tags": [
+          "agents"
+        ],
+        "operationId": "postApiV1AgentsIdStop",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -2397,6 +2463,10 @@
                             "allow"
                           ]
                         },
+                        "allowIndirectActions": {
+                          "default": false,
+                          "type": "boolean"
+                        },
                         "contextMode": {
                           "default": "isolated",
                           "type": "string",
@@ -2788,6 +2858,7 @@
                         "tools",
                         "permissions",
                         "highRisk",
+                        "allowIndirectActions",
                         "contextMode",
                         "triggers",
                         "limits",
@@ -3410,6 +3481,10 @@
                             "allow"
                           ]
                         },
+                        "allowIndirectActions": {
+                          "default": false,
+                          "type": "boolean"
+                        },
                         "contextMode": {
                           "default": "isolated",
                           "type": "string",
@@ -3801,6 +3876,7 @@
                         "tools",
                         "permissions",
                         "highRisk",
+                        "allowIndirectActions",
                         "contextMode",
                         "triggers",
                         "limits",
@@ -4191,6 +4267,10 @@
                           "approve",
                           "allow"
                         ]
+                      },
+                      "allowIndirectActions": {
+                        "default": false,
+                        "type": "boolean"
                       },
                       "contextMode": {
                         "default": "isolated",
@@ -5166,6 +5246,10 @@
                           "approve",
                           "allow"
                         ]
+                      },
+                      "allowIndirectActions": {
+                        "default": false,
+                        "type": "boolean"
                       },
                       "contextMode": {
                         "default": "isolated",
@@ -6281,6 +6365,10 @@
                             "allow"
                           ]
                         },
+                        "allowIndirectActions": {
+                          "default": false,
+                          "type": "boolean"
+                        },
                         "contextMode": {
                           "default": "isolated",
                           "type": "string",
@@ -6672,6 +6760,7 @@
                         "tools",
                         "permissions",
                         "highRisk",
+                        "allowIndirectActions",
                         "contextMode",
                         "triggers",
                         "limits",
@@ -7062,6 +7151,10 @@
                           "approve",
                           "allow"
                         ]
+                      },
+                      "allowIndirectActions": {
+                        "default": false,
+                        "type": "boolean"
                       },
                       "contextMode": {
                         "default": "isolated",
