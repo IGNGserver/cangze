@@ -50,10 +50,14 @@ language models understand, control and automate your home — safely.
 
 ```bash
 mkdir cangze && cd cangze
-curl -fsSLO https://raw.githubusercontent.com/IGNGserver/cangze/main/compose.yaml
+VERSION=0.1.0
+curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
 docker compose up -d
 docker compose logs cangze | grep -i bootstrap
 ```
+
+The Compose file is downloaded from the versioned release asset, not from `main`. For a formal release, you
+can instead use `https://github.com/IGNGserver/cangze/releases/latest/download/compose.yaml`.
 
 Open `http://<host>:8080`, enter the bootstrap code from the log, choose your admin key, and the welcome
 wizard walks you through connecting Home Assistant (URL + long-lived access token of a dedicated user) and
