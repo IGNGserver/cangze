@@ -105,8 +105,8 @@ export function useRunTranscript(runId: string | null) {
       streamSeq: d.streamSeq,
     }),
   );
-  useTopic<{ kind: string; run?: RunSummary }>(runId ? `run:${runId}` : null, (ev) => {
-    if (ev.kind !== 'run' || !ev.run || ev.run.id !== runId) return;
+  useTopic<{ kind: string; run?: RunSummary }>(runId ? 'runs' : null, (ev) => {
+    if (ev.kind !== 'upsert' || !ev.run || ev.run.id !== runId) return;
     // Fetch a matching transcript and sequence, not just metadata over an old snapshot.
     void qc.invalidateQueries({ queryKey: key });
   });
