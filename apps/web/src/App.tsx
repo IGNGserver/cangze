@@ -5,7 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { ApiError } from './api/client.ts';
 import { AuthGate } from './auth/AuthGate.tsx';
 import { AppShell } from './layout/AppShell.tsx';
-import { Placeholder } from './pages/Placeholder.tsx';
+import { Home } from './pages/Home.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { ThemeProvider } from './theme/ThemeProvider.tsx';
 
@@ -22,6 +22,8 @@ const AgentsPage = lazy(() =>
 const AutomationsPage = lazy(() =>
   import('./pages/automations/AutomationsPage.tsx').then((m) => ({ default: m.AutomationsPage })),
 );
+const LogsPage = lazy(() => import('./pages/logs/LogsPage.tsx').then((m) => ({ default: m.LogsPage })));
+const WelcomePage = lazy(() => import('./pages/WelcomePage.tsx').then((m) => ({ default: m.WelcomePage })));
 const SettingsPage = lazy(() =>
   import('./pages/settings/SettingsPage.tsx').then((m) => ({ default: m.SettingsPage })),
 );
@@ -46,12 +48,13 @@ export function App() {
               <Suspense fallback={<Spin fullscreen />}>
                 <Routes>
                   <Route element={<AppShell />}>
-                    <Route index element={<Navigate to="/sessions" replace />} />
+                    <Route index element={<Home />} />
                     <Route path="/sessions/:id?" element={<SessionsPage />} />
                     <Route path="/agents/:id?" element={<AgentsPage />} />
                     <Route path="/automations" element={<AutomationsPage />} />
                     <Route path="/devices" element={<DevicesPage />} />
-                    <Route path="/logs/*" element={<Placeholder titleKey="nav.logs" />} />
+                    <Route path="/logs" element={<LogsPage />} />
+                    <Route path="/welcome" element={<WelcomePage />} />
                     <Route path="/settings/:tab?" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/sessions" replace />} />
                   </Route>

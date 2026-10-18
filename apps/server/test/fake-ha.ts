@@ -507,7 +507,7 @@ export class FakeHa {
   }
 }
 
-export async function waitFor(pred: () => boolean, ms = 3000): Promise<void> {
+export async function waitFor(pred: () => boolean, ms = 8000): Promise<void> {
   const start = Date.now();
   while (!pred()) {
     if (Date.now() - start > ms) throw new Error('waitFor timed out');

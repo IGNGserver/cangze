@@ -160,7 +160,8 @@
       "clients": "Devices & clients",
       "about": "About",
       "models": "Models",
-      "risk": "Risk & approvals"
+      "risk": "Risk & approvals",
+      "data": "Data & backup"
     },
     "appearance": "Appearance",
     "language": "Language",
@@ -301,6 +302,45 @@
       "config": "Changing Home Assistant configuration is high risk",
       "timeout": "Approval timeout",
       "seconds": "s"
+    },
+    "data": {
+      "backups": "Backups",
+      "backupsHint": "A backup contains all sessions, agents, settings and audit records. It is stored in the backups folder of the data volume; download copies to another device regularly.",
+      "create": "Back up now",
+      "created": "Backup created",
+      "upload": "Upload and restore",
+      "none": "No backups yet",
+      "next": "Next automatic backup: {{when}}",
+      "download": "Download",
+      "restore": "Restore",
+      "deleteConfirm": "Delete this backup file?",
+      "encrypted": "encrypted",
+      "kinds": {
+        "manual": "manual",
+        "scheduled": "scheduled",
+        "pre-restore": "pre-restore"
+      },
+      "restoreTitle": "Restore from backup",
+      "restoreWarning": "Current data is replaced by the backup (a pre-restore copy is kept) and the hub restarts.",
+      "needPassphrase": "This backup is encrypted; enter its passphrase",
+      "passphrase": "Passphrase",
+      "restarting": "Restoring and restarting the hub…",
+      "encrypt": "Encrypt with a passphrase",
+      "includeCredentials": "Include credentials (master key)",
+      "includeCredentialsHint": "Lets a restore on another machine keep the stored HA token and model keys. Only for encrypted backups.",
+      "plainHint": "Restoring a backup without credentials on another installation means entering the HA token and model API keys again.",
+      "schedule": "Automatic backups",
+      "scheduleEnabled": "Enable automatic backups",
+      "cron": "Time (cron)",
+      "keep": "Keep",
+      "encryptScheduled": "Encrypt automatic backups",
+      "passphraseStored": "A passphrase is stored.",
+      "passphraseNeeded": "Turning this on asks for a passphrase.",
+      "retention": "Retention",
+      "retentionHint": "Older records are removed every night.",
+      "auditDays": "Audit records",
+      "runsDays": "Agent runs",
+      "usageDays": "Usage statistics"
     }
   },
   "chat": {
@@ -395,7 +435,9 @@
     "compactHint": "Summarize older messages to free context. Happens automatically near the limit.",
     "compactDone": "Compacted",
     "compactNothing": "Nothing to compact",
-    "noModelConfigured": "No default model yet. Add a model provider first."
+    "noModelConfigured": "No default model yet. Add a model provider first.",
+    "exportMd": "Export Markdown",
+    "exportJsonl": "Export JSONL"
   },
   "tools": {
     "ha_overview": "Home overview",
@@ -660,5 +702,71 @@
       "last": "Last triggered"
     },
     "trigger": "Trigger now"
+  },
+  "logs": {
+    "subtitle": "Every action against the home, model usage and system logs",
+    "tabs": {
+      "audit": "Audit",
+      "usage": "Usage",
+      "system": "System log"
+    },
+    "time": "Time",
+    "principal": "Actor",
+    "action": "Action",
+    "target": "Target",
+    "decision": "Outcome",
+    "reason": "Reason",
+    "entity": "Entity id",
+    "more": "Load more",
+    "decisions": {
+      "allowed": "allowed",
+      "denied": "denied",
+      "conflict": "conflict",
+      "approved": "approved",
+      "rejected": "rejected",
+      "error": "failed"
+    },
+    "level": "Level",
+    "module": "Module",
+    "message": "Message",
+    "search": "Search",
+    "live": "Auto refresh",
+    "memoryOnly": "Recent records kept in memory; see the container log for everything.",
+    "days": "{{n}} days",
+    "dayUnit": "days",
+    "cost": "Cost",
+    "requests": "Requests",
+    "inputTokens": "Input tokens",
+    "outputTokens": "Output tokens",
+    "costPerDay": "Cost per day by model",
+    "noUsage": "No model usage in this period",
+    "who": "Who",
+    "kind": "Kind",
+    "kinds": {
+      "session": "session",
+      "agent": "agent"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications",
+    "markAll": "Mark all read"
+  },
+  "welcome": {
+    "title": "Welcome to Cangze",
+    "subtitle": "Two minutes of setup: connect Home Assistant and add a model provider.",
+    "steps": {
+      "ha": "Connect Home Assistant",
+      "model": "Add a model",
+      "done": "Done"
+    },
+    "next": "Next",
+    "skip": "Skip for now",
+    "start": "Start your first conversation",
+    "readyTitle": "All set",
+    "readyText": "You can now check and control your home in plain language. A few tips:",
+    "tip1": "In Sessions just say what you want, e.g. “dim the living room lights”; risky actions such as unlocking ask you first.",
+    "tip2": "Create background agents in Agents — or ask a session to create one for you.",
+    "tip3": "Turn on automatic backups in Settings → Data & backup."
   }
 }

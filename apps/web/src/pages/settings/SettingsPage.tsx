@@ -5,6 +5,7 @@ import { Navigate, useNavigate, useParams } from 'react-router';
 import { Page } from '../../components/Page.tsx';
 import { AboutSettings } from './AboutSettings.tsx';
 import { ClientsSettings } from './ClientsSettings.tsx';
+import { DataSettings } from './DataSettings.tsx';
 import { GeneralSettings } from './GeneralSettings.tsx';
 import { HaSettings } from './HaSettings.tsx';
 import { ModelsSettings } from './ModelsSettings.tsx';
@@ -25,6 +26,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
   { key: 'risk', labelKey: 'settings.tabs.risk', render: () => <RiskSettings /> },
   { key: 'security', labelKey: 'settings.tabs.security', render: () => <SecuritySettings /> },
   { key: 'clients', labelKey: 'settings.tabs.clients', render: () => <ClientsSettings /> },
+  { key: 'data', labelKey: 'settings.tabs.data', render: () => <DataSettings /> },
   { key: 'about', labelKey: 'settings.tabs.about', render: () => <AboutSettings /> },
 ];
 

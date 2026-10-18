@@ -140,6 +140,27 @@ export function sessionRoutes(sessions: SessionsService, tools: ToolRegistry): R
     }),
     defineRoute({
       method: 'GET',
+      url: '/api/v1/sessions/:id/export',
+      summary: 'Download the active branch as Markdown or JSONL',
+      tags: ['sessions'],
+      params: IdParams,
+      query: z.object({ format: z.enum(['markdown', 'jsonl']).default('markdown') }),
+      response: z.unknown(),
+      raw: true,
+      handler: async ({ params, query, reply }) => {
+        const body = sessions.export(params.id, query.format);
+        const ext = query.format === 'jsonl' ? 'jsonl' : 'md';
+        await reply
+          .header(
+            'content-type',
+            query.format === 'jsonl' ? 'application/x-ndjson; charset=utf-8' : 'text/markdown; charset=utf-8',
+          )
+          .header('content-disposition', `attachment; filename="cangze-${params.id}.${ext}"`)
+          .send(body);
+      },
+    }),
+    defineRoute({
+      method: 'GET',
       url: '/api/v1/tools',
       summary: 'Tools available to sessions and subagents',
       tags: ['sessions'],

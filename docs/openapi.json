@@ -7766,6 +7766,232 @@
         }
       }
     },
+    "/api/v1/audit": {
+      "get": {
+        "summary": "Audit log of actions against the home and policy decisions",
+        "tags": [
+          "logs"
+        ],
+        "operationId": "getApiV1Audit",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "principal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "agentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "runId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "entityId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "decision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "allowed",
+                "denied",
+                "conflict",
+                "approved",
+                "rejected",
+                "error"
+              ]
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "ts": {
+                        "type": "string"
+                      },
+                      "principal": {
+                        "type": "string"
+                      },
+                      "sessionId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "runId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "agentId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "action": {
+                        "type": "string"
+                      },
+                      "target": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "args": {
+                        "anyOf": [
+                          {},
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "decision": {
+                        "type": "string",
+                        "enum": [
+                          "allowed",
+                          "denied",
+                          "conflict",
+                          "approved",
+                          "rejected",
+                          "error"
+                        ]
+                      },
+                      "reason": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "result": {
+                        "anyOf": [
+                          {},
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "haContextId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "durationMs": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "ts",
+                      "principal",
+                      "sessionId",
+                      "runId",
+                      "agentId",
+                      "action",
+                      "target",
+                      "args",
+                      "decision",
+                      "reason",
+                      "result",
+                      "haContextId",
+                      "durationMs"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/admin-key": {
       "post": {
         "summary": "Change the admin key (signs out other web sessions)",
@@ -8688,6 +8914,503 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backups/{id}/download": {
+      "get": {
+        "summary": "Download a backup file",
+        "tags": [
+          "backup"
+        ],
+        "operationId": "getApiV1BackupsIdDownload",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backups/{id}/restore": {
+      "post": {
+        "summary": "Restore a stored backup (the hub restarts)",
+        "tags": [
+          "backup"
+        ],
+        "operationId": "postApiV1BackupsIdRestore",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "restarting": {
+                      "type": "boolean"
+                    },
+                    "manifest": {
+                      "type": "object",
+                      "properties": {
+                        "appVersion": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "number"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "includesCredentials": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "appVersion",
+                        "schemaVersion",
+                        "createdAt",
+                        "includesCredentials"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "restarting",
+                    "manifest"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "passphrase": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backups/{id}": {
+      "delete": {
+        "summary": "Delete a backup",
+        "tags": [
+          "backup"
+        ],
+        "operationId": "deleteApiV1BackupsId",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backups/restore": {
+      "post": {
+        "summary": "Upload a backup file (application/octet-stream) and restore it; passphrase in X-Backup-Passphrase",
+        "tags": [
+          "backup"
+        ],
+        "operationId": "postApiV1BackupsRestore",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "restarting": {
+                      "type": "boolean"
+                    },
+                    "manifest": {
+                      "type": "object",
+                      "properties": {
+                        "appVersion": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "number"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "includesCredentials": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "appVersion",
+                        "schemaVersion",
+                        "createdAt",
+                        "includesCredentials"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "restarting",
+                    "manifest"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backups": {
+      "get": {
+        "summary": "Backups in the data volume",
+        "tags": [
+          "backup"
+        ],
+        "operationId": "getApiV1Backups",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "file": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "number"
+                          },
+                          "encrypted": {
+                            "type": "boolean"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "manual",
+                              "scheduled",
+                              "pre-restore"
+                            ]
+                          },
+                          "schemaVersion": {
+                            "type": "number"
+                          },
+                          "appVersion": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "file",
+                          "size",
+                          "encrypted",
+                          "kind",
+                          "schemaVersion",
+                          "appVersion",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextScheduled": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "nextScheduled"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a backup now",
+        "tags": [
+          "backup"
+        ],
+        "operationId": "postApiV1Backups",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "file": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "number"
+                    },
+                    "encrypted": {
+                      "type": "boolean"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "scheduled",
+                        "pre-restore"
+                      ]
+                    },
+                    "schemaVersion": {
+                      "type": "number"
+                    },
+                    "appVersion": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "file",
+                    "size",
+                    "encrypted",
+                    "kind",
+                    "schemaVersion",
+                    "appVersion",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "passphrase": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 256
+                  },
+                  "includeCredentials": {
+                    "default": false,
+                    "type": "boolean"
+                  }
                 }
               }
             }
@@ -9925,6 +10648,132 @@
                     "verifyTls"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/logs/system": {
+      "get": {
+        "summary": "Recent hub log records (in memory)",
+        "tags": [
+          "logs"
+        ],
+        "operationId": "getApiV1LogsSystem",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "info",
+              "type": "string",
+              "enum": [
+                "trace",
+                "debug",
+                "info",
+                "warn",
+                "error",
+                "fatal"
+              ]
+            }
+          },
+          {
+            "name": "module",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "time": {
+                        "type": "number"
+                      },
+                      "level": {
+                        "type": "number"
+                      },
+                      "msg": {
+                        "type": "string"
+                      },
+                      "module": {
+                        "type": "string"
+                      },
+                      "data": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "time",
+                      "level",
+                      "msg",
+                      "data"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               }
             }
@@ -12730,6 +13579,68 @@
         }
       }
     },
+    "/api/v1/sessions/{id}/export": {
+      "get": {
+        "summary": "Download the active branch as Markdown or JSONL",
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "getApiV1SessionsIdExport",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "markdown",
+              "type": "string",
+              "enum": [
+                "markdown",
+                "jsonl"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{id}/messages": {
       "post": {
         "summary": "Send a message (steers or queues when a reply is running)",
@@ -13869,6 +14780,193 @@
         }
       }
     },
+    "/api/v1/settings/backup": {
+      "get": {
+        "summary": "Scheduled backup settings",
+        "tags": [
+          "settings"
+        ],
+        "operationId": "getApiV1SettingsBackup",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "cron": {
+                      "type": "string",
+                      "minLength": 9,
+                      "maxLength": 120
+                    },
+                    "keep": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 365
+                    },
+                    "encrypt": {
+                      "type": "boolean"
+                    },
+                    "includeCredentials": {
+                      "type": "boolean"
+                    },
+                    "hasPassphrase": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "cron",
+                    "keep",
+                    "encrypt",
+                    "includeCredentials",
+                    "hasPassphrase"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update scheduled backups",
+        "tags": [
+          "settings"
+        ],
+        "operationId": "putApiV1SettingsBackup",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "cron": {
+                      "type": "string",
+                      "minLength": 9,
+                      "maxLength": 120
+                    },
+                    "keep": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 365
+                    },
+                    "encrypt": {
+                      "type": "boolean"
+                    },
+                    "includeCredentials": {
+                      "type": "boolean"
+                    },
+                    "hasPassphrase": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "cron",
+                    "keep",
+                    "encrypt",
+                    "includeCredentials",
+                    "hasPassphrase"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "cron": {
+                    "type": "string",
+                    "minLength": 9,
+                    "maxLength": 120
+                  },
+                  "keep": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365
+                  },
+                  "encrypt": {
+                    "type": "boolean"
+                  },
+                  "includeCredentials": {
+                    "type": "boolean"
+                  },
+                  "passphrase": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "cron",
+                  "keep",
+                  "encrypt",
+                  "includeCredentials"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/settings/ha/test": {
       "post": {
         "summary": "Test Home Assistant connection parameters without saving them",
@@ -14267,6 +15365,162 @@
                 },
                 "required": [
                   "url"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/retention": {
+      "get": {
+        "summary": "How long logs and history are kept",
+        "tags": [
+          "settings"
+        ],
+        "operationId": "getApiV1SettingsRetention",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "auditDays": {
+                      "type": "integer",
+                      "minimum": 7,
+                      "maximum": 3650
+                    },
+                    "runsDays": {
+                      "type": "integer",
+                      "minimum": 7,
+                      "maximum": 3650
+                    },
+                    "usageDays": {
+                      "type": "integer",
+                      "minimum": 30,
+                      "maximum": 3650
+                    }
+                  },
+                  "required": [
+                    "auditDays",
+                    "runsDays",
+                    "usageDays"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update retention",
+        "tags": [
+          "settings"
+        ],
+        "operationId": "putApiV1SettingsRetention",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "auditDays": {
+                      "type": "integer",
+                      "minimum": 7,
+                      "maximum": 3650
+                    },
+                    "runsDays": {
+                      "type": "integer",
+                      "minimum": 7,
+                      "maximum": 3650
+                    },
+                    "usageDays": {
+                      "type": "integer",
+                      "minimum": 30,
+                      "maximum": 3650
+                    }
+                  },
+                  "required": [
+                    "auditDays",
+                    "runsDays",
+                    "usageDays"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "auditDays": {
+                    "type": "integer",
+                    "minimum": 7,
+                    "maximum": 3650
+                  },
+                  "runsDays": {
+                    "type": "integer",
+                    "minimum": 7,
+                    "maximum": 3650
+                  },
+                  "usageDays": {
+                    "type": "integer",
+                    "minimum": 30,
+                    "maximum": 3650
+                  }
+                },
+                "required": [
+                  "auditDays",
+                  "runsDays",
+                  "usageDays"
                 ]
               }
             }
@@ -14903,6 +16157,114 @@
                       "description",
                       "risk",
                       "group"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/usage": {
+      "get": {
+        "summary": "Token and cost usage per day, principal and model",
+        "tags": [
+          "logs"
+        ],
+        "operationId": "getApiV1Usage",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 366
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "day": {
+                        "type": "string"
+                      },
+                      "principalKind": {
+                        "type": "string"
+                      },
+                      "principalId": {
+                        "type": "string"
+                      },
+                      "principalName": {
+                        "type": "string"
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "requests": {
+                        "type": "number"
+                      },
+                      "input": {
+                        "type": "number"
+                      },
+                      "output": {
+                        "type": "number"
+                      },
+                      "cacheRead": {
+                        "type": "number"
+                      },
+                      "cacheWrite": {
+                        "type": "number"
+                      },
+                      "cost": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "day",
+                      "principalKind",
+                      "principalId",
+                      "principalName",
+                      "provider",
+                      "model",
+                      "requests",
+                      "input",
+                      "output",
+                      "cacheRead",
+                      "cacheWrite",
+                      "cost"
                     ],
                     "additionalProperties": false
                   }

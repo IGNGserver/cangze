@@ -7,6 +7,7 @@ import { api } from '../api/client.ts';
 import { qk, useHaStatus } from '../api/queries.ts';
 import { useStreamStatus } from '../api/stream.ts';
 import { Logo } from '../components/Logo.tsx';
+import { NotificationCenter } from '../components/NotificationCenter.tsx';
 import { useThemeMode } from '../theme/ThemeProvider.tsx';
 import { NAV } from './nav.tsx';
 
@@ -148,7 +149,10 @@ export function AppShell() {
           <div style={{ height: 8 }} />
           {items}
         </Flex>
-        <StatusDot />
+        <Flex vertical align="center" gap={10}>
+          <NotificationCenter />
+          <StatusDot />
+        </Flex>
       </Flex>
       <div
         style={{

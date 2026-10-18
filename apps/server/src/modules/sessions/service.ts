@@ -442,6 +442,60 @@ export class SessionsService {
     }
   }
 
+  /** Export the active branch as Markdown or pi-style JSONL. */
+  export(id: string, format: 'markdown' | 'jsonl'): string {
+    const r = this.row(id);
+    const path = this.store.activePath(r.conversation_id);
+    if (format === 'jsonl') {
+      const header = {
+        type: 'session',
+        version: 1,
+        id: r.id,
+        title: r.title,
+        timestamp: new Date(r.created_at).toISOString(),
+      };
+      return [
+        header,
+        ...path.map((e) => ({
+          type: e.kind,
+          id: e.id,
+          parentId: e.parentId,
+          timestamp: new Date(e.createdAt).toISOString(),
+          ...e.data,
+        })),
+      ]
+        .map((x) => JSON.stringify(x))
+        .join('\n')
+        .concat('\n');
+    }
+    const lines = [`# ${r.title || 'Cangze session'}`, '', `_${new Date(r.created_at).toISOString()}_`, ''];
+    for (const e of path) {
+      if (e.kind === 'notice') {
+        const n = e.data as unknown as NoticeData;
+        lines.push(`> **${n.title}**`, ...n.body.split('\n').map((l) => `> ${l}`), '');
+        continue;
+      }
+      if (e.kind === 'compaction') {
+        lines.push(
+          `> _Summary of earlier messages:_ ${(e.data as unknown as CompactionData).summary.replace(/\n/g, ' ')}`,
+          '',
+        );
+        continue;
+      }
+      if (e.kind !== 'message') continue;
+      const m = e.data.message as Message;
+      if (m.role === 'user') lines.push('**You:**', '', textOf(m as AgentMessage), '');
+      else if (m.role === 'assistant') {
+        for (const c of m.content) {
+          if (c.type === 'text' && c.text.trim()) lines.push(c.text, '');
+          if (c.type === 'toolCall') lines.push(`- _tool_ \`${c.name}\` ${JSON.stringify(c.arguments)}`);
+        }
+        lines.push('');
+      }
+    }
+    return lines.join('\n');
+  }
+
   /** Stop all runs (shutdown). */
   abortAll(): void {
     for (const run of this.runs.values()) run.abort();

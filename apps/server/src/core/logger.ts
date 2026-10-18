@@ -52,7 +52,7 @@ export const REDACT_PATHS = [
   '*.secret',
 ];
 
-export function createLogger(level: string, ring: LogRing): Logger {
+export function createLogger(level: string, ring: LogRing, opts: { stdout?: boolean } = {}): Logger {
   const ringStream = new Writable({
     write(chunk, _enc, cb) {
       try {
@@ -63,9 +63,7 @@ export function createLogger(level: string, ring: LogRing): Logger {
       cb();
     },
   });
-  const streams: pino.StreamEntry[] = [
-    { level: level as pino.Level, stream: pino.destination(1) },
-    { level: level as pino.Level, stream: ringStream },
-  ];
+  const streams: pino.StreamEntry[] = [{ level: level as pino.Level, stream: ringStream }];
+  if (opts.stdout !== false) streams.push({ level: level as pino.Level, stream: pino.destination(1) });
   return pino({ level, redact: { paths: REDACT_PATHS, censor: '[redacted]' } }, pino.multistream(streams));
 }

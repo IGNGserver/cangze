@@ -107,6 +107,8 @@ export function SessionDrawer({
         <Button onClick={() => void compact()} loading={compacting} disabled={detail.running}>
           {t('chat.compact')}
         </Button>
+        <Button href={`/api/v1/sessions/${detail.id}/export?format=markdown`}>{t('chat.exportMd')}</Button>
+        <Button href={`/api/v1/sessions/${detail.id}/export?format=jsonl`}>{t('chat.exportJsonl')}</Button>
         <Button onClick={() => void patch({ archived: !detail.archived })}>
           {detail.archived ? t('chat.unarchive') : t('chat.archive')}
         </Button>
