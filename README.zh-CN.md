@@ -44,10 +44,14 @@ WebSocket / REST API 接入（不需要安装 HA 插件或集成），让大语�
 
 ```bash
 mkdir cangze && cd cangze
-curl -fsSLO https://raw.githubusercontent.com/IGNGserver/cangze/main/compose.yaml
+VERSION=0.1.0
+curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
 docker compose up -d
 docker compose logs cangze | grep -i bootstrap
 ```
+
+Compose 文件从指定版本的 Release 资产下载，不从 `main` 获取。正式版也可以使用
+`https://github.com/IGNGserver/cangze/releases/latest/download/compose.yaml` 获取最新正式版本。
 
 浏览器打开 `http://<主机>:8080`，输入日志里的一次性引导码并设置管理员密钥，欢迎向导会引导你连接
 Home Assistant（地址 + 专用用户的长期访问令牌）并添加模型服务：内置 OpenAI、Anthropic、DeepSeek、通义千问、

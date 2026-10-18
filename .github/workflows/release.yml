@@ -2,6 +2,7 @@ name: release
 
 # 推 v*.*.* tag 触发；默认发布 prerelease（镜像打版本号与 next 标签）。
 # 只有手动触发并选择 release 时才发布正式版并更新镜像 latest 标签。
+# Compose 和环境模板作为 Release 资产发布，用户不从 main 获取部署文件。
 on:
   push:
     tags: ['v*.*.*']
@@ -82,5 +83,6 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "release $TAG already exists; not modifying a published release"
           else
-            gh release create "$TAG" --title "Cangze $TAG" --verify-tag "${flags[@]}"
+            gh release create "$TAG" compose.yaml .env.example \
+              --title "Cangze $TAG" --verify-tag "${flags[@]}"
           fi

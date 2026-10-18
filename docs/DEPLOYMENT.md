@@ -6,11 +6,16 @@ Cangze ships as one multi-arch image (`linux/amd64`, `linux/arm64`):
 ## Docker Compose
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/IGNGserver/cangze/main/compose.yaml
-curl -fsSL https://raw.githubusercontent.com/IGNGserver/cangze/main/.env.example -o .env   # optional
+VERSION=0.1.0
+curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
+curl -fsSL "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/.env.example" -o .env   # optional
 docker compose up -d
 docker compose logs cangze | grep -i bootstrap
 ```
+
+The URLs above are pinned to a release and are intentionally not read from the `main` branch. For a formal
+release, the Compose file can also be downloaded from
+`https://github.com/IGNGserver/cangze/releases/latest/download/compose.yaml`.
 
 `compose.yaml` defaults to the release it was published with (`CANGZE_VERSION`, e.g. `0.1.0`). Image tags:
 
@@ -19,6 +24,9 @@ docker compose logs cangze | grep -i bootstrap
 | `0.1.0`  | one release, never moved                                                |
 | `next`   | the newest prerelease                                                   |
 | `latest` | the newest formal release (none yet while the project is in prerelease) |
+
+`latest` is only published for a formal release. The default installation should use a numbered version;
+use `next` only when explicitly testing the newest prerelease.
 
 Set `CANGZE_VERSION` in `.env` to upgrade on your own schedule.
 
