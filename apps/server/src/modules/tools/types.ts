@@ -7,8 +7,15 @@ import { toolCallStore } from '../../core/tool-context.ts';
 /** What a tool may do. Subagent definitions grant tools by name; risk drives UI badges and defaults. */
 export type ToolRisk = 'read' | 'control' | 'configure' | 'system';
 
+/** Read access of the principal; absent means unrestricted (admin, main sessions). */
+export interface ReadAccess {
+  readAll: boolean;
+  canRead(entityId: string): boolean;
+}
+
 export interface ToolEnv {
   principal: Principal;
+  access?: ReadAccess;
   runId: string;
   sessionId?: string;
   agentId?: string;

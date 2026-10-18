@@ -64,6 +64,14 @@ export interface LiveTool {
   isError: boolean;
 }
 
+/** What any live conversation view needs from its REST snapshot. */
+export interface Snapshot {
+  detail: SessionDetail | null;
+  entries: Entry[];
+  live: SessionDetail['live'];
+  approvals: Approval[];
+}
+
 export interface ChatState {
   detail: SessionDetail | null;
   entries: Entry[];
@@ -77,9 +85,7 @@ export interface ChatState {
 }
 
 type Action =
-  | { type: 'snapshot'; detail: SessionDetail }
-  | { type: 'event'; event: SessionEvent }
-  | { type: 'clearError' };
+  { type: 'snapshot'; snap: Snapshot } | { type: 'event'; event: SessionEvent } | { type: 'clearError' };
 
 const initial: ChatState = {
   detail: null,
@@ -96,7 +102,7 @@ const initial: ChatState = {
 function reducer(state: ChatState, action: Action): ChatState {
   if (action.type === 'clearError') return { ...state, lastError: null };
   if (action.type === 'snapshot') {
-    const d = action.detail;
+    const d = action.snap;
     const tools: Record<string, LiveTool> = {};
     for (const t of d.live?.tools ?? [])
       tools[t.toolCallId] = {
@@ -108,7 +114,7 @@ function reducer(state: ChatState, action: Action): ChatState {
       };
     return {
       ...initial,
-      detail: d,
+      detail: d.detail,
       entries: d.entries,
       running: Boolean(d.live),
       runId: d.live?.runId ?? null,
@@ -176,28 +182,35 @@ function reducer(state: ChatState, action: Action): ChatState {
   }
 }
 
-/** Live chat state: REST snapshot + `session:<id>` events, refetched on gaps and branch switches. */
-export function useChat(id: string | null) {
+/**
+ * Live conversation state: a REST snapshot plus events on `topic`, refetched on gaps and when the
+ * active branch moves. Used for sessions and (read-only) subagent runs.
+ */
+export function useLiveConversation<T>(
+  queryKey: readonly unknown[],
+  topic: string | null,
+  fetcher: () => Promise<T>,
+  toSnapshot: (data: T) => Snapshot & { streamSeq: number },
+) {
   const [state, dispatch] = useReducer(reducer, initial);
   const qc = useQueryClient();
-  const snapshot = useQuery({
-    queryKey: sk.detail(id ?? ''),
-    queryFn: () => api.get<SessionDetail>(`/sessions/${id}`),
-    enabled: Boolean(id),
-    staleTime: 0,
-    gcTime: 0,
-  });
+  const snapshot = useQuery({ queryKey, queryFn: fetcher, enabled: Boolean(topic), staleTime: 0, gcTime: 0 });
+  const snap = snapshot.data ? toSnapshot(snapshot.data) : null;
 
   useEffect(() => {
-    if (snapshot.data) dispatch({ type: 'snapshot', detail: snapshot.data });
+    if (snapshot.data) dispatch({ type: 'snapshot', snap: toSnapshot(snapshot.data) });
+    // toSnapshot is a pure mapping
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot.data]);
 
-  const reload = useCallback(() => void qc.invalidateQueries({ queryKey: sk.detail(id ?? '') }), [qc, id]);
+  const keyString = JSON.stringify(queryKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const reload = useCallback(() => void qc.invalidateQueries({ queryKey }), [qc, keyString]);
   const stateRef = useRef(state);
   stateRef.current = state;
 
   useTopic<SessionEvent>(
-    snapshot.data ? `session:${id}` : null,
+    snap ? topic : null,
     (event) => {
       if (event.kind === 'reload') return reload();
       if (event.kind === 'entry') {
@@ -210,14 +223,24 @@ export function useChat(id: string | null) {
       dispatch({ type: 'event', event });
     },
     reload,
-    snapshot.data?.streamSeq,
+    snap?.streamSeq,
   );
 
   return {
     state,
+    data: snapshot.data,
     loading: snapshot.isLoading,
     error: snapshot.error,
     reload,
     clearError: () => dispatch({ type: 'clearError' }),
   };
+}
+
+export function useChat(id: string | null) {
+  return useLiveConversation(
+    sk.detail(id ?? ''),
+    id ? `session:${id}` : null,
+    () => api.get<SessionDetail>(`/sessions/${id}`),
+    (d) => ({ detail: d, entries: d.entries, live: d.live, approvals: d.approvals, streamSeq: d.streamSeq }),
+  );
 }

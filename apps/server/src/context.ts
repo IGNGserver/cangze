@@ -11,6 +11,11 @@ import type { HubEvents } from './core/hub-events.ts';
 import { createLogger, LogRing } from './core/logger.ts';
 import { migrate, openDatabase, type Db } from './db/index.ts';
 import type { RouteSpec } from './http/route.ts';
+import { createAgentEvaluator } from './modules/agents/evaluator.ts';
+import { agentRoutes } from './modules/agents/routes.ts';
+import { RunsService } from './modules/agents/runs.ts';
+import { AgentsService } from './modules/agents/service.ts';
+import { agentManagementTools, memoryTools } from './modules/agents/tools.ts';
 import { approvalRoutes } from './modules/approvals/routes.ts';
 import { ApprovalsService } from './modules/approvals/service.ts';
 import { AuditService, decisionForError } from './modules/audit/service.ts';
@@ -18,11 +23,14 @@ import { adminPrincipal, installAuth } from './modules/auth/hook.ts';
 import { authRoutes } from './modules/auth/routes.ts';
 import { AuthService } from './modules/auth/service.ts';
 import { ConversationStore } from './modules/conversations/store.ts';
+import { CoordinationService } from './modules/coordination/service.ts';
 import { AgentRunner } from './modules/engine/runner.ts';
 import { HaGateway } from './modules/ha/gateway.ts';
 import { haRoutes } from './modules/ha/routes.ts';
 import { networkRoutes } from './modules/network/routes.ts';
 import { NetworkPolicy } from './modules/network/policy.ts';
+import { notificationRoutes } from './modules/notifications/routes.ts';
+import { NotificationsService } from './modules/notifications/service.ts';
 import { PolicyEngine } from './modules/policy/engine.ts';
 import { policyRoutes } from './modules/policy/routes.ts';
 import { providerRoutes } from './modules/providers/routes.ts';
@@ -34,6 +42,7 @@ import { SettingsService } from './modules/settings/service.ts';
 import { StreamHub } from './modules/stream/hub.ts';
 import { registerStream } from './modules/stream/routes.ts';
 import { systemRoutes } from './modules/system/routes.ts';
+import { Scheduler } from './modules/scheduler/service.ts';
 import { haTools } from './modules/tools/ha-tools.ts';
 import { ToolRegistry } from './modules/tools/registry.ts';
 import { UsageLedger } from './modules/usage/ledger.ts';
@@ -59,6 +68,11 @@ export interface Services {
   usage: UsageLedger;
   runner: AgentRunner;
   sessions: SessionsService;
+  notifications: NotificationsService;
+  coordination: CoordinationService;
+  agents: AgentsService;
+  runs: RunsService;
+  scheduler: Scheduler;
   startedAt: Date;
 }
 
@@ -112,7 +126,11 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
 
   const approvals = new ApprovalsService(db, stream);
   const policy = new PolicyEngine(settings, ha, approvals);
+  // Guard order: conflicts first (cheap, no human involved), then permissions and approvals.
+  const coordination = new CoordinationService(settings, ha, bus);
+  coordination.install();
   policy.install();
+  const notifications = new NotificationsService(db, stream);
   const providers = new ProvidersService(db, secrets, settings, logger.child({ module: 'providers' }));
   const conversations = new ConversationStore(db);
   const tools = new ToolRegistry();
@@ -131,6 +149,68 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
     usage,
     logger.child({ module: 'sessions' }),
   );
+  const agents = new AgentsService(db, conversations, tools, providers, stream);
+  const runs = new RunsService(
+    db,
+    agents,
+    conversations,
+    runner,
+    providers,
+    ha,
+    tools,
+    approvals,
+    sessions,
+    notifications,
+    usage,
+    stream,
+    settings,
+    logger.child({ module: 'runs' }),
+  );
+  runs.setExtraTools((agentId) => memoryTools(agents, agentId));
+  tools.register(agentManagementTools(agents, runs, () => tools));
+  policy.setAgentEvaluator(createAgentEvaluator(agents, policy, ha));
+  coordination.setAgentInfo((p) => {
+    try {
+      const def = agents.definition(p.agentId, p.revision);
+      return {
+        priority: def.priority,
+        respectManualMinutes: def.respectManualMinutes,
+        chainDepth: runs.chainDepth(p.runId),
+      };
+    } catch {
+      return null;
+    }
+  });
+  const scheduler = new Scheduler(
+    db,
+    agents,
+    runs,
+    ha,
+    coordination,
+    bus,
+    logger.child({ module: 'scheduler' }),
+  );
+  sessions.addPromptSections(() => {
+    const rows = agents.rows();
+    if (!rows.length) {
+      return [
+        {
+          title: 'Subagents',
+          body: 'None yet. You can create persistent background agents with agent_create when the user wants something watched or done on a schedule.',
+        },
+      ];
+    }
+    const lines = rows.map((r) => {
+      const def = agents.definition(r.id);
+      return `- ${r.name} (id ${r.id}, slug ${r.slug}, ${r.enabled ? 'enabled' : 'disabled'}, revision ${r.current_revision}): ${def.description || def.instructions.slice(0, 120)}`;
+    });
+    return [
+      {
+        title: 'Subagents',
+        body: `${lines.join('\n')}\nManage them with the agent_* tools; dispatch work with agent_run.`,
+      },
+    ];
+  });
 
   return {
     config,
@@ -153,6 +233,11 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
     usage,
     runner,
     sessions,
+    notifications,
+    coordination,
+    agents,
+    runs,
+    scheduler,
     startedAt: new Date(),
   };
 }
@@ -174,6 +259,8 @@ export function buildRouteSpecs(s: Services): RouteSpec[] {
     ...sessionRoutes(s.sessions, s.tools),
     ...approvalRoutes(s.approvals),
     ...policyRoutes(s.policy),
+    ...agentRoutes(s.agents, s.runs, s.scheduler, s.usage, s.ha),
+    ...notificationRoutes(s.notifications),
   ];
 }
 
@@ -200,9 +287,14 @@ export function startServices(s: Services): void {
   s.approvals.expireAbandoned();
   s.stream.start();
   s.ha.start();
+  s.runs.start();
+  s.scheduler.start();
+  s.providers.warmUp();
 }
 
 export async function stopServices(s: Services): Promise<void> {
+  s.scheduler.stop();
+  s.runs.stop();
   s.sessions.abortAll();
   await s.ha.stop();
   s.stream.stop();

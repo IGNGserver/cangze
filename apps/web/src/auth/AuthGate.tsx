@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Spin } from 'antd';
 import { useEffect, type ReactNode } from 'react';
-import { setUnauthorizedHandler } from '../api/client.ts';
+import { setReachableHandler, setUnauthorizedHandler } from '../api/client.ts';
 import { qk, useAuthState } from '../api/queries.ts';
 import { stream } from '../api/stream.ts';
 import { LoginPage } from './LoginPage.tsx';
@@ -13,6 +13,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setUnauthorizedHandler(() => void qc.invalidateQueries({ queryKey: qk.auth }));
+    setReachableHandler(() => stream.poke());
   }, [qc]);
 
   const authenticated = auth.data?.authenticated === true;

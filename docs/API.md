@@ -84,3 +84,16 @@ from the snapshot without gaps.
 - `POST /sessions/:id/edit` re-asks from an edited user message as a new branch; `/regenerate` answers a message
   again; `/branch` switches to the branch containing an entry. Old branches are never deleted.
 - High-risk actions pause the tool until `POST /approvals/:id/decide { approve }`.
+
+## Subagents
+
+- `GET/POST /agents`, `GET/PUT/DELETE /agents/:id` — a `PUT` must carry `baseRevision`; a stale revision returns
+  `409 revision_conflict` with `details.currentRevision`. Every save creates a new immutable revision
+  (`GET /agents/:id/revisions`).
+- `POST /agents/:id/run { task? }` queues a manual run; `GET /runs?agentId=&status=`, `GET /runs/:id` (read-only
+  transcript, live state, pending approvals, `streamSeq`), `POST /runs/:id/abort`.
+- Live updates: `agents` (list changes), `agent:<id>` (definition, memory and run changes), `runs`, and `run:<id>` with the
+  same event kinds as `session:<id>`.
+- `GET /agents/:id/permissions` and `POST /agents/permissions/preview` resolve rules to entity lists.
+- `GET /scheduler/upcoming` lists the next scheduled firings.
+- Subagent conversations cannot be written to by clients.

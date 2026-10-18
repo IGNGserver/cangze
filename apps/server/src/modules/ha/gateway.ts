@@ -886,5 +886,5 @@ interface RawLabel {
   icon?: string | null;
 }
 
-export type { HaArea, HaDevice, HaFloor, HaLabel };
+export type { HaArea, HaDevice, HaFloor, HaLabel, HassEvent };
 export { domainOf };

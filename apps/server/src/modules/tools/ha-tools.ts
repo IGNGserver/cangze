@@ -2,7 +2,7 @@ import { StringEnum, Type, type ImageContent } from '@earendil-works/pi-ai';
 import { AppError, badRequest } from '../../core/errors.ts';
 import type { HaGateway } from '../ha/gateway.ts';
 import { domainOf } from '../ha/registry.ts';
-import { defineTool, type ToolDef } from './types.ts';
+import { defineTool, type ToolDef, type ToolEnv } from './types.ts';
 
 const ids = (description: string) => Type.Optional(Type.Array(Type.String(), { description }));
 
@@ -36,6 +36,18 @@ function downsample<T>(points: T[], n: number): T[] {
   for (let i = 0; i < n; i++) out.push(points[Math.floor(i * step)]!);
   out.push(points[points.length - 1]!);
   return out;
+}
+
+/** Throw unless the caller may read every entity in the list. */
+function assertReadable(env: ToolEnv, ids: string[]): void {
+  if (!env.access) return;
+  const denied = ids.filter((id) => !env.access!.canRead(id));
+  if (denied.length) throw new AppError(403, 'policy_denied', `No permission to read ${denied.join(', ')}`);
+}
+
+function assertReadAll(env: ToolEnv, what: string): void {
+  if (env.access && !env.access.readAll)
+    throw new AppError(403, 'policy_denied', `${what} needs read access to every entity`);
 }
 
 function requireAdmin(ha: HaGateway): void {
@@ -84,9 +96,9 @@ export function haTools(ha: HaGateway): ToolDef[] {
         ),
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 40 })),
       }),
-      execute: async (_env, p) => {
+      execute: async (env, p) => {
         const limit = p.limit ?? 40;
-        const all = reg.search({
+        const found = reg.search({
           q: p.query,
           domain: p.domain,
           area: p.area,
@@ -95,6 +107,7 @@ export function haTools(ha: HaGateway): ToolDef[] {
           includeHidden: p.include_hidden,
           limit: 5000,
         });
+        const all = env.access ? found.filter((e) => env.access!.canRead(e.entity_id)) : found;
         if (!all.length)
           return {
             text: 'No entities matched. Try fewer words, another language, or ha_overview to see areas.',
@@ -119,7 +132,11 @@ export function haTools(ha: HaGateway): ToolDef[] {
         entity_ids: Type.Array(Type.String(), { minItems: 1, maxItems: 30 }),
         attributes: Type.Optional(Type.Boolean({ default: true })),
       }),
-      execute: async (_env, p) => {
+      execute: async (env, p) => {
+        assertReadable(
+          env,
+          p.entity_ids.map((id) => id.toLowerCase()),
+        );
         const out = p.entity_ids.map((id) => {
           const e = reg.toEntity(id.toLowerCase());
           if (!e) return { entity_id: id, error: 'not found' };
@@ -239,7 +256,8 @@ export function haTools(ha: HaGateway): ToolDef[] {
         entity_id: Type.String(),
         hours: Type.Optional(Type.Number({ minimum: 0.25, maximum: 720, default: 24 })),
       }),
-      execute: async (_env, p) => {
+      execute: async (env, p) => {
+        assertReadable(env, [p.entity_id]);
         const end = new Date();
         const start = new Date(end.getTime() - (p.hours ?? 24) * 3600_000);
         const res = await ha.history([p.entity_id], start, end);
@@ -259,7 +277,9 @@ export function haTools(ha: HaGateway): ToolDef[] {
         entity_id: Type.Optional(Type.String()),
         hours: Type.Optional(Type.Number({ minimum: 0.25, maximum: 72, default: 6 })),
       }),
-      execute: async (_env, p) => {
+      execute: async (env, p) => {
+        if (p.entity_id) assertReadable(env, [p.entity_id]);
+        else assertReadAll(env, 'The logbook of all entities');
         const end = new Date();
         const start = new Date(end.getTime() - (p.hours ?? 6) * 3600_000);
         const events = await ha.query<Array<Record<string, unknown>>>({
@@ -291,7 +311,11 @@ export function haTools(ha: HaGateway): ToolDef[] {
         period: StringEnum(['5minute', 'hour', 'day', 'week', 'month'] as const),
         days: Type.Optional(Type.Number({ minimum: 1, maximum: 366, default: 7 })),
       }),
-      execute: async (_env, p) => {
+      execute: async (env, p) => {
+        assertReadable(
+          env,
+          p.statistic_ids.filter((id) => id.includes('.') && !id.includes(':')),
+        );
         const end = new Date();
         const start = new Date(end.getTime() - (p.days ?? 7) * 86_400_000);
         const res = await ha.query<Record<string, Array<Record<string, unknown>>>>({
@@ -324,7 +348,10 @@ export function haTools(ha: HaGateway): ToolDef[] {
       description:
         'Evaluate a Home Assistant Jinja template, useful for aggregate questions, e.g. {{ states.light | selectattr("state","eq","on") | list | count }}.',
       parameters: Type.Object({ template: Type.String({ maxLength: 4000 }) }),
-      execute: async (_env, p) => ({ text: await ha.renderTemplate(p.template) }),
+      execute: async (env, p) => {
+        assertReadAll(env, 'Templates');
+        return { text: await ha.renderTemplate(p.template) };
+      },
     }),
     defineTool({
       name: 'ha_camera_snapshot',
@@ -335,6 +362,7 @@ export function haTools(ha: HaGateway): ToolDef[] {
       parameters: Type.Object({ entity_id: Type.String() }),
       execute: async (env, p) => {
         if (domainOf(p.entity_id) !== 'camera') throw badRequest('Not a camera entity');
+        assertReadable(env, [p.entity_id]);
         if (!env.model.input.includes('image')) {
           return {
             text: 'The current model cannot view images. Ask the user to switch to a vision-capable model.',
@@ -364,7 +392,8 @@ export function haTools(ha: HaGateway): ToolDef[] {
         entity_id: Type.String(),
         days: Type.Optional(Type.Number({ minimum: 1, maximum: 62, default: 7 })),
       }),
-      execute: async (_env, p) => {
+      execute: async (env, p) => {
+        assertReadable(env, [p.entity_id]);
         const start = new Date();
         const end = new Date(start.getTime() + (p.days ?? 7) * 86_400_000);
         const res = await ha.rest(
@@ -393,7 +422,8 @@ export function haTools(ha: HaGateway): ToolDef[] {
       description:
         'Items of a to-do list entity. Add or complete items with ha_call_service (todo.add_item, todo.update_item).',
       parameters: Type.Object({ entity_id: Type.String() }),
-      execute: async (_env, p) => {
+      execute: async (env, p) => {
+        assertReadable(env, [p.entity_id]);
         const res = await ha.query<{ items: Array<{ summary: string; status: string; due?: string }> }>({
           type: 'todo/item/list',
           entity_id: p.entity_id,
@@ -412,10 +442,11 @@ export function haTools(ha: HaGateway): ToolDef[] {
       description:
         'Automations, scripts or scenes with their config ids (needed for ha_get_config) and state.',
       parameters: Type.Object({ kind: StringEnum(CONFIG_KINDS) }),
-      execute: async (_env, p) => {
+      execute: async (env, p) => {
         const lines: string[] = [];
         for (const [id, s] of reg.states) {
           if (domainOf(id) !== p.kind) continue;
+          if (env.access && !env.access.canRead(id)) continue;
           const cfgId =
             p.kind === 'script' ? id.slice('script.'.length) : (s.attributes.id as string | undefined);
           const last = s.attributes.last_triggered
@@ -435,8 +466,9 @@ export function haTools(ha: HaGateway): ToolDef[] {
       risk: 'read',
       description: 'The YAML-equivalent JSON configuration of an automation, script or scene, by config id.',
       parameters: Type.Object({ kind: StringEnum(CONFIG_KINDS), config_id: Type.String() }),
-      execute: async (_env, p) => {
+      execute: async (env, p) => {
         requireAdmin(ha);
+        assertReadAll(env, 'Reading Home Assistant configuration');
         const res = await ha.rest('GET', `/api/config/${p.kind}/config/${encodeURIComponent(p.config_id)}`);
         if (res.status === 404)
           throw new AppError(
