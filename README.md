@@ -8,7 +8,7 @@ language models understand, control and automate your home — safely.
 
 [简体中文](README.zh-CN.md)
 
-> **Status: 0.1.0 prerelease.** Feature complete for a first release and covered by unit and end-to-end
+> **Status: 0.1.1 prerelease.** Feature complete for a first release and covered by unit and end-to-end
 > tests, but young. Back up regularly and expect rough edges.
 
 <picture>
@@ -50,7 +50,7 @@ language models understand, control and automate your home — safely.
 
 ```bash
 mkdir cangze && cd cangze
-VERSION=0.1.0
+VERSION=0.1.1
 curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
 docker compose up -d
 docker compose logs cangze | grep -i bootstrap
@@ -59,7 +59,7 @@ docker compose logs cangze | grep -i bootstrap
 The Compose file is downloaded from the versioned release asset, not from `main`. For a formal release, you
 can instead use `https://github.com/IGNGserver/cangze/releases/latest/download/compose.yaml`.
 
-Open `http://<host>:8080`, enter the bootstrap code from the log, choose your admin key, and the welcome
+Open `http://<host>:38417`, enter the bootstrap code from the log, choose your admin key, and the welcome
 wizard walks you through connecting Home Assistant (URL + long-lived access token of a dedicated user) and
 adding a model provider — OpenAI, Anthropic, DeepSeek, Qwen, Gemini and others are built in, and any
 OpenAI- or Anthropic-compatible endpoint (Ollama, vLLM, LM Studio, gateways) works too.

@@ -10,10 +10,10 @@ name: cangze
 
 services:
   cangze:
-    image: ${CANGZE_IMAGE:-ghcr.io/igngserver/cangze}:${CANGZE_VERSION:-0.1.0}
+    image: ${CANGZE_IMAGE:-ghcr.io/igngserver/cangze}:${CANGZE_VERSION:-0.1.1}
     restart: unless-stopped
     ports:
-      - '${CANGZE_BIND:-0.0.0.0}:${CANGZE_PORT:-8080}:8080'
+      - '${CANGZE_BIND:-0.0.0.0}:${CANGZE_PORT:-38417}:38417'
     environment:
       CANGZE_PUBLIC_ORIGIN: ${CANGZE_PUBLIC_ORIGIN:-}
       CANGZE_TRUSTED_PROXIES: ${CANGZE_TRUSTED_PROXIES:-}

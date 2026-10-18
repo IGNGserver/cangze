@@ -6,8 +6,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': { target: 'http://127.0.0.1:8080', ws: true },
-      '/health': 'http://127.0.0.1:8080',
+      '/api': { target: 'http://127.0.0.1:38417', ws: true },
+      '/health': 'http://127.0.0.1:38417',
     },
   },
   build: {

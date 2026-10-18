@@ -11,7 +11,7 @@ Thanks for helping build Cangze!
 
 ```bash
 pnpm install
-pnpm dev          # server on :8080 (tsx watch) + web on :5173 (Vite, proxies /api)
+pnpm dev          # server on :38417 (tsx watch) + web on :5173 (Vite, proxies /api)
 pnpm verify       # version · boundaries · i18n · format · lint · typecheck · test · OpenAPI
 ```
 

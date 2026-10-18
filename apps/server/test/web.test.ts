@@ -17,7 +17,7 @@ describe('web UI serving', () => {
       logger: createLogger('silent', new LogRing()),
     });
     const app = await buildServer(s, dir);
-    const headers = { host: '127.0.0.1:8080' };
+    const headers = { host: '127.0.0.1:38417' };
 
     const root = await app.inject({ method: 'GET', url: '/', headers });
     expect(root.statusCode).toBe(200);

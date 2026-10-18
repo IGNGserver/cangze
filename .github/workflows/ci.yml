@@ -133,15 +133,15 @@ jobs:
           cache-to: type=gha,mode=max
       - name: smoke test
         run: |
-          docker run -d --name cangze -p 8080:8080 cangze:ci
+          docker run -d --name cangze -p 38417:38417 cangze:ci
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8080/health/ready >/dev/null; then break; fi
+            if curl -fsS http://127.0.0.1:38417/health/ready >/dev/null; then break; fi
             sleep 1
           done
-          curl -fsS http://127.0.0.1:8080/health/ready
-          curl -fsS http://127.0.0.1:8080/api/v1/system/info | tee info.json
+          curl -fsS http://127.0.0.1:38417/health/ready
+          curl -fsS http://127.0.0.1:38417/api/v1/system/info | tee info.json
           grep -q '"name":"cangze"' info.json
-          curl -fsS http://127.0.0.1:8080/ | grep -q '<div id="root">'
+          curl -fsS http://127.0.0.1:38417/ | grep -q '<div id="root">'
       - name: container logs
         if: always()
         run: docker logs cangze || true
