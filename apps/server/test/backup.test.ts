@@ -52,7 +52,7 @@ describe('backup archive', () => {
     const db = Buffer.concat([Buffer.from('SQLite format 3\u0000'), Buffer.alloc(100, 1)]);
     const manifest = {
       format: 1 as const,
-      appVersion: '0.1.1',
+      appVersion: '0.1.2',
       schemaVersion: 1,
       createdAt: 'now',
       masterKeyFingerprint: 'x',

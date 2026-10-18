@@ -76,7 +76,7 @@ export function SetupPage() {
               label={t('auth.adminKey')}
               rules={[
                 { required: true, message: t('auth.adminKeyRequired') },
-                { min: 12, message: t('auth.adminKeyMin', { n: 12 }) },
+                { min: 6, message: t('auth.adminKeyMin', { n: 6 }) },
               ]}
             >
               <Input.Password autoComplete="new-password" size="large" />

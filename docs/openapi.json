@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Cangze API",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "REST API of the Cangze hub. Live updates are delivered over the /api/v1/stream WebSocket.",
     "license": {
       "name": "Apache-2.0",
@@ -8054,7 +8054,7 @@
                   },
                   "newKey": {
                     "type": "string",
-                    "minLength": 12,
+                    "minLength": 6,
                     "maxLength": 256
                   },
                   "revokeDevices": {
@@ -16026,7 +16026,7 @@
                   },
                   "adminKey": {
                     "type": "string",
-                    "minLength": 12,
+                    "minLength": 6,
                     "maxLength": 256
                   }
                 },

@@ -39,6 +39,26 @@ describe('setup and login', () => {
     expect(login.statusCode).toBe(200);
   });
 
+  it('accepts the six-character admin key allowed on the test platform', async () => {
+    const h = await harness({}, { setup: false });
+    const key = '100728';
+    const setup = await h.app.inject({
+      method: 'POST',
+      url: '/api/v1/setup',
+      headers: local,
+      payload: { bootstrapCode: h.s.auth.currentBootstrapCode(), adminKey: key },
+    });
+    expect(setup.statusCode).toBe(200);
+
+    const login = await h.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: local,
+      payload: { adminKey: key },
+    });
+    expect(login.statusCode).toBe(200);
+  });
+
   it('cannot run setup twice', async () => {
     const h = await harness();
     const res = await h.app.inject({
