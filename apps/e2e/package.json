@@ -1,0 +1,16 @@
+{
+  "name": "@cangze/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "env": "tsx env.ts",
+    "test": "playwright test",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "tsx": "^4.23.15"
+  }
+}

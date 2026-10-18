@@ -25,6 +25,7 @@ inside HA. Key decisions are recorded in [`docs/adr`](adr).
 | -------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `apps/server`        | Fastify 5 server, `src/modules/<module>/`                                                                     |
 | `apps/web`           | React 19 SPA (antd 6, @ant-design/x 2.x, Fluent 2 theme), built into `apps/web/dist` and served by the server |
+| `apps/e2e`           | Playwright end-to-end suite against an in-memory Home Assistant and a rule-based model API (`env.ts`)         |
 | `packages/contracts` | zod schemas shared by server and web: REST payloads, WS events, permission rules                              |
 | `docs/openapi.json`  | generated from the route schemas, checked by `pnpm openapi:check`                                             |
 
@@ -112,6 +113,10 @@ Per-agent overlap policy: `skip`, `queue` or `replace`. Misfired schedules after
 `skip`. Each run has a wall-clock timeout, a token budget and the agent has a daily cost budget. Event
 triggers are debounced per trigger. Runs that wait for approval keep their worker slot (status `waiting_approval`) until the decision or timeout.
 
+Cron expressions, time windows in permission rules and the backup schedule use the **Home Assistant time
+zone** (from `get_config`; the server's zone until HA is connected). The web UI shows timestamps such as
+"next trigger" in the browser's local time.
+
 ## Coordination
 
 `coordination` tracks recent writes per entity (`who`, `when`, `context id`). Rules applied in the gateway
@@ -140,7 +145,12 @@ Conflicts are returned to the model as tool errors with an explanation, and audi
   settings after typing a confirmation phrase; the UI then shows a permanent warning.
 - `Host` must match the configured allowlist (defaults: localhost, IP literals, `*.local`, configured
   public origin) to defeat DNS rebinding. State-changing requests require a matching `Origin`.
-- Strict CSP, no inline scripts. Secrets are encrypted at rest and never logged.
+- Every response carries a strict Content Security Policy (`script-src 'self'`, no inline scripts,
+  `frame-ancestors 'none'`; inline styles are allowed for antd's CSS-in-JS), `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and a restrictive `Permissions-Policy`; HSTS over
+  HTTPS. Model output is rendered as Markdown with raw HTML escaped and sanitized.
+- Tool arguments that end up in Home Assistant REST paths (entity ids) are checked against the canonical
+  `domain.object_id` form. Secrets are encrypted at rest and never logged.
 - HA: Cangze detects whether its token belongs to an HA administrator; configuration tools are disabled
   otherwise.
 

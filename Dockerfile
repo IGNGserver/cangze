@@ -10,6 +10,7 @@ WORKDIR /src
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml VERSION ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
+COPY apps/e2e/package.json apps/e2e/
 COPY packages/contracts/package.json packages/contracts/
 RUN pnpm install --frozen-lockfile
 COPY . .

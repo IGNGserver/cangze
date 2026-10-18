@@ -7,7 +7,7 @@ Collaboration: solo
 Baseline: main
 Default branch: main
 Release: tag + Actions（`.github/workflows/release.yml`，推 `v*.*.*` tag 触发；未说明时一律 prerelease）
-Validation: `pnpm verify`（在 `$BUILD_SCRATCH_ROOT/cangze/<slug>` 的同步副本里跑）；镜像构建、`docker compose config`、e2e 由 PR 上的 CI 承担
+Validation: `pnpm verify`（在 `$BUILD_SCRATCH_ROOT/cangze/<slug>` 的同步副本里跑）；改动界面或端到端流程时再跑 `pnpm --filter @cangze/web build && pnpm --filter @cangze/e2e test`；镜像构建、`docker compose config`、e2e 以 PR 上 CI 的 `image` / `e2e` job 为准
 Worktree: `~/项目/.wt/智能家庭中枢/<slug>`
 
 ## 这是什么
@@ -21,6 +21,7 @@ Home Assistant（不内置 HA、不依赖 HA 插件），以 Pi Agent（`@earend
 - `apps/server`：Fastify 5 + SQLite（better-sqlite3，预编译语句，不用 ORM），按 `src/modules/<模块>` 划分；`src/context.ts` 装配服务。
 - `apps/web`：React 19 + Vite + antd 6 + @ant-design/x 2.x，Fluent 2 风格主题。
 - `packages/contracts`：前后端共用的 zod 模型与 WS 事件协议；OpenAPI 由它生成并提交在 `docs/openapi.json`。
+- `apps/e2e`：Playwright 端到端测试，`env.ts` 起内存版 HA、规则假模型与真实 hub（重启监督同 compose）；浏览器缓存在本机盘（`~/Library/Caches/ms-playwright` / `~/.cache/ms-playwright`），不进项目卷。README 截图：`CANGZE_SCREENSHOTS=../../docs/images pnpm --filter @cangze/e2e test`，再 `scratch-pull.sh` 拷回。
 
 ## 开发去处（第 5c / 8 节的落地方式）
 
@@ -49,7 +50,8 @@ cd "$BUILD_SCRATCH_ROOT/cangze/<slug>" && pnpm install && pnpm verify
 
 ## 版本与发布
 
-- 根 `VERSION` 是唯一版本源，`package.json`（根与各 workspace）必须一致：`pnpm verify:version`。
+- 根 `VERSION` 是唯一版本源，`package.json`（根与各 workspace）以及 `compose.yaml` / `.env.example` 的默认镜像版本必须一致：`pnpm verify:version`。
+- 发版前写好 `docs/releases/v<版本>.md`，release workflow 用它作 Release 说明。
 - “发布 release”= prerelease；只有明确“发布正式版”才打正式 Release 并更新镜像 `latest`。
 - 镜像：`ghcr.io/igngserver/cangze:<version>`，linux/amd64 + linux/arm64。
 

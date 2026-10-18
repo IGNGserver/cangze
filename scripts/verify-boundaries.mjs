@@ -4,8 +4,9 @@
 // 3. 任何模块不得在 ha 模块之外拼接 HA 的 call_service 消息。
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {

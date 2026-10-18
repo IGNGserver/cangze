@@ -2,7 +2,7 @@ import { Spin } from 'antd';
 import { Navigate } from 'react-router';
 import { useHaStatus } from '../api/queries.ts';
 import { useModelDefaults } from '../api/sessions.ts';
-import { WELCOME_DONE_KEY } from './WelcomePage.tsx';
+import { WELCOME_DONE_KEY } from '../lib/welcome.ts';
 
 function welcomeDone(): boolean {
   try {

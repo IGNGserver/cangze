@@ -22,6 +22,12 @@ describe('web UI serving', () => {
     const root = await app.inject({ method: 'GET', url: '/', headers });
     expect(root.statusCode).toBe(200);
     expect(root.body).toContain('id="root"');
+    expect(root.headers['content-security-policy']).toContain("script-src 'self'");
+    expect(root.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+    expect(root.headers['x-content-type-options']).toBe('nosniff');
+    expect(root.headers['x-frame-options']).toBe('DENY');
+    expect(root.headers['referrer-policy']).toBe('no-referrer');
+    expect(root.headers['strict-transport-security']).toBeUndefined();
 
     const deep = await app.inject({ method: 'GET', url: '/sessions/abc', headers });
     expect(deep.statusCode).toBe(200);
