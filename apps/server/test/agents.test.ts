@@ -3,8 +3,9 @@ import {
   fauxProvider,
   fauxToolCall,
   type FauxProviderHandle,
+  type Usage,
 } from '@earendil-works/pi-ai';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeHa, FAKE_TOKEN, waitFor } from './fake-ha.ts';
 import { harness, type Harness } from './helpers.ts';
 
@@ -15,7 +16,7 @@ let faux: FauxProviderHandle;
 beforeEach(async () => {
   ha = await new FakeHa().start();
   h = await harness();
-  faux = fauxProvider({ provider: 'faux', models: [{ id: 'm1', contextWindow: 16000, maxTokens: 1000 }] });
+  faux = fauxProvider({ provider: 'faux', models: [{ id: 'm1', contextWindow: 8000, maxTokens: 1000 }] });
   h.s.providers.models.setProvider(faux.provider);
   h.s.db
     .prepare(
@@ -28,6 +29,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   h.s.scheduler.stop();
   h.s.runs.stop();
   h.s.sessions.abortAll();
@@ -67,6 +69,154 @@ async function runToEnd(runId: string) {
 }
 
 describe('subagents', () => {
+  it('refuses daily budgets on unknown-price models without issuing a request', async () => {
+    h.s.db
+      .prepare("UPDATE providers SET kind = 'custom', config = ? WHERE id = 'faux'")
+      .run(JSON.stringify({ api: 'openai-completions', models: [{ id: 'm1' }] }));
+    const agent = await createAgent({ ...LIVING_LIGHTS, limits: { dailyCostLimit: 1 } });
+    const run = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual' });
+    expect(await runToEnd(run.id)).toMatchObject({
+      status: 'skipped',
+      error: expect.stringContaining('unknown is not free'),
+    });
+  });
+
+  it('checks settled daily cost before executing a model-requested device write', async () => {
+    const agent = await createAgent({ ...LIVING_LIGHTS, limits: { dailyCostLimit: 0.01 } });
+    faux.setResponses([
+      (ctx) => {
+        h.s.db
+          .prepare(
+            "INSERT INTO usage_ledger (day, principal_kind, principal_id, provider, model, requests, input, output, cache_read, cache_write, cost) VALUES (?, 'agent', ?, 'faux', 'm1', 1, 1, 1, 0, 0, 0.02)",
+          )
+          .run(new Date().toISOString().slice(0, 10), agent.id);
+        expect(ctx.messages.length).toBeGreaterThan(0);
+        return fauxAssistantMessage(
+          [
+            fauxToolCall('ha_call_service', {
+              domain: 'light',
+              service: 'turn_on',
+              target: { entity_id: ['light.living_lamp'] },
+            }),
+          ],
+          { stopReason: 'toolUse' },
+        );
+      },
+    ]);
+    const run = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual' });
+    expect(await runToEnd(run.id)).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('daily cost limit'),
+    });
+    expect(ha.calls).toHaveLength(0);
+  });
+
+  it('refuses a budget after earlier unknown-price usage even with a known-price model', async () => {
+    const agent = await createAgent({ ...LIVING_LIGHTS, limits: { dailyCostLimit: 1 } });
+    h.s.usage.record(
+      'agent',
+      agent.id,
+      'faux',
+      'm1',
+      { input: 10, cost: { total: 0 } } as Usage,
+      new Date(),
+      false,
+    );
+    const run = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual' });
+    expect(await runToEnd(run.id)).toMatchObject({
+      status: 'skipped',
+      error: expect.stringContaining('earlier unknown-price usage'),
+    });
+    const rows = (await h.call('GET', '/api/v1/usage')).json();
+    expect(rows.find((r: any) => r.principalId === agent.id)).toMatchObject({
+      requests: 1,
+      unknownRequests: 1,
+      cost: 0,
+    });
+  });
+
+  it('checks settled summary costs before the next summary request', async () => {
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      contextMode: 'continuous',
+      limits: { dailyCostLimit: 0.01 },
+    });
+    const conv = h.s.agents.row(agent.id).conversation_id;
+    let parent: string | null = null;
+    for (let i = 0; i < 7; i++)
+      parent = h.s.conversations.append(
+        conv,
+        parent,
+        'message',
+        { message: { role: 'user', content: 'x'.repeat(3000), timestamp: i } },
+        { role: 'user' },
+      ).id;
+    let requests = 0;
+    const complete = h.s.providers.models.completeSimple.bind(h.s.providers.models);
+    vi.spyOn(h.s.providers.models, 'completeSimple').mockImplementationOnce(async (...args) => {
+      const response = await complete(...args);
+      return {
+        ...response,
+        usage: {
+          ...response.usage,
+          cost: { input: 0.02, output: 0, cacheRead: 0, cacheWrite: 0, total: 0.02 },
+        },
+      };
+    });
+    faux.setResponses([
+      () => {
+        requests++;
+        return fauxAssistantMessage('Summary');
+      },
+    ]);
+    const run = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual' });
+    expect(await runToEnd(run.id)).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('daily cost limit'),
+      usage: { cost: 0.02 },
+    });
+    expect(requests).toBe(1);
+    expect(h.s.usage.query(1).find((r) => r.principal_id === agent.id)?.cost).toBe(0.02);
+    expect(h.s.providers.models.completeSimple).toHaveBeenCalledTimes(1);
+    expect(h.s.conversations.activePath(conv).some((e) => e.kind === 'compaction')).toBe(false);
+    expect(ha.calls).toHaveLength(0);
+  });
+
+  it('compacts continuous context and keeps it compacted through subsequent tool turns', async () => {
+    const agent = await createAgent({ ...LIVING_LIGHTS, contextMode: 'continuous' });
+    const conv = h.s.agents.row(agent.id).conversation_id;
+    let parent: string | null = null;
+    for (let i = 0; i < 7; i++) {
+      parent = h.s.conversations.append(
+        conv,
+        parent,
+        'message',
+        {
+          message: { role: 'user', content: `historical-${i} ${'x'.repeat(3000)}`, timestamp: i },
+        },
+        { role: 'user' },
+      ).id;
+    }
+    let summaries = 0;
+    const respond = (ctx: any) => {
+      if (JSON.stringify(ctx).includes('You compress conversations')) {
+        summaries++;
+        return fauxAssistantMessage('Historical summary, no device actions pending.');
+      }
+      expect(JSON.stringify(ctx.messages)).toContain('Historical summary');
+      expect(JSON.stringify(ctx.messages)).not.toContain('historical-0');
+      if (ctx.messages.some((m: any) => m.role === 'toolResult')) return fauxAssistantMessage('Finished.');
+      return fauxAssistantMessage([fauxToolCall('ha_search_entities', {})], { stopReason: 'toolUse' });
+    };
+    faux.setResponses(Array.from({ length: 10 }, () => respond));
+    const run = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual' });
+    const outcome = await runToEnd(run.id);
+    expect(outcome, outcome.error ?? '').toMatchObject({ status: 'succeeded', summary: 'Finished.' });
+    expect(h.s.conversations.activePath(conv).filter((e) => e.kind === 'compaction')).toHaveLength(1);
+    expect(summaries).toBeGreaterThan(1);
+    expect(h.s.usage.query(1).find((u) => u.principal_id === agent.id)?.requests).toBe(summaries + 2);
+  });
+
   it('runs a task with permitted controls and records everything', async () => {
     faux.setResponses([
       fauxAssistantMessage(
@@ -504,6 +654,40 @@ describe('subagents', () => {
       h.s.sessions.get(sid).entries.some((e) => JSON.stringify(e.data).includes('Continued with the report')),
     );
     expect(h.s.sessions.get(sid).entries.filter((e) => e.kind === 'notice')).toHaveLength(1);
+  });
+
+  it('delivers reports to archived sessions without starting a reply', async () => {
+    const sid = h.s.sessions.create({ title: 'Archived receiver' }).id;
+    h.s.sessions.update(sid, { archived: true });
+    h.s.sessions.receiveReport(sid, 'run_archived', {
+      level: 'report',
+      title: 'Result',
+      body: 'Done',
+      forModel: true,
+    });
+    await waitFor(() => h.s.sessions.get(sid).entries.length === 1);
+    expect(h.s.sessions.isRunning(sid)).toBe(false);
+    expect(h.s.usage.query(1)).toHaveLength(0);
+  });
+
+  it('keeps a delivered report after restart without replaying its continuation', async () => {
+    const sid = h.s.sessions.create({ title: 'Crash window' }).id;
+    h.s.sessions.addNotice(sid, {
+      level: 'report',
+      title: 'Result',
+      body: 'Already delivered',
+      forModel: true,
+    });
+    h.s.db
+      .prepare('INSERT INTO session_reports (run_id, session_id, notice, delivered_at) VALUES (?, ?, ?, ?)')
+      .run('run_delivered', sid, '{}', Date.now());
+    h.s.db.prepare('INSERT INTO session_continuations (session_id, count) VALUES (?, 1)').run(sid);
+    h.s.sessions.abortAll();
+    h.s.sessions.resumeReports();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(h.s.sessions.get(sid).entries).toHaveLength(1);
+    expect(h.s.sessions.isRunning(sid)).toBe(false);
+    expect(h.s.usage.query(1)).toHaveLength(0);
   });
 
   it('bounds automatic report continuations and resumes pending reports after restart', async () => {

@@ -98,7 +98,9 @@ export function SessionDrawer({
         <Descriptions.Item label={t('chat.tokens')}>
           {detail.usage.input} ↑ · {detail.usage.output} ↓ · {detail.usage.cacheRead} {t('chat.cached')}
         </Descriptions.Item>
-        <Descriptions.Item label={t('chat.cost')}>${detail.usage.cost.toFixed(4)}</Descriptions.Item>
+        <Descriptions.Item label={t('chat.cost')}>
+          {detail.usage.costUnknown ? t('chat.costUnknown') : `$${detail.usage.cost.toFixed(4)}`}
+        </Descriptions.Item>
       </Descriptions>
       <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
         {t('chat.compactHint')}

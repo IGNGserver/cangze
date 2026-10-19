@@ -7,30 +7,34 @@ export interface UsageTotals {
   cacheRead: number;
   cacheWrite: number;
   cost: number;
+  costUnknown?: boolean;
 }
 
 export const ZERO_USAGE: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 
 /** Normalize legacy or partially written usage JSON before doing arithmetic or serving it. */
 export function normalizeUsage(value: Partial<UsageTotals> | null | undefined): UsageTotals {
-  const number = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const number = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
   return {
     input: number(value?.input),
     output: number(value?.output),
     cacheRead: number(value?.cacheRead),
     cacheWrite: number(value?.cacheWrite),
     cost: number(value?.cost),
+    ...(value?.costUnknown ? { costUnknown: true } : {}),
   };
 }
 
-export function addUsage(a: UsageTotals, u: Usage): UsageTotals {
+export function addUsage(a: UsageTotals, u: Usage, pricesKnown = true): UsageTotals {
   const current = normalizeUsage(a);
+  const measured = normalizeUsage({ ...u, cost: u.cost?.total });
   return {
-    input: current.input + (u.input ?? 0),
-    output: current.output + (u.output ?? 0),
-    cacheRead: current.cacheRead + (u.cacheRead ?? 0),
-    cacheWrite: current.cacheWrite + (u.cacheWrite ?? 0),
-    cost: Math.round((current.cost + (u.cost?.total ?? 0)) * 1e6) / 1e6,
+    input: current.input + measured.input,
+    output: current.output + measured.output,
+    cacheRead: current.cacheRead + measured.cacheRead,
+    cacheWrite: current.cacheWrite + measured.cacheWrite,
+    cost: current.cost + measured.cost,
+    ...(current.costUnknown || !pricesKnown ? { costUnknown: true } : {}),
   };
 }
 
@@ -45,15 +49,18 @@ export class UsageLedger {
     model: string,
     u: Usage,
     at = new Date(),
+    pricesKnown = true,
   ): void {
     const day = at.toISOString().slice(0, 10);
+    const measured = normalizeUsage({ ...u, cost: u.cost?.total });
     this.db
       .prepare(
-        `INSERT INTO usage_ledger (day, principal_kind, principal_id, provider, model, requests, input, output, cache_read, cache_write, cost)
-         VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+        `INSERT INTO usage_ledger (day, principal_kind, principal_id, provider, model, requests, input, output, cache_read, cache_write, cost, unknown_requests)
+         VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(day, principal_kind, principal_id, provider, model) DO UPDATE SET
            requests = requests + 1, input = input + excluded.input, output = output + excluded.output,
-           cache_read = cache_read + excluded.cache_read, cache_write = cache_write + excluded.cache_write, cost = cost + excluded.cost`,
+           cache_read = cache_read + excluded.cache_read, cache_write = cache_write + excluded.cache_write, cost = cost + excluded.cost,
+            unknown_requests = unknown_requests + excluded.unknown_requests`,
       )
       .run(
         day,
@@ -61,15 +68,26 @@ export class UsageLedger {
         principalId,
         provider,
         model,
-        u.input ?? 0,
-        u.output ?? 0,
-        u.cacheRead ?? 0,
-        u.cacheWrite ?? 0,
-        u.cost?.total ?? 0,
+        measured.input,
+        measured.output,
+        measured.cacheRead,
+        measured.cacheWrite,
+        measured.cost,
+        pricesKnown ? 0 : 1,
       );
   }
 
   /** Cost spent today (UTC day) by one principal. */
+  hasUnknownCostToday(principalKind: string, principalId: string): boolean {
+    return Boolean(
+      this.db
+        .prepare(
+          'SELECT 1 FROM usage_ledger WHERE day = ? AND principal_kind = ? AND principal_id = ? AND unknown_requests > 0',
+        )
+        .get(new Date().toISOString().slice(0, 10), principalKind, principalId),
+    );
+  }
+
   costToday(principalKind: string, principalId: string): number {
     const day = new Date().toISOString().slice(0, 10);
     const r = this.db
@@ -94,6 +112,7 @@ export class UsageLedger {
       cache_read: number;
       cache_write: number;
       cost: number;
+      unknown_requests: number;
     }>;
   }
 }

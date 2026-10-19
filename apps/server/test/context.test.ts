@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildContext, repairToolPairs, trimOldToolResults } from '../src/modules/conversations/context.ts';
+import {
+  buildContext,
+  chooseCompactionCut,
+  contextBeforeCut,
+  repairToolPairs,
+  trimOldToolResults,
+} from '../src/modules/conversations/context.ts';
 import type { StoredEntry } from '../src/modules/conversations/store.ts';
 import { HaRegistry } from '../src/modules/ha/registry.ts';
 import { classifyWrite, DEFAULT_RISK_POLICY } from '../src/modules/policy/risk.ts';
@@ -51,6 +57,25 @@ describe('buildContext', () => {
     ]) as any[];
     expect(ctx).toHaveLength(2);
     expect(ctx[1].content).toContain('all good');
+  });
+});
+
+describe('continuous compaction history', () => {
+  it('carries the prior summary forward and never includes pre-compaction history twice', () => {
+    const old = user('old secret discussion');
+    const summary = entry('compaction', {
+      summary: 'old secret summarized',
+      firstKeptEntryId: null,
+      tokensBefore: 100,
+    });
+    const recent = user('recent instruction');
+    const answer = assistant([{ type: 'text', text: 'recent answer' }]);
+    const path = [old, summary, recent, answer];
+    const before = contextBeforeCut(path, 3) as any[];
+    expect(JSON.stringify(before)).toContain('old secret summarized');
+    expect(JSON.stringify(before)).not.toContain('old secret discussion');
+    expect(JSON.stringify(before)).toContain('recent instruction');
+    expect(chooseCompactionCut(path, 1)).toBeGreaterThanOrEqual(2);
   });
 });
 

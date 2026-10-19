@@ -250,6 +250,7 @@ describe('sessions', () => {
   });
 
   it('serializes concurrent messages while an idle session is preparing a run', async () => {
+    faux = installFauxSlow();
     faux.setResponses([
       fauxAssistantMessage('first answer'),
       fauxAssistantMessage('title'),
@@ -258,15 +259,6 @@ describe('sessions', () => {
     const id = await newSession();
     await h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'first' });
     await settle(id);
-    // Reproduce the asynchronous preparation window (normally automatic compaction/model setup).
-    const service = h.s.sessions as unknown as {
-      compactConversation: (...args: unknown[]) => Promise<boolean>;
-    };
-    const compact = service.compactConversation.bind(service);
-    service.compactConversation = async (...args) => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      return compact(...args);
-    };
     const [a, b] = await Promise.all([
       h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'second' }),
       h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'third' }),
@@ -309,6 +301,37 @@ describe('sessions', () => {
     );
   });
 
+  it('cancels manual compaction on stop without persisting a summary or launching a reply', async () => {
+    const id = await newSession();
+    faux.setResponses([
+      fauxAssistantMessage('r1'),
+      fauxAssistantMessage('title'),
+      fauxAssistantMessage('r2'),
+    ]);
+    await h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'first' });
+    await settle(id);
+    await h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'second' });
+    await settle(id);
+    const slow = installFauxSlow();
+    let started = false;
+    slow.setResponses([
+      () => {
+        started = true;
+        return fauxAssistantMessage('Long summary that must not be stored after stopping.');
+      },
+    ]);
+    const compact = h.s.sessions.compact(id);
+    const settled = compact.then(
+      () => 'completed',
+      () => 'cancelled',
+    );
+    await waitFor(() => started);
+    h.s.sessions.abort(id);
+    expect(await settled).toBe('cancelled');
+    expect(h.s.sessions.get(id).entries.some((e) => e.kind === 'compaction')).toBe(false);
+    expect(h.s.sessions.isRunning(id)).toBe(false);
+  });
+
   it('fails clearly when no model is configured', async () => {
     h.s.providers.defaults.set({ chat: null, utility: null, thinkingLevel: 'off' });
     const id = await newSession();
@@ -348,6 +371,14 @@ describe('providers', () => {
     expect(JSON.stringify(p)).not.toContain('sk-local-secret-123456');
     const models = (await h.call('GET', '/api/v1/models')).json();
     expect(models.map((m: any) => m.ref)).toContain('custom-local-ollama/qwen3:8b');
+    expect(models.find((m: any) => m.providerId === p.id).costKnown).toBe(false);
+    const rates = { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 1.5 };
+    expect(
+      (await h.call('PATCH', `/api/v1/providers/${p.id}`, { models: [{ id: 'qwen3:8b', cost: rates }] }))
+        .statusCode,
+    ).toBe(200);
+    expect(h.s.providers.resolve(`${p.id}/qwen3:8b`).cost).toEqual(rates);
+    expect(h.s.providers.hasKnownPrices(h.s.providers.resolve(`${p.id}/qwen3:8b`))).toBe(true);
     const defaults = await h.call('PUT', '/api/v1/models/defaults', {
       chat: 'custom-local-ollama/qwen3:8b',
       utility: null,

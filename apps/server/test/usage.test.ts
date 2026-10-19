@@ -18,4 +18,12 @@ describe('usage normalization', () => {
       cost: 0.02,
     });
   });
+
+  it('marks unknown prices separately from explicit free usage', () => {
+    const usage = { input: 12, output: 3, cost: { total: 0 } } as Usage;
+    expect(addUsage(ZERO_USAGE, usage, false)).toMatchObject({ cost: 0, costUnknown: true });
+    expect(addUsage(ZERO_USAGE, usage, true)).toMatchObject({ cost: 0 });
+    expect(addUsage(ZERO_USAGE, usage, true)).not.toHaveProperty('costUnknown');
+    expect(normalizeUsage({ cost: -1 }).cost).toBe(0);
+  });
 });

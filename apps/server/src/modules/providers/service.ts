@@ -156,7 +156,7 @@ export class ProvidersService {
         baseUrl: row.base_url ?? '',
         reasoning: m.reasoning,
         input: m.vision ? ['text', 'image'] : ['text'],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        cost: m.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: m.contextWindow,
         maxTokens: m.maxTokens,
       })),
@@ -325,7 +325,16 @@ export class ProvidersService {
       maxTokens: m.maxTokens,
       thinkingLevels: [...new Set(levels)],
       cost: { input: m.cost.input, output: m.cost.output },
+      costKnown: this.hasKnownPrices(m),
     };
+  }
+
+  /** Unknown custom prices are not equivalent to explicitly configured zero rates. */
+  hasKnownPrices(model: Model<Api>): boolean {
+    const row = this.row(model.provider);
+    if (row.kind !== 'custom') return true;
+    const cfg = json.parse<CustomConfig>(row.config, { api: 'openai-completions', models: [] });
+    return cfg.models.find((m) => m.id === model.id)?.cost != null;
   }
 
   /** Resolve a model reference (or the default) to a usable pi model. */

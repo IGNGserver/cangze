@@ -28,9 +28,10 @@ export function UsagePanel() {
         input: number;
         output: number;
         requests: number;
+        unknownRequests: number;
       }
     >();
-    const totals = { cost: 0, input: 0, output: 0, requests: 0 };
+    const totals = { cost: 0, input: 0, output: 0, requests: 0, unknownRequests: 0 };
     for (const r of rows) {
       const d = dayMap.get(r.day) ?? { day: r.day.slice(5) };
       d[r.model] = Math.round(((Number(d[r.model]) || 0) + r.cost) * 10000) / 10000;
@@ -44,16 +45,19 @@ export function UsagePanel() {
         input: 0,
         output: 0,
         requests: 0,
+        unknownRequests: 0,
       };
       p.cost += r.cost;
       p.input += r.input;
       p.output += r.output;
       p.requests += r.requests;
+      p.unknownRequests += r.unknownRequests;
       principal.set(k, p);
       totals.cost += r.cost;
       totals.input += r.input;
       totals.output += r.output;
       totals.requests += r.requests;
+      totals.unknownRequests += r.unknownRequests;
     }
     return {
       byDay: [...dayMap.values()],
@@ -97,6 +101,11 @@ export function UsagePanel() {
         <Empty description={t('logs.noUsage')} />
       ) : (
         <>
+          {totals.unknownRequests > 0 && (
+            <Card size="small" type="inner" style={{ marginBottom: 16 }}>
+              {t('logs.unknownPriceUsage', { requests: totals.unknownRequests })}
+            </Card>
+          )}
           <Card size="small" title={t('logs.costPerDay')} style={{ marginBottom: 16 }}>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={byDay} margin={{ left: -10, right: 8 }}>
@@ -142,6 +151,7 @@ export function UsagePanel() {
                 render: (k: string) => t(`logs.kinds.${k}`, { defaultValue: k }),
               },
               { title: t('logs.requests'), dataIndex: 'requests', width: 100 },
+              { title: t('logs.unknownPriceRequests'), dataIndex: 'unknownRequests', width: 140 },
               { title: t('logs.inputTokens'), dataIndex: 'input', width: 120 },
               { title: t('logs.outputTokens'), dataIndex: 'output', width: 120 },
               {

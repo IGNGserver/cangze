@@ -9,6 +9,7 @@ import type { ApprovalsService } from '../approvals/service.ts';
 import {
   buildContext,
   chooseCompactionCut,
+  contextBeforeCut,
   estimateTokens,
   summarize,
   type CompactionData,
@@ -50,6 +51,7 @@ const TITLE_PROMPT =
 
 export class SessionsService {
   private readonly runs = new Map<string, ActiveRun>();
+  private readonly compactions = new Map<string, AbortController>();
   private readonly runLocks = new Map<string, Promise<void>>();
   private stopped = false;
   private readonly sectionProviders: PromptSectionProvider[] = [];
@@ -313,6 +315,7 @@ export class SessionsService {
       )
       .run(id);
     this.runs.get(id)?.abort();
+    this.compactions.get(id)?.abort();
   }
 
   /** Persist before scheduling delivery, so a crash cannot lose a completed task report. */
@@ -417,12 +420,19 @@ export class SessionsService {
     return this.withRunLock(id, async () => {
       const r = this.row(id);
       this.assertIdle(id);
-      return this.compactConversation(r, true);
+      const controller = new AbortController();
+      this.compactions.set(id, controller);
+      try {
+        return await this.compactConversation(r, true, controller.signal);
+      } finally {
+        this.compactions.delete(id);
+      }
     });
   }
 
   private assertIdle(id: string): void {
-    if (this.runs.has(id)) throw conflict('The session is busy; stop the current reply first');
+    if (this.runs.has(id) || this.compactions.has(id))
+      throw conflict('The session is busy; stop the current reply first');
   }
 
   /** Serialize the idle check and asynchronous run setup for one session. */
@@ -443,7 +453,7 @@ export class SessionsService {
     }
   }
 
-  private async compactConversation(r: Row, force: boolean): Promise<boolean> {
+  private async compactConversation(r: Row, force: boolean, signal: AbortSignal): Promise<boolean> {
     const model = this.providers.resolve(r.model_ref);
     const path = this.store.activePath(r.conversation_id);
     const context = buildContext(path);
@@ -455,9 +465,23 @@ export class SessionsService {
       force ? 0 : Math.floor(model.contextWindow * KEEP_AFTER_COMPACTION),
     );
     if (cut <= 0) return false;
-    const older = buildContext(path.slice(0, cut));
+    const older = contextBeforeCut(path, cut);
     if (!older.length) return false;
-    const summary = await summarize(this.providers.models, this.providers.resolve(null, 'utility'), older);
+    const pricesKnown = this.providers.hasKnownPrices(model);
+    const summary = await summarize(
+      this.providers.models,
+      model,
+      older,
+      AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
+      (m) => {
+        if (!m.usage) return;
+        const cur = normalizeUsage(json.parse<Partial<UsageTotals>>(this.row(r.id).usage, ZERO_USAGE));
+        this.db
+          .prepare('UPDATE sessions SET usage = ? WHERE id = ?')
+          .run(json.stringify(addUsage(cur, m.usage, pricesKnown)), r.id);
+        this.usage.record('session', r.id, m.provider, m.model, m.usage, new Date(), pricesKnown);
+      },
+    );
     const data: CompactionData = { summary, firstKeptEntryId: path[cut]!.id, tokensBefore: tokens };
     const entry = this.store.append(
       r.conversation_id,
@@ -472,15 +496,7 @@ export class SessionsService {
 
   private async startRun(r: Row, parentEntryId: string | null, input: AgentMessage[]): Promise<string> {
     const model = this.providers.resolve(r.model_ref);
-    // Auto-compact when the context is getting full (only when continuing the active branch).
-    if (parentEntryId && parentEntryId === this.store.activeLeaf(r.conversation_id)) {
-      try {
-        if (await this.compactConversation(r, false))
-          parentEntryId = this.store.activeLeaf(r.conversation_id);
-      } catch (err) {
-        this.logger.warn({ module: 'sessions', err }, 'automatic compaction failed');
-      }
-    }
+    const pricesKnown = this.providers.hasKnownPrices(model);
     const runId = newId('run');
     const defaults = this.providers.defaults.get();
     const thinking = (r.thinking_level ?? defaults.thinkingLevel) as ThinkingLevel;
@@ -493,6 +509,7 @@ export class SessionsService {
       topic: `session:${r.id}`,
       principal: { kind: 'session', sessionId: r.id, runId },
       model,
+      autoCompact: true,
       thinkingLevel: model.reasoning ? thinking : 'off',
       systemPrompt: buildSystemPrompt({
         role: 'session',
@@ -517,8 +534,8 @@ export class SessionsService {
         );
         this.db
           .prepare('UPDATE sessions SET usage = ? WHERE id = ?')
-          .run(json.stringify(addUsage(cur, m.usage)), r.id);
-        this.usage.record('session', r.id, m.provider, m.model, m.usage);
+          .run(json.stringify(addUsage(cur, m.usage, pricesKnown)), r.id);
+        this.usage.record('session', r.id, m.provider, m.model, m.usage, new Date(), pricesKnown);
       },
       onEntry: () => {
         this.db
@@ -621,6 +638,7 @@ export class SessionsService {
   abortAll(): void {
     this.stopped = true;
     for (const run of this.runs.values()) run.abort();
+    for (const controller of this.compactions.values()) controller.abort();
   }
 }
 

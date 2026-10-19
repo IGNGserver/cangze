@@ -12,7 +12,14 @@ import {
 } from '@earendil-works/pi-ai';
 import type { Logger } from 'pino';
 import type { Principal } from '../../core/principal.ts';
-import { buildContext, trimOldToolResults } from '../conversations/context.ts';
+import {
+  buildContext,
+  chooseCompactionCut,
+  contextBeforeCut,
+  estimateTokens,
+  summarize,
+  trimOldToolResults,
+} from '../conversations/context.ts';
 import { toWire, type ConversationStore, type StoredEntry } from '../conversations/store.ts';
 import type { StreamHub } from '../stream/hub.ts';
 import { toAgentTool, type ToolDef, type ToolEnv } from '../tools/types.ts';
@@ -33,6 +40,9 @@ export interface RunSpec {
   /** Messages that start the run (usually one user message). Empty = continue from the transcript. */
   input: AgentMessage[];
   maxTokens?: number;
+  autoCompact?: boolean;
+  beforeRequest?: () => void;
+  beforeTool?: () => void;
   onAssistant?: (message: AssistantMessage) => void;
   onEntry?: (entry: StoredEntry) => void;
 }
@@ -51,6 +61,7 @@ const PARTIAL_THROTTLE_MS = 80;
 
 /** A run in flight. Exposes steering, abort and a live snapshot for reconnecting clients. */
 export class ActiveRun {
+  aborted = false;
   readonly startedAt = new Date();
   partial: AssistantMessage | null = null;
   readonly tools = new Map<string, { toolCallId: string; name: string; args: unknown; partial?: unknown }>();
@@ -80,6 +91,7 @@ export class ActiveRun {
   }
 
   abort(): void {
+    this.aborted = true;
     this.agent.abort();
   }
 
@@ -104,6 +116,7 @@ export class AgentRunner {
   ) {}
 
   start(spec: RunSpec): ActiveRun {
+    let currentRun: ActiveRun;
     const context = trimOldToolResults(
       buildContext(this.store.path(spec.conversationId, spec.parentEntryId)),
     );
@@ -119,6 +132,8 @@ export class AgentRunner {
       },
       streamFn: (model, ctx, options) => {
         try {
+          options?.signal?.throwIfAborted();
+          spec.beforeRequest?.();
           return models.streamSimple(model, ctx as unknown as Context, {
             ...options,
             ...(spec.maxTokens ? { maxTokens: spec.maxTokens } : {}),
@@ -129,7 +144,58 @@ export class AgentRunner {
           });
         }
       },
-      transformContext: async (messages) => trimOldToolResults(messages),
+      transformContext: async (messages, signal) => {
+        signal?.throwIfAborted();
+        spec.beforeRequest?.();
+        // pi retains its original transcript internally. Always rebuild from the durable active
+        // path, otherwise the next tool turn would silently restore pre-compaction history.
+        const system = messages.filter((m) => m.role === 'system');
+        const live = spec.autoCompact
+          ? buildContext(this.store.path(spec.conversationId, currentRun.lastEntryId))
+          : messages.filter((m) => m.role !== 'system');
+        const trimmed = trimOldToolResults(live);
+        const reserve = Math.min(spec.model.maxTokens, spec.maxTokens ?? 4096, spec.model.contextWindow / 4);
+        const threshold = (spec.model.contextWindow - reserve) * 0.8;
+        if (!spec.autoCompact || estimateTokens(trimmed) < threshold) return [...system, ...trimmed];
+        const path = this.store.path(spec.conversationId, currentRun.lastEntryId);
+        const cut = chooseCompactionCut(path, Math.floor(threshold / 4));
+        if (cut <= 0) return [...system, ...trimmed];
+        const older = contextBeforeCut(path, cut);
+        if (!older.length) return [...system, ...trimmed];
+        const summary = await summarize(
+          models,
+          spec.model,
+          older,
+          signal,
+          spec.onAssistant,
+          spec.beforeRequest,
+        );
+        signal?.throwIfAborted();
+        const entry = this.store.append(
+          spec.conversationId,
+          currentRun.lastEntryId,
+          'compaction',
+          {
+            summary,
+            firstKeptEntryId: path[cut]!.id,
+            tokensBefore: estimateTokens(trimmed),
+          },
+          { runId: spec.runId },
+        );
+        currentRun.lastEntryId = entry.id;
+        spec.onEntry?.(entry);
+        this.stream.publish(spec.topic, { kind: 'entry', entry: toWire(entry), activeLeafId: entry.id });
+        spec.beforeRequest?.();
+        return [
+          ...system,
+          ...trimOldToolResults(buildContext(this.store.path(spec.conversationId, entry.id))),
+        ];
+      },
+      beforeToolCall: async (_context, signal) => {
+        signal?.throwIfAborted();
+        spec.beforeTool?.();
+        return undefined;
+      },
       steeringMode: 'all',
       followUpMode: 'all',
       toolExecution: 'sequential',
@@ -137,6 +203,7 @@ export class AgentRunner {
     });
 
     return new ActiveRun(spec.runId, agent, spec.parentEntryId, async (run) => {
+      currentRun = run;
       const publish = (data: unknown) => this.stream.publish(spec.topic, data);
       const usage: Usage[] = [];
       let lastAssistant: AssistantMessage | null = null;
@@ -226,13 +293,13 @@ export class AgentRunner {
         else await agent.continue();
         await agent.waitForIdle();
         const last = lastAssistant as AssistantMessage | null;
-        if (last?.stopReason === 'aborted') status = 'aborted';
+        if (run.aborted || last?.stopReason === 'aborted') status = 'aborted';
         else if (last?.stopReason === 'error') {
           status = 'error';
           error = last.errorMessage ?? 'The model request failed';
         }
       } catch (err) {
-        status = agent.signal?.aborted ? 'aborted' : 'error';
+        status = run.aborted || agent.signal?.aborted ? 'aborted' : 'error';
         error = err instanceof Error ? err.message : String(err);
         this.logger.warn({ module: 'engine', runId: spec.runId, error }, 'run failed');
       } finally {

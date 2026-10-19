@@ -169,6 +169,7 @@ export const RunSummary = z.object({
     cacheRead: z.number(),
     cacheWrite: z.number(),
     cost: z.number(),
+    costUnknown: z.boolean().optional(),
   }),
 });
 export type RunSummary = z.infer<typeof RunSummary>;

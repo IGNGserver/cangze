@@ -298,6 +298,36 @@ function ModelsEditor() {
               <Button type="text" danger onClick={() => remove(f.name)}>
                 ✕
               </Button>
+              <Typography.Text type="secondary">{t('settings.models.priceHint')}</Typography.Text>
+              <Form.Item noStyle shouldUpdate>
+                {({ getFieldValue, setFieldValue }) => (
+                  <>
+                    <Checkbox
+                      checked={getFieldValue(['models', f.name, 'cost']) != null}
+                      onChange={(e) =>
+                        setFieldValue(
+                          ['models', f.name, 'cost'],
+                          e.target.checked ? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } : null,
+                        )
+                      }
+                    >
+                      {t('settings.models.knownPrice')}
+                    </Checkbox>
+                    {getFieldValue(['models', f.name, 'cost']) != null &&
+                      (['input', 'output', 'cacheRead', 'cacheWrite'] as const).map((rate) => (
+                        <Form.Item
+                          key={rate}
+                          name={[f.name, 'cost', rate]}
+                          label={t(`settings.models.price.${rate}`)}
+                          rules={[{ required: true }]}
+                          style={{ width: 125, marginBottom: 0 }}
+                        >
+                          <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                        </Form.Item>
+                      ))}
+                  </>
+                )}
+              </Form.Item>
             </Flex>
           ))}
           <Button
