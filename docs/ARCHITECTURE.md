@@ -103,8 +103,10 @@ concurrency because several equal main sessions may edit the same agent. Each su
   `manual` (dispatched by a main session or the admin).
 
 Users can read a subagent's full conversation and run history but cannot post into it. Main sessions
-dispatch tasks with `subagent_run`; when the run ends a task report is added to the originating session as
-a `notice` entry and a notification is raised.
+dispatch tasks with `agent_run`; every terminal outcome is delivered once to a durable report inbox and
+the originating session. Reports wait until an active reply ends, then become notices and start one
+continuation against the updated transcript. At most eight automatic continuations run between user
+messages; abort/archive suppresses automatic wakeups. Device writes are never replayed after restart.
 
 ## Scheduler
 

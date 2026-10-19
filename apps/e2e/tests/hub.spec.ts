@@ -132,6 +132,11 @@ test('agents: create from a template and run it', async () => {
   await expect(drawer.getByText('Succeeded', { exact: true })).toBeVisible();
   await expect(drawer.getByText('$0.0000', { exact: true })).toBeVisible();
   await drawer.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Notifications', exact: true }).click();
+  await page.locator('.ant-drawer .ant-list-item').filter({ hasText: 'succeeded' }).first().click();
+  const reportDrawer = page.getByRole('dialog').filter({ has: page.getByText('Succeeded', { exact: true }) });
+  await expect(reportDrawer).toBeVisible();
+  await reportDrawer.getByRole('button', { name: 'Close' }).click();
 });
 
 test('backup and restore', async () => {

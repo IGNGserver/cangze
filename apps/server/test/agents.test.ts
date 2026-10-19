@@ -155,6 +155,8 @@ describe('subagents', () => {
       if (system.includes('short title')) return fauxAssistantMessage('Agent setup');
       if (system.includes('You are a background agent')) return fauxAssistantMessage('Hall motion is off.');
       const last = ctx.messages.at(-1);
+      if (last.role === 'user' && JSON.stringify(last).includes('task report'))
+        return fauxAssistantMessage('The task is complete.');
       if (last.role === 'user')
         return fauxAssistantMessage([fauxToolCall('agent_create', { definition: LIVING_LIGHTS as never })], {
           stopReason: 'toolUse',
@@ -435,6 +437,104 @@ describe('subagents', () => {
         { domain: 'script', service: 'turn_on', target: { entity_id: ['script.good_night'] } },
       ),
     ).rejects.toMatchObject({ code: 'policy_denied' });
+    expect(ha.calls).toHaveLength(0);
+  });
+
+  it('reports admission failures and automatically continues the requesting session once', async () => {
+    const sid = h.s.sessions.create({ title: 'Report receiver' }).id;
+    const agent = await createAgent();
+    h.s.providers.defaults.set({ chat: null, utility: null, thinkingLevel: 'off' });
+    const run = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual', reportSessionId: sid });
+    expect(run.status).toBe('failed');
+    await waitFor(() => h.s.sessions.get(sid).entries.some((e) => e.kind === 'notice'));
+    expect(h.s.notifications.list({}).filter((n) => n.data.runId === run.id)).toHaveLength(1);
+    h.s.runs.start();
+    expect(h.s.notifications.list({}).filter((n) => n.data.runId === run.id)).toHaveLength(1);
+  });
+
+  it('continues an idle main session when the subagent report arrives', async () => {
+    faux.setResponses([
+      fauxAssistantMessage('Task result'),
+      (ctx) => {
+        expect(JSON.stringify(ctx.messages)).toContain('Task result');
+        return fauxAssistantMessage('I used the report to complete your request.');
+      },
+    ]);
+    const sid = h.s.sessions.create({ title: 'Report receiver' }).id;
+    const agent = await createAgent();
+    h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual', reportSessionId: sid });
+    await waitFor(() =>
+      h.s.sessions.get(sid).entries.some((e) => JSON.stringify(e.data).includes('I used the report')),
+    );
+    expect(h.s.sessions.get(sid).entries.filter((e) => e.kind === 'notice')).toHaveLength(1);
+  });
+
+  it('delivers but does not wake a session after the user stops it', async () => {
+    const sid = h.s.sessions.create({ title: 'Stopped receiver' }).id;
+    h.s.sessions.abort(sid);
+    h.s.sessions.receiveReport(sid, 'run_stopped', {
+      level: 'report',
+      title: 'Report',
+      body: 'Done',
+      forModel: true,
+    });
+    await waitFor(() => h.s.sessions.get(sid).entries.some((e) => e.kind === 'notice'));
+    expect(h.s.sessions.isRunning(sid)).toBe(false);
+    expect(h.s.sessions.get(sid).entries).toHaveLength(1);
+  });
+
+  it('queues reports behind an active reply and delivers duplicates only once', async () => {
+    const slow = fauxProvider({
+      provider: 'faux',
+      models: [{ id: 'm1', contextWindow: 16000, maxTokens: 1000 }],
+      tokensPerSecond: 30,
+    });
+    h.s.providers.models.setProvider(slow.provider);
+    slow.setResponses([
+      fauxAssistantMessage('Working on the original request.'),
+      fauxAssistantMessage('Continued with the report.'),
+    ]);
+    const sid = h.s.sessions.create({ title: 'Busy receiver' }).id;
+    await h.s.sessions.send(sid, { text: 'Begin', images: [], whenBusy: 'steer' });
+    const report = { level: 'report' as const, title: 'Result', body: 'Task result', forModel: true };
+    h.s.sessions.receiveReport(sid, 'run_duplicate', report);
+    h.s.sessions.receiveReport(sid, 'run_duplicate', report);
+    expect(h.s.sessions.get(sid).entries.some((e) => e.kind === 'notice')).toBe(false);
+    await waitFor(() =>
+      h.s.sessions.get(sid).entries.some((e) => JSON.stringify(e.data).includes('Continued with the report')),
+    );
+    expect(h.s.sessions.get(sid).entries.filter((e) => e.kind === 'notice')).toHaveLength(1);
+  });
+
+  it('bounds automatic report continuations and resumes pending reports after restart', async () => {
+    const sid = h.s.sessions.create({ title: 'Bounded receiver' }).id;
+    h.s.db.prepare('INSERT INTO session_continuations (session_id, count) VALUES (?, 8)').run(sid);
+    h.s.sessions.abortAll();
+    h.s.sessions.receiveReport(sid, 'run_pending', {
+      level: 'report',
+      title: 'Result',
+      body: 'Pending report',
+      forModel: true,
+    });
+    h.s.sessions.resumeReports();
+    await waitFor(() => h.s.sessions.get(sid).entries.length === 2);
+    expect(h.s.sessions.isRunning(sid)).toBe(false);
+    expect(h.s.sessions.get(sid).entries.at(-1)?.data.title).toBe('Automatic continuation paused');
+    h.s.sessions.resumeReports();
+    expect(h.s.sessions.get(sid).entries).toHaveLength(2);
+  });
+
+  it('reports restart-interrupted tasks without replaying their device actions', async () => {
+    h.s.runs.stop();
+    const sid = h.s.sessions.create({ title: 'Restart receiver' }).id;
+    h.s.sessions.abort(sid);
+    const agent = await createAgent();
+    const run = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual', reportSessionId: sid });
+    h.s.db.prepare("UPDATE runs SET status = 'running' WHERE id = ?").run(run.id);
+    h.s.runs.start();
+    await waitFor(() => h.s.sessions.get(sid).entries.some((e) => e.kind === 'notice'));
+    expect(h.s.runs.get(run.id)).toMatchObject({ status: 'failed', error: 'interrupted by restart' });
+    expect(h.s.notifications.list({}).filter((n) => n.data.runId === run.id)).toHaveLength(1);
     expect(ha.calls).toHaveLength(0);
   });
 });

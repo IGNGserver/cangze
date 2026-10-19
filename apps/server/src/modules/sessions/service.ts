@@ -51,6 +51,7 @@ const TITLE_PROMPT =
 export class SessionsService {
   private readonly runs = new Map<string, ActiveRun>();
   private readonly runLocks = new Map<string, Promise<void>>();
+  private stopped = false;
   private readonly sectionProviders: PromptSectionProvider[] = [];
 
   constructor(
@@ -237,6 +238,11 @@ export class SessionsService {
     const msg = userMessage(input.text, input.images);
     return this.withRunLock(id, async () => {
       const r = this.row(id);
+      this.db
+        .prepare(
+          'INSERT INTO session_continuations (session_id, count, paused) VALUES (?, 0, 0) ON CONFLICT(session_id) DO UPDATE SET count = 0, paused = 0',
+        )
+        .run(id);
       const active = this.runs.get(id);
       if (active) {
         if (input.whenBusy === 'followUp') active.followUp(msg);
@@ -300,7 +306,92 @@ export class SessionsService {
   }
 
   abort(id: string): void {
+    this.row(id);
+    this.db
+      .prepare(
+        'INSERT INTO session_continuations (session_id, paused) VALUES (?, 1) ON CONFLICT(session_id) DO UPDATE SET paused = 1',
+      )
+      .run(id);
     this.runs.get(id)?.abort();
+  }
+
+  /** Persist before scheduling delivery, so a crash cannot lose a completed task report. */
+  receiveReport(id: string, runId: string, notice: NoticeData): void {
+    if (!this.exists(id)) return;
+    this.db
+      .prepare('INSERT OR IGNORE INTO session_reports (run_id, session_id, notice) VALUES (?, ?, ?)')
+      .run(runId, id, json.stringify(notice));
+    this.wakeReports(id);
+  }
+
+  resumeReports(): void {
+    this.stopped = false;
+    for (const r of this.db
+      .prepare('SELECT DISTINCT session_id FROM session_reports WHERE delivered_at IS NULL')
+      .all() as Array<{ session_id: string }>)
+      this.wakeReports(r.session_id);
+  }
+
+  private wakeReports(id: string): void {
+    if (this.stopped) return;
+    void this.withRunLock(id, async () => {
+      if (this.stopped || !this.exists(id) || this.runs.has(id)) return;
+      const reports = this.db
+        .prepare('SELECT * FROM session_reports WHERE session_id = ? AND delivered_at IS NULL ORDER BY rowid')
+        .all(id) as Array<{ run_id: string; notice: string }>;
+      if (!reports.length) return;
+      this.db.transaction(() => {
+        for (const r of reports) {
+          this.addNotice(
+            id,
+            json.parse<NoticeData>(r.notice, {
+              level: 'error',
+              title: 'Task report',
+              body: 'Report unavailable',
+              forModel: false,
+            }),
+          );
+          this.db
+            .prepare('UPDATE session_reports SET delivered_at = ? WHERE run_id = ?')
+            .run(Date.now(), r.run_id);
+        }
+      })();
+      const budget = this.db
+        .prepare('SELECT count, paused FROM session_continuations WHERE session_id = ?')
+        .get(id) as { count: number; paused: number } | undefined;
+      const row = this.row(id);
+      if (row.archived || budget?.paused) return;
+      if ((budget?.count ?? 0) >= 8) {
+        this.addNotice(id, {
+          level: 'warning',
+          title: 'Automatic continuation paused',
+          body: 'Eight automatic continuations have run since your last message. Review the reports and send a message to continue.',
+          forModel: false,
+        });
+        return;
+      }
+      this.db
+        .prepare(
+          'INSERT INTO session_continuations (session_id, count) VALUES (?, 1) ON CONFLICT(session_id) DO UPDATE SET count = count + 1',
+        )
+        .run(id);
+      try {
+        await this.startRun(row, this.store.activeLeaf(row.conversation_id), []);
+      } catch (err) {
+        this.addNotice(id, {
+          level: 'warning',
+          title: 'Report received; continuation unavailable',
+          body:
+            err instanceof Error ? err.message : 'Model unavailable. Send a message when ready to continue.',
+          forModel: false,
+        });
+      }
+    }).catch((err: unknown) =>
+      this.logger.warn(
+        { module: 'sessions', sessionId: id, err },
+        'report continuation failed; report remains in conversation',
+      ),
+    );
   }
 
   /** Add a notice (e.g. a subagent task report) to the end of a session. */
@@ -443,6 +534,7 @@ export class SessionsService {
       this.publishSummary(r.id);
       if (outcome.status === 'completed' && firstUserText && !this.row(r.id).title)
         void this.autoTitle(r.id, firstUserText);
+      this.wakeReports(r.id);
     });
     return runId;
   }
@@ -527,6 +619,7 @@ export class SessionsService {
 
   /** Stop all runs (shutdown). */
   abortAll(): void {
+    this.stopped = true;
     for (const run of this.runs.values()) run.abort();
   }
 }

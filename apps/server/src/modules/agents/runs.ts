@@ -112,6 +112,11 @@ export class RunsService {
       )
       .run(Date.now()).changes;
     if (n) this.logger.warn({ module: 'runs', count: n }, 'marked interrupted runs as failed');
+    for (const r of this.db
+      .prepare('SELECT id FROM runs WHERE finished_at IS NOT NULL AND reported_at IS NULL')
+      .all() as Array<{ id: string }>)
+      this.deliverReport(r.id);
+    this.sessions.resumeReports();
     void this.pump();
   }
 
@@ -245,11 +250,16 @@ export class RunsService {
         error = 'previous run still active';
       } else if (def.limits.overlap === 'replace') {
         for (const [runId, a] of this.active) if (a.agentId === agent.id) this.abort(runId);
+        const replaced = this.list({ agentId: agent.id, status: 'queued', limit: 10000 });
         this.db
           .prepare(
             "UPDATE runs SET status = 'skipped', error = 'replaced by a newer run', finished_at = ? WHERE agent_id = ? AND status = 'queued'",
           )
           .run(now, agent.id);
+        for (const r of replaced) {
+          this.publish(r.id);
+          this.deliverReport(r.id);
+        }
       }
     }
     this.db
@@ -276,6 +286,7 @@ export class RunsService {
       );
     this.publish(id);
     if (status === 'queued') void this.pump();
+    else this.deliverReport(id);
     return this.get(id);
   }
 
@@ -297,6 +308,7 @@ export class RunsService {
         .prepare("UPDATE runs SET status = 'aborted', finished_at = ?, error = 'cancelled' WHERE id = ?")
         .run(Date.now(), id);
       this.publish(id);
+      this.deliverReport(id);
     }
   }
 
@@ -344,6 +356,7 @@ export class RunsService {
       .prepare('UPDATE runs SET status = ?, error = ?, finished_at = ? WHERE id = ?')
       .run(status, error, Date.now(), r.id);
     this.publish(r.id);
+    this.deliverReport(r.id);
   }
 
   private launch(r: RunRow): void {
@@ -470,33 +483,47 @@ export class RunsService {
         .prepare('UPDATE runs SET status = ?, error = ?, summary = ?, finished_at = ? WHERE id = ?')
         .run(status, error, summary, Date.now(), r.id);
       this.publish(r.id);
-      this.afterRun(agent.name, def, this.get(r.id));
+      this.deliverReport(r.id);
       void this.pump();
     });
   }
 
-  private afterRun(agentName: string, def: AgentDefinition, run: RunSummary): void {
-    if (run.reportSessionId && this.sessions.exists(run.reportSessionId)) {
-      const ok = run.status === 'succeeded';
-      this.sessions.addNotice(run.reportSessionId, {
-        level: 'report',
-        title: `${agentName} · ${ok ? 'task report' : `run ${run.status}`}`,
-        body: ok
-          ? (run.summary ?? '(no report)')
-          : `${run.error ?? run.status}${run.summary ? `\n\n${run.summary}` : ''}`,
-        forModel: true,
-        data: { agentId: run.agentId, runId: run.id, status: run.status },
-      });
+  private deliverReport(id: string): void {
+    const marker = this.db.prepare('SELECT reported_at FROM runs WHERE id = ?').get(id) as
+      { reported_at: number | null } | undefined;
+    if (!marker || marker.reported_at !== null) return;
+    const run = this.get(id);
+    let notifyOnFailure = true;
+    try {
+      notifyOnFailure = this.agents.definition(run.agentId, run.revision).notifyOnFailure;
+    } catch {
+      /* missing revisions still need a failure report */
     }
-    if (run.status === 'failed' && def.notifyOnFailure) {
-      this.notifications.create({
-        kind: 'agent_failed',
-        severity: 'error',
-        title: `${agentName} failed`,
-        body: run.error ?? 'The run failed',
-        data: { agentId: run.agentId, runId: run.id },
-      });
-    }
+    const agentName = run.agentName;
+    this.db.transaction(() => {
+      this.db.prepare('UPDATE runs SET reported_at = ? WHERE id = ?').run(Date.now(), id);
+      if (run.reportSessionId && this.sessions.exists(run.reportSessionId)) {
+        const ok = run.status === 'succeeded';
+        this.sessions.receiveReport(run.reportSessionId, run.id, {
+          level: 'report',
+          title: `${agentName} · ${ok ? 'task report' : `run ${run.status}`}`,
+          body: ok
+            ? (run.summary ?? '(no report)')
+            : `${run.error ?? run.status}${run.summary ? `\n\n${run.summary}` : ''}`,
+          forModel: true,
+          data: { agentId: run.agentId, runId: run.id, status: run.status },
+        });
+      }
+      if (run.status !== 'failed' || notifyOnFailure) {
+        this.notifications.create({
+          kind: 'agent_report',
+          severity: run.status === 'failed' ? 'error' : run.status === 'succeeded' ? 'success' : 'info',
+          title: `${agentName} · ${run.status}`,
+          body: run.error ?? run.summary ?? run.status,
+          data: { agentId: run.agentId, runId: run.id, sessionId: run.reportSessionId },
+        });
+      }
+    })();
   }
 
   private triggerMessage(r: RunRow): string {
