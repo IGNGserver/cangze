@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client.ts';
 import { useEntities } from '../../api/queries.ts';
 import { errorText } from '../../lib/errors.ts';
+import { parseJsonObject } from '../../lib/json.ts';
 
 interface TriggerStateView {
   triggerId: string;
@@ -67,6 +68,8 @@ export function TriggersEditor({
   limits,
   onChange,
   dirty,
+  jsonDrafts,
+  onJsonDraft,
 }: {
   agentId: string;
   value: Trigger[];
@@ -74,6 +77,8 @@ export function TriggersEditor({
   limits: AgentLimits;
   onChange: (p: Partial<AgentDefinition>) => void;
   dirty: boolean;
+  jsonDrafts: Record<string, string>;
+  onJsonDraft: (key: string, text: string) => void;
 }) {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -86,6 +91,7 @@ export function TriggersEditor({
     onChange({ triggers: value.map((x, k) => (k === i ? ({ ...x, ...patch } as Trigger) : x)) });
 
   const test = async (triggerId: string) => {
+    if (dirty) return;
     try {
       await api.post(`/agents/${agentId}/triggers/${triggerId}/test`);
       void message.success(t('agents.trig.tested'));
@@ -148,6 +154,7 @@ export function TriggersEditor({
                   <Tooltip title={dirty ? t('agents.trig.saveFirst') : t('agents.trig.test')}>
                     <Button
                       type="text"
+                      aria-label={t('agents.trig.test')}
                       icon={<Play16Regular />}
                       disabled={dirty}
                       onClick={() => void test(tr.id)}
@@ -263,6 +270,8 @@ export function TriggersEditor({
                       <JsonField
                         label={t('agents.trig.dataMatch')}
                         value={tr.dataMatch}
+                        text={jsonDrafts[tr.id]}
+                        onText={(text) => onJsonDraft(tr.id, text)}
                         onChange={(v) => set(i, { dataMatch: v } as Partial<Trigger>)}
                       />
                     </Col>
@@ -273,6 +282,8 @@ export function TriggersEditor({
                     label={t('agents.trig.haTrigger')}
                     extra={t('agents.trig.haTriggerHint')}
                     value={tr.trigger}
+                    text={jsonDrafts[tr.id]}
+                    onText={(text) => onJsonDraft(tr.id, text)}
                     onChange={(v) => set(i, { trigger: v } as Partial<Trigger>)}
                   />
                 )}
@@ -327,26 +338,35 @@ function JsonField({
   extra,
   value,
   onChange,
+  text,
+  onText,
 }: {
   label: string;
   extra?: string;
   value: Record<string, unknown>;
   onChange: (v: Record<string, unknown>) => void;
+  text?: string;
+  onText: (text: string) => void;
 }) {
   const { t } = useTranslation();
+  const raw = text ?? JSON.stringify(value, null, 2);
+  const invalid = !parseJsonObject(raw).ok;
   return (
-    <Form.Item label={label} extra={extra}>
+    <Form.Item
+      label={label}
+      extra={extra}
+      validateStatus={invalid ? 'error' : undefined}
+      help={invalid ? t('agents.invalidJson') : undefined}
+    >
       <Input.TextArea
+        aria-label={label}
         className="cz-mono"
         autoSize={{ minRows: 2, maxRows: 10 }}
-        defaultValue={JSON.stringify(value, null, 2)}
-        onBlur={(e) => {
-          try {
-            onChange(JSON.parse(e.target.value || '{}') as Record<string, unknown>);
-          } catch {
-            e.target.style.borderColor = 'red';
-            e.target.title = t('devices.invalidJson');
-          }
+        value={raw}
+        onChange={(e) => {
+          onText(e.target.value);
+          const parsed = parseJsonObject(e.target.value);
+          if (parsed.ok) onChange(parsed.value);
         }}
       />
     </Form.Item>

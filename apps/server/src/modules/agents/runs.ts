@@ -177,12 +177,13 @@ export class RunsService {
       args.push(q.status);
     }
     if (q.before) {
-      where.push('queued_at < (SELECT queued_at FROM runs WHERE id = ?)');
-      args.push(q.before);
+      const cursor = this.row(q.before);
+      where.push('(queued_at < ? OR (queued_at = ? AND id < ?))');
+      args.push(cursor.queued_at, cursor.queued_at, cursor.id);
     }
     const rows = this.db
       .prepare(
-        `SELECT * FROM runs ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY queued_at DESC LIMIT ?`,
+        `SELECT * FROM runs ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY queued_at DESC, id DESC LIMIT ?`,
       )
       .all(...args, q.limit ?? 50) as RunRow[];
     return rows.map((r) => this.summary(r));

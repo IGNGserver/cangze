@@ -22,7 +22,7 @@ export const StreamClientMessage = z.discriminatedUnion('op', [
 export type StreamClientMessage = z.infer<typeof StreamClientMessage>;
 
 export type StreamServerMessage =
-  | { type: 'hello'; serverTime: number; version: string }
+  | { type: 'hello'; serverTime: number; version: string; instanceId: string }
   | { type: 'subscribed'; topic: string; seq: number; gap: boolean }
   | { type: 'unsubscribed'; topic: string }
   | { type: 'event'; topic: string; seq: number; data: unknown }

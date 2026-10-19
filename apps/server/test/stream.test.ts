@@ -43,7 +43,8 @@ describe('stream hub', () => {
     const headers = { cookie: h.cookie, origin: ORIGIN, host: `127.0.0.1:${port}` };
 
     const a = open(`ws://127.0.0.1:${port}/api/v1/stream`, headers);
-    await a.waitFor((m) => m.type === 'hello');
+    const hello = await a.waitFor((m) => m.type === 'hello');
+    expect(hello.instanceId).toEqual(expect.any(String));
     a.ws.send(JSON.stringify({ op: 'subscribe', topic: 'session:abc' }));
     await a.waitFor((m) => m.type === 'subscribed');
     h.s.stream.publish('session:abc', { n: 1 });
@@ -54,7 +55,8 @@ describe('stream hub', () => {
     h.s.stream.publish('session:abc', { n: 3 });
 
     const b = open(`ws://127.0.0.1:${port}/api/v1/stream`, headers);
-    await b.waitFor((m) => m.type === 'hello');
+    const resumed = await b.waitFor((m) => m.type === 'hello');
+    expect(resumed.instanceId).toBe(hello.instanceId);
     b.ws.send(JSON.stringify({ op: 'subscribe', topic: 'session:abc', since: 1 }));
     const sub = await b.waitFor((m) => m.type === 'subscribed');
     expect(sub).toMatchObject({ seq: 3, gap: false });

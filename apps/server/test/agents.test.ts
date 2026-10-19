@@ -217,6 +217,34 @@ describe('subagents', () => {
     expect(h.s.usage.query(1).find((u) => u.principal_id === agent.id)?.requests).toBe(summaries + 2);
   });
 
+  it('paginates more than 100 equal-millisecond runs without skipping or duplicating rows', async () => {
+    const agent = await createAgent();
+    h.s.agents.setEnabled(agent.id, false);
+    const ids: string[] = [];
+    for (let i = 0; i < 123; i++) {
+      const run = h.s.runs.enqueue({ agentId: agent.id, triggerKind: 'manual' });
+      ids.push(run.id);
+    }
+    h.s.db.prepare('UPDATE runs SET queued_at = ? WHERE agent_id = ?').run(1_700_000_000_000, agent.id);
+    const seen: string[] = [];
+    let before: string | undefined;
+    for (;;) {
+      const response = await h.call(
+        'GET',
+        `/api/v1/runs?agentId=${agent.id}&limit=50${before ? `&before=${before}` : ''}`,
+      );
+      expect(response.statusCode).toBe(200);
+      const rows = response.json() as Array<{ id: string }>;
+      seen.push(...rows.map((r) => r.id));
+      if (rows.length < 50) break;
+      before = rows.at(-1)!.id;
+    }
+    expect(seen).toEqual(ids.sort().reverse());
+    expect(new Set(seen).size).toBe(123);
+    const missing = await h.call('GET', '/api/v1/runs?before=missing');
+    expect(missing.statusCode).toBe(404);
+  });
+
   it('runs a task with permitted controls and records everything', async () => {
     faux.setResponses([
       fauxAssistantMessage(

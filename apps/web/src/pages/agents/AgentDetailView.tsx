@@ -10,6 +10,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  Radio,
   Skeleton,
   Space,
   Switch,
@@ -23,6 +24,8 @@ import { useNavigate } from 'react-router';
 import { ApiError, api } from '../../api/client.ts';
 import { ak, useAgent } from '../../api/agents.ts';
 import { errorText } from '../../lib/errors.ts';
+import { mergeJson, sameJson } from '../../lib/merge.ts';
+import { parseJsonObject } from '../../lib/json.ts';
 import { DefinitionForm } from './DefinitionForm.tsx';
 import { MemoryPanel } from './MemoryPanel.tsx';
 import { OverviewPanel } from './OverviewPanel.tsx';
@@ -41,6 +44,10 @@ export function AgentDetailView({ id }: { id: string }) {
   const agent = useAgent(id);
   const [draft, setDraft] = useState<AgentDefinition | null>(null);
   const [base, setBase] = useState<number | null>(null);
+  const [baseDefinition, setBaseDefinition] = useState<AgentDefinition | null>(null);
+  const [jsonDrafts, setJsonDrafts] = useState<Record<string, string>>({});
+  const [mergeRemote, setMergeRemote] = useState<AgentDetail | null>(null);
+  const [choices, setChoices] = useState<Record<string, 'local' | 'remote'>>({});
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [tab, setTab] = useState('overview');
@@ -52,6 +59,7 @@ export function AgentDetailView({ id }: { id: string }) {
     if (agent.data && (!draft || base === null)) {
       setDraft(agent.data.definition);
       setBase(agent.data.revision);
+      setBaseDefinition(agent.data.definition);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent.data]);
@@ -64,23 +72,36 @@ export function AgentDetailView({ id }: { id: string }) {
     );
   }
   const a: AgentDetail = agent.data;
-  const dirty = JSON.stringify(draft) !== JSON.stringify(a.definition) || base !== a.revision;
+  const invalidJson = draft.triggers.some(
+    (tr) =>
+      (tr.kind === 'ha_event' || tr.kind === 'ha_trigger') &&
+      jsonDrafts[tr.id] !== undefined &&
+      !parseJsonObject(jsonDrafts[tr.id]!).ok,
+  );
+  const dirty = !sameJson(draft, a.definition) || base !== a.revision || invalidJson;
   const remoteChanged = base !== null && base !== a.revision;
+  const merge =
+    mergeRemote && baseDefinition ? mergeJson(baseDefinition, draft, mergeRemote.definition, choices) : null;
 
   const update = (patch: Partial<AgentDefinition>) => setDraft((d) => (d ? { ...d, ...patch } : d));
 
   const save = async () => {
+    if (invalidJson || remoteChanged) return;
     setSaving(true);
     try {
       const next = await api.put<AgentDetail>(`/agents/${id}`, { baseRevision: base, definition: draft });
       qc.setQueryData(ak.detail(id), next);
       setDraft(next.definition);
       setBase(next.revision);
+      setBaseDefinition(next.definition);
+      setJsonDrafts({});
       setConflict(false);
       void message.success(t('agents.saved', { rev: next.revision }));
     } catch (e) {
-      if (e instanceof ApiError && e.code === 'revision_conflict') setConflict(true);
-      else void message.error(errorText(t, e));
+      if (e instanceof ApiError && e.code === 'revision_conflict') {
+        setConflict(true);
+        void qc.invalidateQueries({ queryKey: ak.detail(id) });
+      } else void message.error(errorText(t, e));
     } finally {
       setSaving(false);
     }
@@ -89,10 +110,13 @@ export function AgentDetailView({ id }: { id: string }) {
   const discard = () => {
     setDraft(a.definition);
     setBase(a.revision);
+    setBaseDefinition(a.definition);
+    setJsonDrafts({});
     setConflict(false);
   };
 
   const run = async () => {
+    if (dirty || a.running) return;
     try {
       await api.post(`/agents/${id}/run`, { task: task || undefined });
       setRunOpen(false);
@@ -150,7 +174,7 @@ export function AgentDetailView({ id }: { id: string }) {
                 .then(() => qc.invalidateQueries({ queryKey: ['agents'] }))
             }
           />
-          <Button icon={<Play20Regular />} onClick={() => setRunOpen(true)} disabled={a.running}>
+          <Button icon={<Play20Regular />} onClick={() => setRunOpen(true)} disabled={a.running || dirty}>
             {t('agents.runNow')}
           </Button>
           <Popconfirm
@@ -179,15 +203,22 @@ export function AgentDetailView({ id }: { id: string }) {
                 <Button
                   size="small"
                   onClick={() => {
-                    setBase(a.revision);
-                    setConflict(false);
+                    setMergeRemote(a);
+                    setChoices({});
                   }}
+                  disabled={invalidJson || agent.isFetching}
                 >
-                  {t('agents.keepMine')}
+                  {t('agents.mergeReview')}
                 </Button>
               )}
               {!(conflict || remoteChanged) && (
-                <Button size="small" type="primary" loading={saving} onClick={() => void save()}>
+                <Button
+                  size="small"
+                  type="primary"
+                  loading={saving}
+                  disabled={invalidJson}
+                  onClick={() => void save()}
+                >
                   {t('common.save')}
                 </Button>
               )}
@@ -195,6 +226,7 @@ export function AgentDetailView({ id }: { id: string }) {
           }
         />
       )}
+      {invalidJson && <Alert banner type="error" message={t('agents.invalidJson')} />}
 
       <Tabs
         activeKey={tab}
@@ -230,6 +262,8 @@ export function AgentDetailView({ id }: { id: string }) {
                 limits={draft.limits}
                 onChange={update}
                 dirty={dirty}
+                jsonDrafts={jsonDrafts}
+                onJsonDraft={(key, text) => setJsonDrafts((prev) => ({ ...prev, [key]: text }))}
               />
             ),
           },
@@ -245,6 +279,8 @@ export function AgentDetailView({ id }: { id: string }) {
                 onRestore={(def) => {
                   setDraft(def);
                   setBase(a.revision);
+                  setBaseDefinition(a.definition);
+                  setJsonDrafts({});
                   setTab('definition');
                 }}
               />
@@ -254,10 +290,60 @@ export function AgentDetailView({ id }: { id: string }) {
       />
 
       <Modal
+        open={Boolean(mergeRemote)}
+        title={t('agents.mergeReview')}
+        onCancel={() => setMergeRemote(null)}
+        okText={t('agents.mergeApply')}
+        okButtonProps={{ disabled: !merge || merge.conflicts.some((c) => !choices[JSON.stringify(c.path)]) }}
+        onOk={() => {
+          if (!merge || !mergeRemote) return;
+          setDraft(merge.value);
+          setBase(mergeRemote.revision);
+          setBaseDefinition(mergeRemote.definition);
+          setJsonDrafts({});
+          setConflict(false);
+          setMergeRemote(null);
+        }}
+      >
+        <Typography.Paragraph>{t('agents.mergeHint')}</Typography.Paragraph>
+        {merge?.conflicts.length === 0 && <Alert type="success" message={t('agents.mergeClean')} />}
+        {merge?.conflicts.map((c) => (
+          <div key={JSON.stringify(c.path)} style={{ marginBottom: 16 }}>
+            <Typography.Text strong>{c.path.join('.')}</Typography.Text>
+            <Radio.Group
+              value={choices[JSON.stringify(c.path)]}
+              onChange={(e) =>
+                setChoices((prev) => ({
+                  ...prev,
+                  [JSON.stringify(c.path)]: e.target.value as 'local' | 'remote',
+                }))
+              }
+            >
+              {(['local', 'remote'] as const).map((side) => (
+                <Radio key={side} value={side}>
+                  {t(`agents.merge${side === 'local' ? 'Local' : 'Remote'}`)}
+                  <pre
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      overflowWrap: 'anywhere',
+                      maxHeight: 180,
+                      overflow: 'auto',
+                    }}
+                  >
+                    {JSON.stringify(c[side], null, 2) ?? t('agents.mergeDeleted')}
+                  </pre>
+                </Radio>
+              ))}
+            </Radio.Group>
+          </div>
+        ))}
+      </Modal>
+      <Modal
         open={runOpen}
         title={t('agents.runNow')}
         onCancel={() => setRunOpen(false)}
         onOk={() => void run()}
+        okButtonProps={{ disabled: dirty || a.running }}
         okText={t('agents.run')}
       >
         <Typography.Paragraph type="secondary">{t('agents.runHint')}</Typography.Paragraph>

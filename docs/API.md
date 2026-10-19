@@ -64,6 +64,9 @@ Server → client:
 - Every topic has its own monotonically increasing `seq`. After a reconnect, subscribe with `since` = the
   last seq you processed; missed events are replayed. If the server no longer buffers that far back (or it
   restarted), `subscribed.gap` is `true` — reload the topic's REST snapshot, then continue with live events.
+- `hello.instanceId` identifies the server process. When it changes, discard old sequence cursors and
+  reload REST snapshots even if sequence numbers happen to coincide. Reconnects should also refresh
+  REST-backed lists; while a conversation snapshot loads, buffer events and apply only `seq > streamSeq`.
 - Topics: `sessions`, `session:<id>`, `runs`, `run:<id>`, `agents`, `agent:<id>`, `approvals`,
   `notifications`, `ha:status`, `ha:states`, `system`.
 - The server pings every 25 s and drops clients that do not answer, and closes clients whose send buffer
@@ -105,6 +108,9 @@ Stopping or archiving that session suppresses automatic continuation, not report
   (`GET /agents/:id/revisions`).
 - `POST /agents/:id/run { task? }` queues a manual run; `GET /runs?agentId=&status=`, `GET /runs/:id` (read-only
   transcript, live state, pending approvals, `streamSeq`), `POST /runs/:id/abort`.
+- `GET /runs?before=<last-run-id>&limit=50` continues history in descending `(queued_at, id)` order.
+  Use the last returned id, not a timestamp: several runs can be queued in the same millisecond.
+  Unknown cursors are rejected with `404` rather than silently returning an empty page.
 - Live updates: `agents` (list changes), `agent:<id>` (definition, memory and run changes), `runs`, and `run:<id>` with the
   same conversation event kinds as `session:<id>`. The run topic also emits `{ kind: "run", run: RunSummary }`
   when persisted status changes. Reload the run snapshot to reconcile status, usage and transcript together.

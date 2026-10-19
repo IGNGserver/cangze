@@ -139,6 +139,76 @@ test('agents: create from a template and run it', async () => {
   await reportDrawer.getByRole('button', { name: 'Close' }).click();
 });
 
+test('agent edits merge independent changes and require explicit conflict choices', async () => {
+  const created = await hub().post<{ id: string; revision: number; definition: Record<string, unknown> }>(
+    '/agents',
+    {
+      definition: { name: 'Merge regression', instructions: 'Original instructions' },
+    },
+  );
+  await page.goto(`/agents/${created.id}`);
+  await page.getByRole('tab', { name: 'Definition', exact: true }).click();
+  await page.locator('input[maxlength="80"]').fill('My renamed agent');
+  await hub().put(`/agents/${created.id}`, {
+    baseRevision: created.revision,
+    definition: { ...created.definition, instructions: 'Remote instructions' },
+  });
+  await page.getByRole('button', { name: 'Review merge', exact: true }).click();
+  await expect(page.getByText('No overlapping edits.', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Apply to draft', exact: true }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved as revision 3')).toBeVisible();
+  const merged = await hub().get<typeof created>(`/agents/${created.id}`);
+  expect(merged.definition).toMatchObject({ name: 'My renamed agent', instructions: 'Remote instructions' });
+  await page.locator('input[maxlength="80"]').fill('Local conflict');
+  await hub().put(`/agents/${created.id}`, {
+    baseRevision: merged.revision,
+    definition: { ...merged.definition, name: 'Remote conflict' },
+  });
+  await page.getByRole('button', { name: 'Review merge', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Apply to draft', exact: true })).toBeDisabled();
+  await page.getByRole('radio', { name: /Remote version/ }).check();
+  await page.getByRole('button', { name: 'Apply to draft', exact: true }).click();
+  await expect(page.locator('input[maxlength="80"]')).toHaveValue('Remote conflict');
+});
+
+test('trigger JSON stays controlled and invalid objects block save and fire', async () => {
+  const created = await hub().post<{ id: string }>('/agents', {
+    definition: {
+      name: 'JSON regression',
+      instructions: 'Test only',
+      triggers: [
+        { id: 'json-event', kind: 'ha_event', eventType: 'test_event', dataMatch: { original: true } },
+      ],
+    },
+  });
+  await page.goto(`/agents/${created.id}`);
+  await page.getByRole('tab', { name: 'Triggers', exact: true }).click();
+  const json = page.locator('textarea.cz-mono');
+  for (const invalid of ['{', '[]', 'null']) {
+    await json.fill(invalid);
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Run now', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Fire once', exact: true })).toBeDisabled();
+  }
+  await page.getByRole('button', { name: 'Discard', exact: true }).click();
+  await expect(json).toHaveValue(JSON.stringify({ original: true }, null, 2));
+  await json.fill('{"changed":true}');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved as revision 2')).toBeVisible();
+  await expect(json).toHaveValue(JSON.stringify({ changed: true }, null, 2));
+});
+
+test('mobile users can open notifications and run details', async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Notifications', exact: true }).click();
+  await page.locator('.ant-drawer .ant-list-item').filter({ hasText: 'succeeded' }).first().click();
+  const drawer = page.getByRole('dialog').filter({ has: page.getByText('Succeeded', { exact: true }) });
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('button', { name: 'Close' }).click();
+  await page.setViewportSize({ width: 1280, height: 720 });
+});
+
 test('custom model prices distinguish unknown, configured and explicitly free', async () => {
   await page.goto('/settings/models');
   const provider = page.locator('.ant-list-item').filter({ hasText: 'Fake models' });
