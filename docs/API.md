@@ -1,5 +1,12 @@
 # Cangze API
 
+Custom provider model definitions accept optional `cost` with nonnegative `input`, `output`, `cacheRead`
+and `cacheWrite` rates (USD per million tokens). Omission/null means unknown, not free; explicit zero
+rates mean free. A subagent with `dailyCostLimit` cannot run on an unknown-price model. Budget checks
+use settled usage before requests/tools (including compaction), not a hard provider-side spending cap.
+Session/run usage exposes `costUnknown`; `/usage` includes `unknownRequests` per ledger row. When any
+prices are unknown, `cost` is only the known portion, not a complete total.
+
 The REST surface is described by [`openapi.json`](openapi.json), generated from the zod contracts in
 `packages/contracts`. This page covers what OpenAPI cannot express: authentication flows and the
 WebSocket stream. Every client — the web UI and the future Android app — uses exactly this API.

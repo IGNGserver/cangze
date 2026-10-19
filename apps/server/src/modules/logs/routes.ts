@@ -91,6 +91,7 @@ export function logRoutes(
           cacheRead: r.cache_read,
           cacheWrite: r.cache_write,
           cost: r.cost,
+          unknownRequests: r.unknown_requests,
         }));
       },
     }),

@@ -102,6 +102,18 @@ concurrency because several equal main sessions may edit the same agent. Each su
   `ha_event` (event type + data match), `ha_trigger` (any HA trigger platform via `subscribe_trigger`),
   `manual` (dispatched by a main session or the admin).
 
+Continuous conversations compact at model-request boundaries, including during tool-heavy runs. The
+summary is an append-only entry, includes the previous summary, and never restores already compacted
+history. Summary generation shares the run's cancellation signal, model and usage accounting. It is
+untrusted conversation data, not instructions or permission grants. Restart never resumes interrupted
+device operations; missing tool results are repaired with errors, not replayed.
+
+Custom model prices are optional USD per million input/output/cache tokens. Missing prices mean unknown,
+not free; explicitly configuring all prices as zero means free. Daily budgets require known prices and
+are checked before each model request and tool execution. They are soft limits on settled usage: an
+in-flight request can overshoot. Summaries count toward the same budget. Stops during context preparation
+cancel that preparation too and cannot launch a later reply.
+
 Users can read a subagent's full conversation and run history but cannot post into it. Main sessions
 dispatch tasks with `agent_run`; every terminal outcome is delivered once to a durable report inbox and
 the originating session. Reports wait until an active reply ends, then become notices and start one
@@ -117,7 +129,7 @@ trigger payloads never enter model context. Emergency stop is distinct from paus
 
 Triggers enqueue rows in `runs`. A worker pool (global concurrency, default 2) claims queued runs.
 Per-agent overlap policy: `skip`, `queue` or `replace`. Misfired schedules after downtime: `run_once` or
-`skip`. Each run has a wall-clock timeout, a token budget and the agent has a daily cost budget. Event
+`skip`. Each run has a wall-clock timeout and tool-call limit; the agent has a daily cost budget. Event
 triggers are debounced per trigger. Runs that wait for approval keep their worker slot (status `waiting_approval`) until the decision or timeout.
 
 Cron expressions, time windows in permission rules and the backup schedule use the **Home Assistant time

@@ -130,13 +130,49 @@ test('agents: create from a template and run it', async () => {
   const drawer = page.locator('.ant-drawer');
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText('Succeeded', { exact: true })).toBeVisible();
-  await expect(drawer.getByText('$0.0000', { exact: true })).toBeVisible();
+  await expect(drawer.getByText('Unknown / incomplete pricing', { exact: true })).toBeVisible();
   await drawer.getByRole('button', { name: 'Close' }).click();
   await page.getByRole('button', { name: 'Notifications', exact: true }).click();
   await page.locator('.ant-drawer .ant-list-item').filter({ hasText: 'succeeded' }).first().click();
   const reportDrawer = page.getByRole('dialog').filter({ has: page.getByText('Succeeded', { exact: true }) });
   await expect(reportDrawer).toBeVisible();
   await reportDrawer.getByRole('button', { name: 'Close' }).click();
+});
+
+test('custom model prices distinguish unknown, configured and explicitly free', async () => {
+  await page.goto('/settings/models');
+  const provider = page.locator('.ant-list-item').filter({ hasText: 'Fake models' });
+  await provider.getByRole('button', { name: 'Edit', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const known = dialog.getByRole('checkbox', { name: 'Configure prices (explicit zero = free)' });
+  await expect(known).not.toBeChecked();
+  await known.check();
+  await dialog.getByLabel('Input', { exact: true }).fill('1.5');
+  await dialog.getByLabel('Output', { exact: true }).fill('2');
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const models = () =>
+    hub().get<Array<{ ref: string; costKnown: boolean; cost: { input: number; output: number } }>>('/models');
+  await expect
+    .poll(async () => (await models()).find((m) => m.ref.endsWith('/fake-1'))?.cost)
+    .toEqual({ input: 1.5, output: 2 });
+  expect((await models()).find((m) => m.ref.endsWith('/fake-1'))?.costKnown).toBe(true);
+  await provider.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(known).toBeChecked();
+  await dialog.getByLabel('Input', { exact: true }).fill('0');
+  await dialog.getByLabel('Output', { exact: true }).fill('0');
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect
+    .poll(async () => (await models()).find((m) => m.ref.endsWith('/fake-1'))?.cost)
+    .toEqual({ input: 0, output: 0 });
+  await provider.getByRole('button', { name: 'Edit', exact: true }).click();
+  await known.uncheck();
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect
+    .poll(async () => (await models()).find((m) => m.ref.endsWith('/fake-1'))?.costKnown)
+    .toBe(false);
 });
 
 test('backup and restore', async () => {

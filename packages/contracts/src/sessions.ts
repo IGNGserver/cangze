@@ -30,6 +30,7 @@ export const UsageTotals = z.object({
   cacheRead: z.number(),
   cacheWrite: z.number(),
   cost: z.number(),
+  costUnknown: z.boolean().optional(),
 });
 export type UsageTotals = z.infer<typeof UsageTotals>;
 

@@ -389,6 +389,19 @@ export class RunsService {
     } catch (err) {
       return this.fail(r, 'failed', err instanceof Error ? err.message : String(err));
     }
+    const pricesKnown = this.providers.hasKnownPrices(model);
+    if (def.limits.dailyCostLimit !== null && !pricesKnown)
+      return this.fail(
+        r,
+        'skipped',
+        'Daily cost budget requires configured model prices (unknown is not free)',
+      );
+    if (def.limits.dailyCostLimit !== null && this.usage.hasUnknownCostToday('agent', agent.id))
+      return this.fail(
+        r,
+        'skipped',
+        'Daily cost budget cannot account for earlier unknown-price usage today',
+      );
 
     const principal: Principal = {
       kind: 'agent',
@@ -412,13 +425,15 @@ export class RunsService {
 
     let toolCalls = 0;
     let limitHit: string | null = null;
-    const unsub = this.stream.tap(`run:${r.id}`, (data) => {
-      const ev = data as { kind?: string };
-      if (ev.kind === 'tool_start' && ++toolCalls > def.limits.maxToolCalls) {
-        limitHit = `tool call limit of ${def.limits.maxToolCalls} reached`;
-        this.active.get(r.id)?.run.abort();
+    const checkBudget = () => {
+      if (
+        def.limits.dailyCostLimit !== null &&
+        this.usage.costToday('agent', agent.id) >= def.limits.dailyCostLimit
+      ) {
+        limitHit = `daily cost limit of $${def.limits.dailyCostLimit} reached`;
+        throw new Error(limitHit);
       }
-    });
+    };
 
     const run = this.runner.start({
       runId: r.id,
@@ -426,6 +441,15 @@ export class RunsService {
       topic: `run:${r.id}`,
       principal,
       model,
+      autoCompact: def.contextMode === 'continuous',
+      beforeRequest: checkBudget,
+      beforeTool: () => {
+        checkBudget();
+        if (++toolCalls > def.limits.maxToolCalls) {
+          limitHit = `tool call limit of ${def.limits.maxToolCalls} reached`;
+          throw new Error(limitHit);
+        }
+      },
       thinkingLevel: model.reasoning
         ? (def.thinkingLevel ?? this.providers.defaults.get().thinkingLevel)
         : 'off',
@@ -455,8 +479,8 @@ export class RunsService {
         );
         this.db
           .prepare('UPDATE runs SET usage = ? WHERE id = ?')
-          .run(json.stringify(addUsage(cur, m.usage)), r.id);
-        this.usage.record('agent', agent.id, m.provider, m.model, m.usage);
+          .run(json.stringify(addUsage(cur, m.usage, pricesKnown)), r.id);
+        this.usage.record('agent', agent.id, m.provider, m.model, m.usage, new Date(), pricesKnown);
       },
     });
     const timer = setTimeout(() => {
@@ -468,7 +492,6 @@ export class RunsService {
 
     void run.done.then((outcome) => {
       clearTimeout(timer);
-      unsub();
       this.active.delete(r.id);
       const status: RunStatus = limitHit
         ? 'failed'

@@ -95,7 +95,9 @@ export function RunDrawer({ runId, onClose }: { runId: string | null; onClose: (
               {run.triggerId ? ` (${run.triggerId})` : ''}
             </Descriptions.Item>
             <Descriptions.Item label={t('agents.revision')}>{run.revision}</Descriptions.Item>
-            <Descriptions.Item label={t('chat.cost')}>${(run.usage.cost ?? 0).toFixed(4)}</Descriptions.Item>
+            <Descriptions.Item label={t('chat.cost')}>
+              {run.usage.costUnknown ? t('chat.costUnknown') : `$${(run.usage.cost ?? 0).toFixed(4)}`}
+            </Descriptions.Item>
             {run.requestedBy && (
               <Descriptions.Item label={t('agents.requestedBy')}>{run.requestedBy}</Descriptions.Item>
             )}

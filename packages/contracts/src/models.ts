@@ -20,6 +20,16 @@ export const CustomModel = z.object({
   maxTokens: z.number().int().min(256).max(1_000_000).default(8192),
   reasoning: z.boolean().default(false),
   vision: z.boolean().default(false),
+  /** USD per million tokens; null/absent is unknown, explicit zero is free. */
+  cost: z
+    .object({
+      input: z.number().finite().nonnegative(),
+      output: z.number().finite().nonnegative(),
+      cacheRead: z.number().finite().nonnegative(),
+      cacheWrite: z.number().finite().nonnegative(),
+    })
+    .nullable()
+    .optional(),
 });
 export type CustomModel = z.infer<typeof CustomModel>;
 
@@ -82,6 +92,7 @@ export const ModelInfo = z.object({
   maxTokens: z.number(),
   thinkingLevels: z.array(ThinkingLevel),
   cost: z.object({ input: z.number(), output: z.number() }),
+  costKnown: z.boolean().optional(),
 });
 export type ModelInfo = z.infer<typeof ModelInfo>;
 

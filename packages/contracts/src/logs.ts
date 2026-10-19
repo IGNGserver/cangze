@@ -30,6 +30,7 @@ export const UsageRow = z.object({
   cacheRead: z.number(),
   cacheWrite: z.number(),
   cost: z.number(),
+  unknownRequests: z.number().int().nonnegative().default(0),
 });
 export type UsageRow = z.infer<typeof UsageRow>;
 
