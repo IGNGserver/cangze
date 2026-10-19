@@ -10,7 +10,9 @@ import type {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { api } from './client.ts';
-import { useTopic } from './stream.ts';
+import { stream, useTopic } from './stream.ts';
+import { SnapshotEvents } from './snapshot-events.ts';
+import { fetchEpochSnapshot } from './epoch-snapshot.ts';
 
 export const sk = {
   list: (archived: boolean) => ['sessions', 'list', archived] as const,
@@ -194,33 +196,66 @@ export function useLiveConversation<T>(
 ) {
   const [state, dispatch] = useReducer(reducer, initial);
   const qc = useQueryClient();
-  const snapshot = useQuery({ queryKey, queryFn: fetcher, enabled: Boolean(topic), staleTime: 0, gcTime: 0 });
-  const snap = snapshot.data ? toSnapshot(snapshot.data) : null;
+  const bufferRef = useRef({ topic, buffer: new SnapshotEvents<SessionEvent>() });
+  if (bufferRef.current.topic !== topic)
+    bufferRef.current = { topic, buffer: new SnapshotEvents<SessionEvent>() };
+  const buffer = bufferRef.current.buffer;
+  const snapshot = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => {
+      buffer.begin();
+      return fetchEpochSnapshot(fetcher, stream.getEpoch, () => buffer.reset(), signal);
+    },
+    enabled: Boolean(topic),
+    staleTime: 0,
+    gcTime: 0,
+    structuralSharing: false,
+  });
+  const snap = snapshot.data ? toSnapshot(snapshot.data.data) : null;
+
+  const queryKeyRef = useRef(queryKey);
+  queryKeyRef.current = queryKey;
+  const reload = useCallback(() => {
+    buffer.reset();
+    void qc.invalidateQueries({ queryKey: queryKeyRef.current });
+  }, [buffer, qc]);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const apply = (event: SessionEvent) => {
+    if (event.kind === 'reload') return reload();
+    if (event.kind === 'entry') {
+      const tip = stateRef.current.entries.at(-1);
+      if (
+        tip &&
+        event.entry.parentId !== tip.id &&
+        !stateRef.current.entries.some((e) => e.id === event.entry.id)
+      )
+        return reload();
+    }
+    stateRef.current = reducer(stateRef.current, { type: 'event', event });
+    dispatch({ type: 'event', event });
+  };
 
   useEffect(() => {
-    if (snapshot.data) dispatch({ type: 'snapshot', snap: toSnapshot(snapshot.data) });
-    // toSnapshot is a pure mapping
+    if (!snapshot.data) return;
+    if (snapshot.data.epoch !== stream.getEpoch()) return reload();
+    const fresh = toSnapshot(snapshot.data.data);
+    stateRef.current = reducer(initial, { type: 'snapshot', snap: fresh });
+    dispatch({ type: 'snapshot', snap: fresh });
+    for (const event of buffer.finish(fresh.streamSeq)) apply(event);
+    // Pure mapping and current event handler; only a new REST result installs a snapshot.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot.data]);
 
-  const keyString = JSON.stringify(queryKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const reload = useCallback(() => void qc.invalidateQueries({ queryKey }), [qc, keyString]);
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  useEffect(() => {
+    if (snapshot.isError && !snapshot.isFetching) for (const event of buffer.finish(-1)) apply(event);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.isError, snapshot.isFetching]);
 
   useTopic<SessionEvent>(
     snap ? topic : null,
-    (event) => {
-      if (event.kind === 'reload') return reload();
-      if (event.kind === 'entry') {
-        // An entry that does not continue the branch on screen means the active branch moved.
-        const tip = stateRef.current.entries.at(-1);
-        const { parentId, id: entryId } = event.entry;
-        if (tip && parentId !== tip.id && !stateRef.current.entries.some((e) => e.id === entryId))
-          return reload();
-      }
-      dispatch({ type: 'event', event });
+    (event, seq) => {
+      if (!buffer.push(event, seq)) apply(event);
     },
     reload,
     snap?.streamSeq,
@@ -228,7 +263,7 @@ export function useLiveConversation<T>(
 
   return {
     state,
-    data: snapshot.data,
+    data: snapshot.data?.data,
     loading: snapshot.isLoading,
     error: snapshot.error,
     reload,

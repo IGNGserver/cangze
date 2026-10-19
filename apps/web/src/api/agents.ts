@@ -7,7 +7,7 @@ import type {
   RunSummary,
   UpcomingFire,
 } from '@cangze/contracts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client.ts';
 import { useLiveConversation } from './sessions.ts';
 import { useTopic } from './stream.ts';
@@ -59,6 +59,18 @@ export function useRuns(filter: { agentId?: string; status?: string; limit?: num
         status: filter.status,
         limit: filter.limit ?? 50,
       }),
+  });
+  useTopic('runs', () => void qc.invalidateQueries({ queryKey: ['runs'] }));
+  return q;
+}
+
+export function useRunHistory(filter: { agentId?: string; status?: string }) {
+  const qc = useQueryClient();
+  const q = useInfiniteQuery({
+    queryKey: ['runs', 'history', filter],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => api.get<RunSummary[]>('/runs', { ...filter, before: pageParam, limit: 50 }),
+    getNextPageParam: (last) => (last.length === 50 ? last.at(-1)!.id : undefined),
   });
   useTopic('runs', () => void qc.invalidateQueries({ queryKey: ['runs'] }));
   return q;

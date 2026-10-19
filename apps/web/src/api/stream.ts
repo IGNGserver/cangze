@@ -1,5 +1,6 @@
 import type { StreamServerMessage } from '@cangze/contracts';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 type Listener = (data: unknown, seq: number) => void;
 type GapListener = () => void;
@@ -16,7 +17,7 @@ export type StreamStatus = 'connecting' | 'online' | 'offline';
  * One WebSocket for the whole app. Topics are reference counted; on reconnect every topic is
  * re-subscribed with `since` so missed events replay, or its gap listeners fire to reload.
  */
-class StreamClient {
+export class StreamClient {
   private ws: WebSocket | null = null;
   private readonly topics = new Map<string, TopicState>();
   private status: StreamStatus = 'offline';
@@ -25,6 +26,14 @@ class StreamClient {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private wanted = false;
   private listening = false;
+  private instanceId: string | undefined;
+  private epoch = 0;
+  private readonly recoveryListeners = new Set<() => void>();
+
+  onRecovery = (fn: () => void): (() => void) => {
+    this.recoveryListeners.add(fn);
+    return () => this.recoveryListeners.delete(fn);
+  };
 
   start(): void {
     this.wanted = true;
@@ -50,12 +59,14 @@ class StreamClient {
   stop(): void {
     this.wanted = false;
     if (this.timer) clearTimeout(this.timer);
-    this.ws?.close();
+    const ws = this.ws;
     this.ws = null;
+    ws?.close();
     this.setStatus('offline');
   }
 
   getStatus = (): StreamStatus => this.status;
+  getEpoch = (): number => this.epoch;
 
   onStatus = (fn: () => void): (() => void) => {
     this.statusListeners.add(fn);
@@ -74,12 +85,15 @@ class StreamClient {
     this.ws = ws;
     this.setStatus('connecting');
     ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.retry = 1000;
-      this.setStatus('online');
-      for (const [topic, st] of this.topics) this.send({ op: 'subscribe', topic, since: st.lastSeq });
     };
-    ws.onmessage = (ev) => this.onMessage(JSON.parse(String(ev.data)) as StreamServerMessage);
+    ws.onmessage = (ev) => {
+      if (this.ws !== ws) return;
+      this.onMessage(JSON.parse(String(ev.data)) as StreamServerMessage);
+    };
     ws.onclose = () => {
+      if (this.ws !== ws) return;
       this.ws = null;
       this.setStatus('offline');
       if (!this.wanted) return;
@@ -93,10 +107,26 @@ class StreamClient {
   }
 
   private onMessage(msg: StreamServerMessage): void {
-    if (msg.type === 'subscribed') {
+    if (msg.type === 'hello') {
+      const reconnect = this.instanceId !== undefined;
+      const restarted = reconnect && this.instanceId !== msg.instanceId;
+      // Include the first handshake: an initial REST request may predate this connection.
+      this.epoch++;
+      this.instanceId = msg.instanceId;
+      this.setStatus('online');
+      for (const [topic, st] of this.topics) {
+        if (restarted) st.lastSeq = undefined;
+        this.send({ op: 'subscribe', topic, since: st.lastSeq });
+        if (reconnect) for (const g of st.gapListeners) g();
+      }
+      for (const fn of this.recoveryListeners) fn();
+    } else if (msg.type === 'subscribed') {
       const st = this.topics.get(msg.topic);
       if (!st) return;
-      if (msg.gap) for (const g of st.gapListeners) g();
+      if (msg.gap) {
+        for (const g of st.gapListeners) g();
+        for (const fn of this.recoveryListeners) fn();
+      }
       if (st.lastSeq === undefined || msg.gap) st.lastSeq = msg.seq;
     } else if (msg.type === 'event') {
       const st = this.topics.get(msg.topic);
@@ -133,10 +163,22 @@ class StreamClient {
 
 export const stream = new StreamClient();
 
+/** REST views without a dedicated gap handler still recover on reconnect or buffer loss. */
+export function useStreamRecovery(): void {
+  const qc = useQueryClient();
+  useEffect(
+    () =>
+      stream.onRecovery(() => {
+        void qc.invalidateQueries();
+      }),
+    [qc],
+  );
+}
+
 /** Subscribe to a topic for the lifetime of the component. Handlers may change between renders. */
 export function useTopic<T = unknown>(
   topic: string | null,
-  onEvent: (data: T) => void,
+  onEvent: (data: T, seq: number) => void,
   onGap?: () => void,
   since?: number,
 ): void {
@@ -146,7 +188,7 @@ export function useTopic<T = unknown>(
     if (!topic) return;
     return stream.subscribe(
       topic,
-      (d) => ref.current.onEvent(d as T),
+      (d, seq) => ref.current.onEvent(d as T, seq),
       () => ref.current.onGap?.(),
       since,
     );

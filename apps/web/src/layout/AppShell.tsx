@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { api } from '../api/client.ts';
 import { qk, useHaStatus } from '../api/queries.ts';
-import { useStreamStatus } from '../api/stream.ts';
+import { useStreamRecovery, useStreamStatus } from '../api/stream.ts';
 import { Logo } from '../components/Logo.tsx';
 import { NotificationCenter } from '../components/NotificationCenter.tsx';
 import { useThemeMode } from '../theme/ThemeProvider.tsx';
@@ -33,6 +33,7 @@ function StatusDot() {
 }
 
 export function AppShell() {
+  useStreamRecovery();
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
@@ -113,6 +114,17 @@ export function AppShell() {
   if (mobile) {
     return (
       <Flex vertical style={{ height: '100%' }}>
+        <Flex
+          align="center"
+          justify="space-between"
+          style={{ padding: '2px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+        >
+          {userMenu}
+          <Flex gap={12} align="center">
+            <StatusDot />
+            <NotificationCenter />
+          </Flex>
+        </Flex>
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <Outlet />
         </div>

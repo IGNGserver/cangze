@@ -1,17 +1,19 @@
 import type { RunSummary } from '@cangze/contracts';
-import { Button, Drawer, Descriptions, Flex, Select, Skeleton, Table, Typography } from 'antd';
+import { Alert, Button, Drawer, Descriptions, Flex, Select, Skeleton, Table, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client.ts';
-import { useRuns, useRunTranscript } from '../../api/agents.ts';
+import { useRunHistory, useRunTranscript } from '../../api/agents.ts';
+import { errorText } from '../../lib/errors.ts';
 import { MessageList } from '../sessions/MessageList.tsx';
 import { RunStatusTag } from './RunStatusTag.tsx';
 
 export function RunsPanel({ agentId }: { agentId?: string }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<string | undefined>();
-  const runs = useRuns({ agentId, status, limit: 100 });
+  const runs = useRunHistory({ agentId, status });
+  const rows = [...new Map((runs.data?.pages.flat() ?? []).map((r) => [r.id, r])).values()];
   const [open, setOpen] = useState<string | null>(null);
 
   return (
@@ -32,7 +34,7 @@ export function RunsPanel({ agentId }: { agentId?: string }) {
         size="small"
         rowKey="id"
         loading={runs.isLoading}
-        dataSource={runs.data ?? []}
+        dataSource={rows}
         pagination={{ pageSize: 20, hideOnSinglePage: true }}
         onRow={(r) => ({ onClick: () => setOpen(r.id), style: { cursor: 'pointer' } })}
         columns={[
@@ -66,6 +68,16 @@ export function RunsPanel({ agentId }: { agentId?: string }) {
         ]}
       />
       <RunDrawer runId={open} onClose={() => setOpen(null)} />
+      {runs.error && <Alert type="error" message={errorText(t, runs.error)} />}
+      {runs.hasNextPage && (
+        <Button
+          loading={runs.isFetchingNextPage}
+          disabled={runs.isFetching}
+          onClick={() => void runs.fetchNextPage()}
+        >
+          {t('agents.loadMoreRuns')}
+        </Button>
+      )}
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { StreamClientMessage, type StreamServerMessage } from '@cangze/contracts';
 import type { Logger } from 'pino';
 import type { WebSocket } from 'ws';
@@ -33,6 +34,7 @@ function capacityFor(topic: string): number {
  * reconnecting clients can resume without missing events.
  */
 export class StreamHub {
+  private readonly instanceId = randomUUID();
   private readonly topics = new Map<string, Topic>();
   private readonly clients = new Set<Client>();
   private readonly taps = new Map<string, Set<(data: unknown) => void>>();
@@ -124,7 +126,12 @@ export class StreamHub {
   attach(socket: WebSocket): void {
     const client: Client = { socket, topics: new Set(), alive: true };
     this.clients.add(client);
-    this.send(client, { type: 'hello', serverTime: Date.now(), version: VERSION });
+    this.send(client, {
+      type: 'hello',
+      serverTime: Date.now(),
+      version: VERSION,
+      instanceId: this.instanceId,
+    });
 
     socket.on('pong', () => {
       client.alive = true;
