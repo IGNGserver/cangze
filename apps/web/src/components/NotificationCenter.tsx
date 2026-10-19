@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { api } from '../api/client.ts';
 import { useTopic } from '../api/stream.ts';
+import { RunDrawer } from '../pages/agents/RunsPanel.tsx';
 
 const SEVERITY_COLOR = { info: '#0F6CBD', success: '#107C10', warning: '#DA3B01', error: '#C50F1F' } as const;
 
@@ -17,6 +18,7 @@ export function NotificationCenter() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [runId, setRunId] = useState<string | null>(null);
   const q = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.get<{ items: Notification[]; unread: number }>('/notifications', { limit: 50 }),
@@ -37,6 +39,14 @@ export function NotificationCenter() {
   });
 
   const go = (n: Notification) => {
+    void api
+      .post('/notifications/read', { ids: [n.id] })
+      .then(() => qc.invalidateQueries({ queryKey: ['notifications'] }));
+    if (typeof n.data.runId === 'string') {
+      setRunId(n.data.runId);
+      setOpen(false);
+      return;
+    }
     const agentId = n.data.agentId as string | undefined;
     if (agentId) navigate(`/agents/${agentId}`);
     setOpen(false);
@@ -49,6 +59,7 @@ export function NotificationCenter() {
 
   return (
     <>
+      <RunDrawer runId={runId} onClose={() => setRunId(null)} />
       <Tooltip title={t('notifications.title')} placement="right">
         <Badge count={q.data?.unread ?? 0} size="small" offset={[-6, 6]}>
           <Button

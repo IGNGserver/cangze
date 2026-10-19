@@ -87,6 +87,10 @@ from the snapshot without gaps.
 
 ## Subagents
 
+Terminal outcomes create one report notification (with `runId` and optional `sessionId`). A reporting
+session receives a durable notice and a bounded automatic continuation after its current reply ends.
+Stopping or archiving that session suppresses automatic continuation, not report delivery.
+
 - `POST /agents/:id/stop` disables automatic triggers, cancels queued tasks and aborts the active run.
 
 - `GET/POST /agents`, `GET/PUT/DELETE /agents/:id` — a `PUT` must carry `baseRevision`; a stale revision returns

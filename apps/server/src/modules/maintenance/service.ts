@@ -68,6 +68,7 @@ export class MaintenanceService {
           .get(id) as { n: number };
         if (roots.n > 0) entries += this.db.prepare('DELETE FROM entries WHERE run_id = ?').run(id).changes;
         this.db.prepare('DELETE FROM runs WHERE id = ?').run(id);
+        this.db.prepare('DELETE FROM session_reports WHERE run_id = ? AND delivered_at IS NOT NULL').run(id);
       }
     })();
     const cutoffDay = new Date(now - r.usageDays * day).toISOString().slice(0, 10);
