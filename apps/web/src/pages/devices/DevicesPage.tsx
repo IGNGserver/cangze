@@ -21,8 +21,6 @@ const PRIMARY_DOMAINS = [
   'camera',
   'sensor',
   'binary_sensor',
-  'scene',
-  'script',
 ];
 
 export function DevicesPage() {
@@ -41,9 +39,14 @@ export function DevicesPage() {
   const areaById = useMemo(() => new Map((areas.data ?? []).map((a) => [a.area_id, a])), [areas.data]);
   const areaName = (id: string | null) => (id ? (areaById.get(id)?.name ?? id) : null);
 
+  const placeable = useMemo(
+    () => (entities.data ?? []).filter((e) => e.placement === 'room' || e.placement === 'unassigned'),
+    [entities.data],
+  );
+
   const filtered = useMemo(() => {
     const terms = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    return (entities.data ?? []).filter((e) => {
+    return placeable.filter((e) => {
       if (!showHidden && (e.hidden || e.entity_category)) return false;
       if (domains.length && !domains.includes(e.domain)) return false;
       if (floor !== 'all') {
@@ -57,7 +60,7 @@ export function DevicesPage() {
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entities.data, q, floor, domains, showHidden, areaById]);
+  }, [placeable, q, floor, domains, showHidden, areaById]);
 
   const groups = useMemo(() => {
     const byArea = new Map<string, HaEntity[]>();
@@ -82,9 +85,8 @@ export function DevicesPage() {
   }, [filtered, areaById]);
 
   const domainOptions = useMemo(
-    () =>
-      [...new Set((entities.data ?? []).map((e) => e.domain))].sort().map((d) => ({ value: d, label: d })),
-    [entities.data],
+    () => [...new Set(placeable.map((e) => e.domain))].sort().map((d) => ({ value: d, label: d })),
+    [placeable],
   );
 
   const open =
@@ -154,9 +156,17 @@ export function DevicesPage() {
         <Flex vertical gap={28}>
           {groups.map((g) => (
             <section key={g.area}>
-              <Typography.Title level={5} style={{ marginTop: 0 }}>
+              <Typography.Title
+                level={5}
+                style={{ marginTop: 0, marginBottom: g.area === '_none' ? 4 : undefined }}
+              >
                 {g.area === '_none' ? t('devices.noArea') : areaName(g.area)}
               </Typography.Title>
+              {g.area === '_none' && (
+                <Typography.Paragraph type="secondary" style={{ marginTop: 0, fontSize: 12 }}>
+                  {t('devices.noAreaHint')}
+                </Typography.Paragraph>
+              )}
               <div
                 style={{
                   display: 'grid',

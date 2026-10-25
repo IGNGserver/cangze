@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { HaRegistry } from '../src/modules/ha/registry.ts';
-import { defaultHome } from './fake-ha.ts';
+import { extendedHome } from './fake-ha.ts';
 
 function registry() {
-  const h = defaultHome();
+  const h = extendedHome();
   const r = new HaRegistry();
   r.setStates(h.states as never);
   r.setAreas(h.areas);
@@ -60,6 +60,25 @@ describe('target expansion', () => {
   });
 });
 
+describe('entity placement', () => {
+  const r = registry();
+
+  it('separates room devices from config, service and household entities', () => {
+    expect(r.placementOf('light.living_ceiling')).toBe('room');
+    expect(r.placementOf('light.living_lamp')).toBe('room');
+    expect(r.placementOf('camera.door')).toBe('unassigned');
+    expect(r.placementOf('script.good_night')).toBe('config');
+    expect(r.placementOf('automation.sunset_lights')).toBe('config');
+    expect(r.placementOf('scene.movie')).toBe('config');
+    expect(r.placementOf('tts.google_translate_en_com')).toBe('integration');
+    expect(r.placementOf('person.cangze')).toBe('household');
+  });
+
+  it('keeps service devices out of rooms', () => {
+    expect(r.toEntity('tts.google_translate_en_com')?.placement).toBe('integration');
+  });
+});
+
 describe('search and overview', () => {
   const r = registry();
 
@@ -76,10 +95,14 @@ describe('search and overview', () => {
     expect(r.search({ q: 'power', includeHidden: true })).toHaveLength(1);
   });
 
-  it('summarizes the home by floor and area', () => {
+  it('summarizes rooms and keeps config entities out of the unassigned bucket', () => {
     const text = r.overview();
     expect(text).toContain('Floor Ground floor (floor_id: ground)');
     expect(text).toContain('Living room (area_id: living_room): climate×1, light×2, sensor×1');
-    expect(text).toContain('Not assigned to an area');
+    expect(text).toContain('Not assigned to an area: camera×1');
+    expect(text).toContain('Whole-home automations/scenes/scripts: automation×1, scene×1, script×1');
+    expect(text).toContain('Other household entities: person×1');
+    expect(text).not.toMatch(/Not assigned to an area:.*script/);
+    expect(text).not.toContain('tts×');
   });
 });

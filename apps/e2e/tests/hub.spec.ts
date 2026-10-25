@@ -114,6 +114,15 @@ test('devices: live state and quick controls', async () => {
   await expect(
     page.getByRole('button').filter({ hasText: 'Front door' }).getByRole('button', { name: 'Lock' }),
   ).toBeVisible();
+  // unassigned physical entities keep the hint; config/service entities are not room devices
+  await expect(page.getByText('These devices have no area in Home Assistant.')).toBeVisible();
+  for (const name of ['Sunset lights', 'Good night', 'Movie night', 'Google Translate en com'])
+    await expect(page.getByText(name)).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Automations', exact: true }).click();
+  await page.getByRole('tab', { name: 'HA automations, scripts & scenes' }).click();
+  for (const name of ['Sunset lights', 'Good night', 'Movie night'])
+    await expect(page.getByText(name)).toBeVisible();
 });
 
 test('agents: create from a template and run it', async () => {

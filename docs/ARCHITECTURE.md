@@ -55,6 +55,17 @@ inside HA. Key decisions are recorded in [`docs/adr`](adr).
 | `backup`        | online backup, optional passphrase encryption, restore                                         |
 | `stream`        | WebSocket hub: topics, sequence numbers, resume                                                |
 
+## Entity placement
+
+`HaEntity.placement` is computed by `HaRegistry` from Home Assistant's registries and tells clients
+where an entity belongs: `room` (an explicit area, or a physical device with an area), `unassigned`
+(a room-capable entity or physical device without an area), `config` (automation/script/scene without
+an explicit area), `integration` (entities of HA `service` devices such as Sun, Backup and Google
+Translate TTS), and `household` (person, todo and helper entities). Room views group only
+`room`/`unassigned`; `config` entities live on the Automations page; service and household entities are
+not room devices. `HaDevice.entry_type` is preserved so a service device is never mistaken for a
+physical one.
+
 ## Principals
 
 Every action is attributed to a principal:

@@ -1,11 +1,13 @@
-import type {
-  HaArea,
-  HaDevice,
-  HaEntity,
-  HaEntityState,
-  HaFloor,
-  HaLabel,
-  HaTarget,
+import {
+  isHaConfigDomain,
+  type HaArea,
+  type HaDevice,
+  type HaEntity,
+  type HaEntityPlacement,
+  type HaEntityState,
+  type HaFloor,
+  type HaLabel,
+  type HaTarget,
 } from '@cangze/contracts';
 
 /** Entity registry entry as returned by `config/entity_registry/list`. */
@@ -25,10 +27,48 @@ export interface EntityRegistryEntry {
 /** Service domains whose services act on entities of any domain. */
 const CROSS_DOMAIN = new Set(['homeassistant']);
 
+/** Domains that represent things placed in a room even when they have no device entry. */
+const ROOM_DOMAINS = new Set([
+  'alarm_control_panel',
+  'binary_sensor',
+  'button',
+  'camera',
+  'climate',
+  'cover',
+  'event',
+  'fan',
+  'humidifier',
+  'image',
+  'input_boolean',
+  'lawn_mower',
+  'light',
+  'lock',
+  'media_player',
+  'number',
+  'remote',
+  'select',
+  'sensor',
+  'siren',
+  'switch',
+  'text',
+  'vacuum',
+  'valve',
+  'water_heater',
+]);
+
+/** Service entities that belong to integrations rather than rooms. */
+const SERVICE_DOMAINS = new Set(['tts', 'stt', 'conversation', 'notify']);
+
 export const domainOf = (entityId: string) => entityId.slice(0, entityId.indexOf('.'));
 
 const asList = (v: string | string[] | undefined): string[] =>
   v === undefined ? [] : (Array.isArray(v) ? v : [v]).filter((x) => typeof x === 'string' && x.length > 0);
+
+const countsText = (counts: Map<string, number>): string =>
+  [...counts.entries()]
+    .sort()
+    .map(([domain, n]) => `${domain}×${n}`)
+    .join(', ');
 
 /**
  * In-memory mirror of HA's registries and states. Pure data structure: the gateway feeds it,
@@ -88,6 +128,20 @@ export class HaRegistry {
     const area = this.areaOf(entityId);
     if (area) for (const l of this.areas.get(area)?.labels ?? []) out.add(l);
     return [...out];
+  }
+
+  /** Where an entity belongs in the UI; see `HaEntityPlacement` in contracts. */
+  placementOf(entityId: string): HaEntityPlacement {
+    const e = this.entities.get(entityId);
+    if (e?.area_id) return 'room';
+    const device = e?.device_id ? this.devices.get(e.device_id) : undefined;
+    if (device?.entry_type === 'service') return 'integration';
+    if (device?.area_id) return 'room';
+    if (device) return 'unassigned';
+    const domain = domainOf(entityId);
+    if (isHaConfigDomain(domain)) return 'config';
+    if (SERVICE_DOMAINS.has(domain)) return 'integration';
+    return ROOM_DOMAINS.has(domain) ? 'unassigned' : 'household';
   }
 
   displayName(entityId: string): string {
@@ -169,6 +223,7 @@ export class HaRegistry {
       last_updated: s?.last_updated ?? new Date(0).toISOString(),
       area_id: this.areaOf(entityId),
       device_id: e?.device_id ?? null,
+      placement: this.placementOf(entityId),
       labels: this.labelsOf(entityId),
       entity_category: e?.entity_category ?? null,
       hidden: Boolean(e?.hidden_by),
@@ -221,26 +276,30 @@ export class HaRegistry {
     return out;
   }
 
-  /** Compact household overview for system prompts: floors → areas → entity counts by domain. */
+  /** Compact household overview for system prompts: rooms, then whole-home categories. */
   overview(): string {
     const byArea = new Map<string, Map<string, number>>();
+    const config = new Map<string, number>();
+    const household = new Map<string, number>();
     for (const id of this.implicitCandidates()) {
-      const area = this.areaOf(id) ?? '_none';
-      const m = byArea.get(area) ?? new Map<string, number>();
-      m.set(domainOf(id), (m.get(domainOf(id)) ?? 0) + 1);
-      byArea.set(area, m);
+      const domain = domainOf(id);
+      const placement = this.placementOf(id);
+      if (placement === 'room' || placement === 'unassigned') {
+        const area = placement === 'room' ? (this.areaOf(id) ?? '_none') : '_none';
+        const m = byArea.get(area) ?? new Map<string, number>();
+        m.set(domain, (m.get(domain) ?? 0) + 1);
+        byArea.set(area, m);
+      } else if (placement === 'config') {
+        config.set(domain, (config.get(domain) ?? 0) + 1);
+      } else if (placement === 'household') {
+        household.set(domain, (household.get(domain) ?? 0) + 1);
+      }
     }
     const lines: string[] = [];
     const floors = [...this.floors.values()].sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
     const areaLine = (a: HaArea) => {
       const counts = byArea.get(a.area_id);
-      const summary = counts
-        ? [...counts.entries()]
-            .sort()
-            .map(([d, n]) => `${d}×${n}`)
-            .join(', ')
-        : 'no entities';
-      return `  - ${a.name} (area_id: ${a.area_id}): ${summary}`;
+      return `  - ${a.name} (area_id: ${a.area_id}): ${counts ? countsText(counts) : 'no entities'}`;
     };
     for (const f of floors) {
       lines.push(`- Floor ${f.name} (floor_id: ${f.floor_id})`);
@@ -252,14 +311,9 @@ export class HaRegistry {
       for (const a of loose) lines.push(areaLine(a));
     }
     const none = byArea.get('_none');
-    if (none) {
-      lines.push(
-        `- Not assigned to an area: ${[...none.entries()]
-          .sort()
-          .map(([d, n]) => `${d}×${n}`)
-          .join(', ')}`,
-      );
-    }
+    if (none) lines.push(`- Not assigned to an area: ${countsText(none)}`);
+    if (config.size) lines.push(`- Whole-home automations/scenes/scripts: ${countsText(config)}`);
+    if (household.size) lines.push(`- Other household entities: ${countsText(household)}`);
     return lines.join('\n');
   }
 }

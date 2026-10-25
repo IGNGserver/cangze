@@ -9731,6 +9731,12 @@
                           "string",
                           "null"
                         ]
+                      },
+                      "entry_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -9741,7 +9747,8 @@
                       "manufacturer",
                       "model",
                       "labels",
-                      "disabled_by"
+                      "disabled_by",
+                      "entry_type"
                     ],
                     "additionalProperties": false
                   }
@@ -9833,6 +9840,16 @@
                         "null"
                       ]
                     },
+                    "placement": {
+                      "type": "string",
+                      "enum": [
+                        "room",
+                        "unassigned",
+                        "config",
+                        "integration",
+                        "household"
+                      ]
+                    },
                     "labels": {
                       "type": "array",
                       "items": {
@@ -9865,6 +9882,7 @@
                     "last_updated",
                     "area_id",
                     "device_id",
+                    "placement",
                     "labels",
                     "entity_category",
                     "hidden",
@@ -10038,6 +10056,16 @@
                           "null"
                         ]
                       },
+                      "placement": {
+                        "type": "string",
+                        "enum": [
+                          "room",
+                          "unassigned",
+                          "config",
+                          "integration",
+                          "household"
+                        ]
+                      },
                       "labels": {
                         "type": "array",
                         "items": {
@@ -10070,6 +10098,7 @@
                       "last_updated",
                       "area_id",
                       "device_id",
+                      "placement",
                       "labels",
                       "entity_category",
                       "hidden",

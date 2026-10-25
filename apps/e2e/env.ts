@@ -6,7 +6,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FAKE_TOKEN, FakeHa } from '../server/test/fake-ha.ts';
+import { extendedHome, FAKE_TOKEN, FakeHa } from '../server/test/fake-ha.ts';
 import { FakeLlm } from '../server/test/fake-llm.ts';
 
 export const E2E_PORT = Number(process.env.E2E_PORT ?? 18190);
@@ -18,7 +18,7 @@ const serverDir = join(here, '../server');
 rmSync(stateDir, { recursive: true, force: true });
 mkdirSync(dataDir, { recursive: true });
 
-const ha = await new FakeHa().start(E2E_PORT + 1);
+const ha = await new FakeHa(extendedHome()).start(E2E_PORT + 1);
 const llm = await new FakeLlm().start(E2E_PORT + 2);
 const env = { haUrl: ha.url, haToken: FAKE_TOKEN, llmUrl: llm.url, bootstrapCode: '', starts: 0 };
 const save = () => writeFileSync(join(stateDir, 'env.json'), JSON.stringify(env, null, 2));

@@ -85,8 +85,26 @@ export const HaDevice = z.object({
   model: z.string().nullable(),
   labels: z.array(z.string()),
   disabled_by: z.string().nullable(),
+  /** HA device entry type; "service" marks virtual integration devices (Sun, Backup, TTS). */
+  entry_type: z.string().nullable(),
 });
 export type HaDevice = z.infer<typeof HaDevice>;
+
+/** Home Assistant config entities that are managed on the Automations page. */
+export const HA_CONFIG_DOMAINS = ['automation', 'script', 'scene'] as const;
+export const isHaConfigDomain = (domain: string): boolean =>
+  (HA_CONFIG_DOMAINS as readonly string[]).includes(domain);
+
+/**
+ * Where an entity belongs in the hub's UI, computed from HA's registries:
+ * - room: an explicit area, or a physical device with an area
+ * - unassigned: a room-capable entity or physical device without an area
+ * - config: automation/script/scene without an explicit area
+ * - integration: entities of HA service devices (Sun, Backup, TTS)
+ * - household: person, todo and helper entities that are not room-scoped
+ */
+export const HaEntityPlacement = z.enum(['room', 'unassigned', 'config', 'integration', 'household']);
+export type HaEntityPlacement = z.infer<typeof HaEntityPlacement>;
 
 export const HaLabel = z.object({
   label_id: z.string(),
@@ -107,6 +125,7 @@ export const HaEntity = z.object({
   last_updated: z.string(),
   area_id: z.string().nullable(),
   device_id: z.string().nullable(),
+  placement: HaEntityPlacement,
   labels: z.array(z.string()),
   entity_category: z.string().nullable(),
   hidden: z.boolean(),
