@@ -8,10 +8,16 @@ Cangze ships as one multi-arch image (`linux/amd64`, `linux/arm64`):
 ```bash
 VERSION=0.3.0
 curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
-curl -fsSL "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/.env.example" -o .env   # optional
+# v0.3.0 and earlier publish this file as default.env.example; newer releases use env.example.
+curl -fsSL "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/env.example" -o .env \
+  || curl -fsSL "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/default.env.example" -o .env   # optional
 docker compose up -d
 docker compose logs cangze | grep -i bootstrap
 ```
+
+GitHub stores release asset names that start with a dot as `default.env.example`; that is why releases up
+to v0.3.0 use the longer name. The command above tries the new `env.example` name first and falls back to
+the old one. From the next release the workflow publishes `env.example` directly.
 
 The URLs above are pinned to a release and are intentionally not read from the `main` branch. For a formal
 release, the Compose file can also be downloaded from

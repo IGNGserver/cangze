@@ -80,9 +80,11 @@ jobs:
           flags=()
           if [ "$FORMAL" != "true" ]; then flags+=(--prerelease); fi
           if [ -f "$notes" ]; then flags+=(--notes-file "$notes"); else flags+=(--generate-notes); fi
+          # GitHub stores a leading-dot asset as default.env.example; publish a visible copy.
+          cp .env.example env.example
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "release $TAG already exists; not modifying a published release"
           else
-            gh release create "$TAG" compose.yaml .env.example \
+            gh release create "$TAG" compose.yaml env.example \
               --title "Cangze $TAG" --verify-tag "${flags[@]}"
           fi
