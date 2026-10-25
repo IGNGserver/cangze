@@ -5,7 +5,7 @@ import type { WebSocket } from 'ws';
 import { VERSION } from '../../core/version.ts';
 
 const TOPIC_RE =
-  /^(sessions|runs|agents|notifications|approvals|ha:status|ha:states|system|(session|run|agent):[A-Za-z0-9_-]{1,64})$/;
+  /^(sessions|runs|agents|drafts|notifications|approvals|ha:status|ha:states|system|(session|run|agent):[A-Za-z0-9_-]{1,64})$/;
 const MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
 const HEARTBEAT_MS = 25_000;
 
@@ -26,6 +26,8 @@ interface Client {
 function capacityFor(topic: string): number {
   if (topic.startsWith('session:') || topic.startsWith('run:')) return 2000;
   if (topic === 'ha:states') return 300;
+  // Draft events carry full text; a shorter replay window bounds memory.
+  if (topic === 'drafts') return 100;
   return 500;
 }
 

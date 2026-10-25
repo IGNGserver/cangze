@@ -3,8 +3,8 @@ import { z } from 'zod';
 /**
  * WebSocket protocol for `/api/v1/stream`.
  *
- * Topics: `session:<id>`, `sessions`, `run:<id>`, `runs`, `agents`, `agent:<id>`, `ha:status`,
- * `ha:states`, `notifications`, `approvals`.
+ * Topics: `session:<id>`, `sessions`, `run:<id>`, `runs`, `agents`, `agent:<id>`, `drafts`,
+ * `ha:status`, `ha:states`, `notifications`, `approvals`.
  *
  * Every event carries a per-topic `seq`. A client that reconnects subscribes with `since` set
  * to the last seq it saw; if the server no longer buffers that far back it answers with

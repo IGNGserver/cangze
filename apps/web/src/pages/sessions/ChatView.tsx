@@ -6,10 +6,11 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { api } from '../../api/client.ts';
+import { useDraft } from '../../api/drafts.tsx';
 import { useChat, useModelDefaults, useModels } from '../../api/sessions.ts';
 import { Logo } from '../../components/Logo.tsx';
 import { errorText } from '../../lib/errors.ts';
-import { Composer } from './Composer.tsx';
+import { Composer, type ComposerSend } from './Composer.tsx';
 import { MessageList } from './MessageList.tsx';
 import { ModelPicker } from './ModelPicker.tsx';
 import { SessionDrawer } from './SessionDrawer.tsx';
@@ -21,9 +22,11 @@ export function ChatView({ id }: { id: string }) {
   const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
   const { state, loading, error, reload, clearError } = useChat(id);
+  const { draft } = useDraft(id);
   const models = useModels();
   const defaults = useModelDefaults();
   const [drawer, setDrawer] = useState(false);
+  const [liveText, setLiveText] = useState('');
   const d = state.detail;
 
   const effectiveRef = d?.modelRef ?? defaults.data?.chat ?? null;
@@ -55,6 +58,16 @@ export function ChatView({ id }: { id: string }) {
       : 0;
   const empty = state.entries.length === 0 && !state.running;
   const noModel = !models.isLoading && !effectiveRef;
+  const hasDraft = Boolean(draft?.text.trim()) || Boolean(draft?.images.length) || Boolean(liveText.trim());
+
+  const send = async ({ text, whenBusy, draftRevision }: ComposerSend) => {
+    await api.post(`/sessions/${id}/messages`, {
+      text,
+      images: [],
+      whenBusy,
+      draftRevision,
+    });
+  };
 
   const suggestions = [
     { key: 'lights', description: t('chat.suggest.lights') },
@@ -140,15 +153,17 @@ export function ChatView({ id }: { id: string }) {
               description={t('chat.welcomeText')}
               variant="borderless"
             />
-            <Prompts
-              items={suggestions}
-              wrap
-              onItemClick={(info) =>
-                void api
-                  .post(`/sessions/${id}/messages`, { text: String(info.data.description) })
-                  .catch((e) => message.error(errorText(t, e)))
-              }
-            />
+            {!hasDraft && (
+              <Prompts
+                items={suggestions}
+                wrap
+                onItemClick={(info) =>
+                  void api
+                    .post(`/sessions/${id}/messages`, { text: String(info.data.description) })
+                    .catch((e) => message.error(errorText(t, e)))
+                }
+              />
+            )}
           </Flex>
         ) : (
           <div style={{ height: '100%', maxWidth: 860, margin: '0 auto' }}>
@@ -182,10 +197,13 @@ export function ChatView({ id }: { id: string }) {
           />
         )}
         <Composer
-          sessionId={id}
+          scope={id}
           running={state.running}
           queued={state.queued}
           vision={model?.vision ?? false}
+          onSend={send}
+          onStop={() => void api.post(`/sessions/${id}/abort`).catch(() => undefined)}
+          onTextChange={setLiveText}
         />
       </div>
       <SessionDrawer

@@ -4,6 +4,7 @@ import { Badge, Button, Dropdown, Flex, Grid, theme, Tooltip, Typography } from 
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { api } from '../api/client.ts';
+import { DraftsProvider } from '../api/drafts.tsx';
 import { qk, useHaStatus } from '../api/queries.ts';
 import { useStreamRecovery, useStreamStatus } from '../api/stream.ts';
 import { Logo } from '../components/Logo.tsx';
@@ -126,7 +127,9 @@ export function AppShell() {
           </Flex>
         </Flex>
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-          <Outlet />
+          <DraftsProvider>
+            <Outlet />
+          </DraftsProvider>
         </div>
         <Flex
           justify="space-around"
@@ -177,7 +180,9 @@ export function AppShell() {
           overflow: 'hidden',
         }}
       >
-        <Outlet />
+        <DraftsProvider>
+          <Outlet />
+        </DraftsProvider>
       </div>
     </Flex>
   );

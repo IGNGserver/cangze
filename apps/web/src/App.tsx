@@ -49,7 +49,9 @@ export function App() {
                 <Routes>
                   <Route element={<AppShell />}>
                     <Route index element={<Home />} />
-                    <Route path="/sessions/:id?" element={<SessionsPage />} />
+                    <Route path="/sessions" element={<SessionsPage />} />
+                    <Route path="/sessions/new" element={<SessionsPage />} />
+                    <Route path="/sessions/:id" element={<SessionsPage />} />
                     <Route path="/agents/:id?" element={<AgentsPage />} />
                     <Route path="/automations" element={<AutomationsPage />} />
                     <Route path="/devices" element={<DevicesPage />} />

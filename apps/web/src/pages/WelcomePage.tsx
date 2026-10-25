@@ -1,20 +1,16 @@
-import type { SessionSummary } from '@cangze/contracts';
-import { App, Button, Card, Flex, Steps, Typography } from 'antd';
+import { Button, Card, Flex, Steps, Typography } from 'antd';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { api } from '../api/client.ts';
 import { useHaStatus } from '../api/queries.ts';
 import { useModelDefaults } from '../api/sessions.ts';
 import { Logo } from '../components/Logo.tsx';
-import { errorText } from '../lib/errors.ts';
 import { WELCOME_DONE_KEY } from '../lib/welcome.ts';
 import { HaSettings } from './settings/HaSettings.tsx';
 import { ModelsSettings } from './settings/ModelsSettings.tsx';
 
 export function WelcomePage() {
   const { t } = useTranslation();
-  const { message } = App.useApp();
   const navigate = useNavigate();
   const ha = useHaStatus();
   const defaults = useModelDefaults();
@@ -22,19 +18,13 @@ export function WelcomePage() {
   const haOk = ha.data?.state === 'connected';
   const modelOk = Boolean(defaults.data?.chat);
 
-  const finish = async () => {
+  const finish = () => {
     try {
       localStorage.setItem(WELCOME_DONE_KEY, '1');
     } catch {
       // ignore
     }
-    try {
-      const s = await api.post<SessionSummary>('/sessions', {});
-      navigate(`/sessions/${s.id}`);
-    } catch (e) {
-      void message.error(errorText(t, e));
-      navigate('/sessions');
-    }
+    navigate('/sessions/new');
   };
 
   return (
@@ -77,13 +67,13 @@ export function WelcomePage() {
             </Card>
           )}
           <Flex justify="space-between" style={{ marginTop: 16 }}>
-            <Button onClick={() => void finish()}>{t('welcome.skip')}</Button>
+            <Button onClick={finish}>{t('welcome.skip')}</Button>
             {step < 2 ? (
               <Button type="primary" onClick={() => setStep(step + 1)}>
                 {t('welcome.next')}
               </Button>
             ) : (
-              <Button type="primary" onClick={() => void finish()}>
+              <Button type="primary" onClick={finish}>
                 {t('welcome.start')}
               </Button>
             )}

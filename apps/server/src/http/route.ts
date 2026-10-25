@@ -38,6 +38,8 @@ export interface RouteSpec<
   status?: number;
   /** Raw response (file download, stream). The response schema is still documented. */
   raw?: boolean;
+  /** Media type documented for a raw binary response. */
+  contentType?: string;
   /** Override global body size limit (bytes). */
   bodyLimit?: number;
   handler: (ctx: RouteContext<z.output<P>, z.output<Q>, z.output<B>>) => Promise<z.input<R>> | z.input<R>;

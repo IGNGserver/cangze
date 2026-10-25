@@ -13,6 +13,8 @@ let h: Harness;
 let ha: FakeHa;
 let faux: FauxProviderHandle;
 
+const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+
 function installFaux(h: Harness, opts: { tokensPerSecond?: number } = {}) {
   const f = fauxProvider({
     provider: 'faux',
@@ -232,7 +234,11 @@ describe('sessions', () => {
     const id = await newSession();
     await h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'hello' });
     await waitFor(() => h.s.sessions.isRunning(id));
-    const steer = await h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'also this' });
+    await h.call('PUT', `/api/v1/drafts/${id}`, { text: 'also this', baseRevision: null });
+    const steer = await h.call('POST', `/api/v1/sessions/${id}/messages`, {
+      text: 'also this',
+      draftRevision: 1,
+    });
     expect(steer.json()).toMatchObject({ queued: true });
     await settle(id);
     const detail = (await h.call('GET', `/api/v1/sessions/${id}`)).json();
@@ -240,6 +246,7 @@ describe('sessions', () => {
       'user:hello',
       'user:also this',
     ]);
+    expect((await h.call('GET', '/api/v1/drafts')).json().items).toEqual([]);
 
     faux.setResponses([fauxAssistantMessage('x '.repeat(400))]);
     await h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'long one' });
@@ -338,6 +345,109 @@ describe('sessions', () => {
     const res = await h.call('POST', `/api/v1/sessions/${id}/messages`, { text: 'hi' });
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe('no_model');
+  });
+
+  it('creates a session with its first message and consumes the new-chat draft', async () => {
+    faux.setResponses([fauxAssistantMessage('hi'), fauxAssistantMessage('Hello draft')]);
+    const draft = (
+      await h.call('PUT', '/api/v1/drafts/new', { text: 'Hello draft', baseRevision: null })
+    ).json().draft;
+    const res = await h.call('POST', '/api/v1/sessions', {
+      message: { text: 'Hello draft' },
+      draftRevision: draft.revision,
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body).toMatchObject({ runId: expect.any(String), queued: false });
+    await settle(body.id);
+    const detail = (await h.call('GET', `/api/v1/sessions/${body.id}`)).json();
+    expect(texts(detail)).toEqual(['user:Hello draft', 'assistant:hi']);
+    expect((await h.call('GET', '/api/v1/drafts')).json().items).toEqual([]);
+  });
+
+  it('refuses a stale new-chat draft without creating a session', async () => {
+    const first = (await h.call('PUT', '/api/v1/drafts/new', { text: 'one', baseRevision: null })).json()
+      .draft.revision;
+    await h.call('PUT', '/api/v1/drafts/new', { text: 'two', baseRevision: first });
+    const res = await h.call('POST', '/api/v1/sessions', {
+      message: { text: 'one' },
+      draftRevision: first,
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('draft_conflict');
+    expect((await h.call('GET', '/api/v1/sessions')).json()).toEqual([]);
+    expect((await h.call('GET', '/api/v1/drafts')).json().items[0].text).toBe('two');
+  });
+
+  it('does not create a session for an empty first message', async () => {
+    const res = await h.call('POST', '/api/v1/sessions', { message: { text: '   ' } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('empty_message');
+    expect((await h.call('GET', '/api/v1/sessions')).json()).toEqual([]);
+  });
+
+  it('does not create a session when the model is missing', async () => {
+    h.s.providers.defaults.set({ chat: null, utility: null, thinkingLevel: 'off' });
+    const res = await h.call('POST', '/api/v1/sessions', { message: { text: 'hello' } });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('no_model');
+    expect((await h.call('GET', '/api/v1/sessions')).json()).toEqual([]);
+  });
+
+  it('consumes a session draft when a message is sent', async () => {
+    const id = await newSession();
+    await h.call('PUT', `/api/v1/drafts/${id}`, { text: 'hello', baseRevision: null });
+    faux.setResponses([fauxAssistantMessage('hi')]);
+    const res = await h.call('POST', `/api/v1/sessions/${id}/messages`, {
+      text: 'hello',
+      draftRevision: 1,
+    });
+    expect(res.statusCode).toBe(200);
+    await settle(id);
+    expect(texts((await h.call('GET', `/api/v1/sessions/${id}`)).json())).toEqual([
+      'user:hello',
+      'assistant:hi',
+    ]);
+    expect((await h.call('GET', '/api/v1/drafts')).json().items).toEqual([]);
+  });
+
+  it('refuses a stale session draft without posting the message', async () => {
+    const id = await newSession();
+    await h.call('PUT', `/api/v1/drafts/${id}`, { text: 'hello', baseRevision: null });
+    await h.call('PUT', `/api/v1/drafts/${id}`, { text: 'hello2', baseRevision: 1 });
+    const res = await h.call('POST', `/api/v1/sessions/${id}/messages`, {
+      text: 'hello',
+      draftRevision: 1,
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('draft_conflict');
+    const detail = (await h.call('GET', `/api/v1/sessions/${id}`)).json();
+    expect(detail.entries).toEqual([]);
+    expect((await h.call('GET', '/api/v1/drafts')).json().items[0].text).toBe('hello2');
+  });
+
+  it('uses draft images for the first message', async () => {
+    faux.setResponses([fauxAssistantMessage('seen'), fauxAssistantMessage('Image draft')]);
+    const upload = await h.call('POST', '/api/v1/drafts/new/images', {
+      mimeType: 'image/png',
+      data: PNG,
+      width: 1,
+      height: 1,
+    });
+    const revision = upload.json().draft.revision as number;
+    const res = await h.call('POST', '/api/v1/sessions', {
+      message: { text: 'look' },
+      draftRevision: revision,
+    });
+    expect(res.statusCode).toBe(201);
+    const id = res.json().id as string;
+    await settle(id);
+    const detail = (await h.call('GET', `/api/v1/sessions/${id}`)).json();
+    const user = detail.entries.find((e: any) => e.role === 'user');
+    expect(user.data.message.content).toEqual(
+      expect.arrayContaining([{ type: 'image', mimeType: 'image/png', data: PNG }]),
+    );
+    expect((await h.call('GET', '/api/v1/drafts')).json().items).toEqual([]);
   });
 });
 

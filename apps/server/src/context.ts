@@ -26,6 +26,8 @@ import { authRoutes } from './modules/auth/routes.ts';
 import { AuthService } from './modules/auth/service.ts';
 import { ConversationStore } from './modules/conversations/store.ts';
 import { CoordinationService } from './modules/coordination/service.ts';
+import { draftRoutes } from './modules/drafts/routes.ts';
+import { DraftsService } from './modules/drafts/service.ts';
 import { AgentRunner } from './modules/engine/runner.ts';
 import { HaGateway } from './modules/ha/gateway.ts';
 import { logRoutes } from './modules/logs/routes.ts';
@@ -68,6 +70,7 @@ export interface Services {
   policy: PolicyEngine;
   providers: ProvidersService;
   conversations: ConversationStore;
+  drafts: DraftsService;
   tools: ToolRegistry;
   usage: UsageLedger;
   runner: AgentRunner;
@@ -142,6 +145,7 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
   const notifications = new NotificationsService(db, stream);
   const providers = new ProvidersService(db, secrets, settings, logger.child({ module: 'providers' }));
   const conversations = new ConversationStore(db);
+  const drafts = new DraftsService(db, stream);
   const tools = new ToolRegistry();
   tools.register(haTools(ha));
   const usage = new UsageLedger(db);
@@ -156,6 +160,7 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
     approvals,
     stream,
     usage,
+    drafts,
     logger.child({ module: 'sessions' }),
   );
   const agents = new AgentsService(db, conversations, tools, providers, stream);
@@ -255,6 +260,7 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
     policy,
     providers,
     conversations,
+    drafts,
     tools,
     usage,
     runner,
@@ -286,6 +292,7 @@ export function buildRouteSpecs(s: Services): RouteSpec[] {
     ...haRoutes(s.ha, s.secrets, (req) => adminPrincipal(req as never)),
     ...providerRoutes(s.providers),
     ...sessionRoutes(s.sessions, s.tools),
+    ...draftRoutes(s.drafts),
     ...approvalRoutes(s.approvals),
     ...policyRoutes(s.policy),
     ...agentRoutes(s.agents, s.runs, s.scheduler, s.usage, s.ha),

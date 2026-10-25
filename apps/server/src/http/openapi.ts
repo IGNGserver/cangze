@@ -48,7 +48,14 @@ export function buildOpenApi(specs: RouteSpec[], version: string): Record<string
             ? { description: 'No content' }
             : {
                 description: 'Success',
-                content: { 'application/json': { schema: stripMeta(toSchema(spec.response, 'output')) } },
+                content: {
+                  [spec.raw && spec.contentType ? spec.contentType : 'application/json']: {
+                    schema:
+                      spec.raw && spec.contentType
+                        ? { type: 'string', format: 'binary' }
+                        : stripMeta(toSchema(spec.response, 'output')),
+                  },
+                },
               },
         default: {
           description: 'Error',

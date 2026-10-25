@@ -67,8 +67,8 @@ Server → client:
 - `hello.instanceId` identifies the server process. When it changes, discard old sequence cursors and
   reload REST snapshots even if sequence numbers happen to coincide. Reconnects should also refresh
   REST-backed lists; while a conversation snapshot loads, buffer events and apply only `seq > streamSeq`.
-- Topics: `sessions`, `session:<id>`, `runs`, `run:<id>`, `agents`, `agent:<id>`, `approvals`,
-  `notifications`, `ha:status`, `ha:states`, `system`.
+- Topics: `sessions`, `session:<id>`, `runs`, `run:<id>`, `agents`, `agent:<id>`, `drafts`,
+  `approvals`, `notifications`, `ha:status`, `ha:states`, `system`.
 - The server pings every 25 s and drops clients that do not answer, and closes clients whose send buffer
   exceeds 8 MB (`1013`). Cross-site pages using the cookie are closed with `1008`.
 
@@ -89,11 +89,36 @@ from the snapshot without gaps.
 | `session`                                 | title / model / pin / archive changed                                             |
 | `reload`                                  | the active branch moved (edit, branch switch); reload the snapshot                |
 
+- `POST /sessions` may carry a `message` and a `draftRevision`. With a message, the session, its first
+  user entry and draft consumption commit in one transaction; without one it creates an empty session
+  for API clients. The web UI never creates a session until the first message is sent.
 - `POST /sessions/:id/messages` starts a reply, or — while one is running — injects the message after the current
-  step (`whenBusy: "steer"`, default) or after the reply (`"followUp"`).
+  step (`whenBusy: "steer"`, default) or after the reply (`"followUp"`). It accepts the same
+  `draftRevision`; a stale draft is rejected before the message is accepted.
 - `POST /sessions/:id/edit` re-asks from an edited user message as a new branch; `/regenerate` answers a message
   again; `/branch` switches to the branch containing an entry. Old branches are never deleted.
 - High-risk actions pause the tool until `POST /approvals/:id/decide { approve }`.
+
+## Drafts
+
+The composer stores unsent content separately from conversations. `scope` is the literal `new` for
+the single new-chat draft or a session id. Drafts never appear in the session list, and saving one
+does not change session ordering.
+
+- `GET /api/v1/drafts` returns `{ items, streamSeq }`. Subscribe to `drafts` with `since: streamSeq`.
+- `PUT /api/v1/drafts/:scope { text, baseRevision }` returns `{ draft }`. `baseRevision: null`
+  creates a draft, a number updates only that revision, and a stale revision returns
+  `409 draft_conflict` with `details.draft` set to the current value (or null). Empty text with no
+  images deletes the draft.
+- `POST /api/v1/drafts/:scope/images { mimeType, data, width?, height? }` adds one image (at most
+  four) and returns the updated draft. `GET /api/v1/drafts/:scope/images/:id` returns the bytes with
+  the stored media type; `DELETE` on the same path removes it. Image bytes never travel on the
+  stream: events carry only attachment metadata.
+- Sending a message with `draftRevision` uses the draft's current attachments for the user message.
+  The draft and its attachments are consumed atomically with the accepted message.
+- Events on `drafts` are `{ kind: "upsert", draft }` and
+  `{ kind: "delete", scope, revision, reason, sessionId? }`, where `reason` is `cleared`, `sent` or
+  `session_deleted`. The `sessionId` is present when a new draft became a session.
 
 ## Subagents
 

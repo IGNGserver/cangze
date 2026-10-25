@@ -96,13 +96,6 @@ export const SessionDetail = SessionSummary.extend({
 });
 export type SessionDetail = z.infer<typeof SessionDetail>;
 
-export const CreateSession = z.object({
-  title: z.string().max(200).optional(),
-  modelRef: ModelRef.optional(),
-  thinkingLevel: ThinkingLevel.optional(),
-  instructions: z.string().max(20_000).optional(),
-});
-
 export const UpdateSession = z.object({
   title: z.string().min(1).max(200).optional(),
   pinned: z.boolean().optional(),
@@ -112,18 +105,100 @@ export const UpdateSession = z.object({
   instructions: z.string().max(20_000).optional(),
 });
 
+export const ImageMime = z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+export type ImageMime = z.infer<typeof ImageMime>;
+
 export const ImageInput = z.object({
-  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  mimeType: ImageMime,
   /** Base64 without data: prefix. Clients should downscale photos first. */
   data: z.string().max(7_000_000),
 });
 
-export const SendMessage = z.object({
+export const MessageInput = z.object({
   text: z.string().max(100_000),
   images: z.array(ImageInput).max(4).default([]),
   /** When the session is busy: inject after the current step (`steer`) or after the run (`followUp`). */
   whenBusy: z.enum(['steer', 'followUp']).default('steer'),
 });
+export type MessageInput = z.infer<typeof MessageInput>;
+
+export const SendMessage = MessageInput.extend({
+  /** Draft revision this message replaces; omit for clients that do not use drafts. */
+  draftRevision: z.number().int().nonnegative().nullable().optional(),
+});
+export type SendMessage = z.infer<typeof SendMessage>;
+
+export const CreateSession = z.object({
+  title: z.string().max(200).optional(),
+  modelRef: ModelRef.optional(),
+  thinkingLevel: ThinkingLevel.optional(),
+  instructions: z.string().max(20_000).optional(),
+  /** First message. When present the session is created and the turn starts in one request. */
+  message: MessageInput.optional(),
+  draftRevision: z.number().int().nonnegative().nullable().optional(),
+});
+
+export const CreateSessionResult = SessionSummary.extend({
+  runId: z.string().nullable(),
+  queued: z.boolean(),
+});
+export type CreateSessionResult = z.infer<typeof CreateSessionResult>;
+
+export const DraftImage = z.object({
+  id: z.string(),
+  mimeType: ImageMime,
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+});
+export type DraftImage = z.infer<typeof DraftImage>;
+
+/** Unsent composer content. `scope` is `new` for the single new-chat draft or a session id. */
+export const Draft = z.object({
+  scope: z.string(),
+  text: z.string(),
+  images: z.array(DraftImage).max(4),
+  revision: z.number().int().nonnegative(),
+  updatedAt: z.string(),
+});
+export type Draft = z.infer<typeof Draft>;
+
+export const DraftSnapshot = z.object({
+  items: z.array(Draft),
+  /** Stream seq at snapshot time: subscribe to `drafts` with `since` = this. */
+  streamSeq: z.number(),
+});
+export type DraftSnapshot = z.infer<typeof DraftSnapshot>;
+
+export const PutDraft = z.object({
+  text: z.string().max(100_000),
+  /** null creates a draft; a number updates only that revision. */
+  baseRevision: z.number().int().nonnegative().nullable(),
+});
+
+export const UploadDraftImage = z.object({
+  mimeType: ImageMime,
+  data: z.string().min(1).max(7_000_000),
+  width: z.number().int().positive().max(100_000).nullable().optional(),
+  height: z.number().int().positive().max(100_000).nullable().optional(),
+});
+export type UploadDraftImage = z.infer<typeof UploadDraftImage>;
+
+export const DraftScopeParams = z.object({ scope: z.string().min(1).max(64) });
+export const DraftImageParams = z.object({
+  scope: z.string().min(1).max(64),
+  imageId: z.string().min(1).max(64),
+});
+
+/** Events on the `drafts` topic. */
+export type DraftEvent =
+  | { kind: 'upsert'; draft: Draft }
+  | {
+      kind: 'delete';
+      scope: string;
+      revision: number;
+      reason: 'cleared' | 'sent' | 'session_deleted';
+      sessionId?: string;
+    };
 
 export const EditMessage = z.object({ entryId: z.string(), text: z.string().min(1).max(100_000) });
 export const EntryRef = z.object({ entryId: z.string() });
