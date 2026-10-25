@@ -55,7 +55,7 @@ Client → server:
 Server → client:
 
 ```json
-{ "type": "hello", "serverTime": 1760000000000, "version": "0.2.0" }
+{ "type": "hello", "serverTime": 1760000000000, "version": "0.3.0" }
 { "type": "subscribed", "topic": "session:ses_01…", "seq": 44, "gap": false }
 { "type": "event", "topic": "session:ses_01…", "seq": 42, "data": { "kind": "message_delta", … } }
 { "type": "error", "code": "bad_topic", "message": "Unknown topic", "topic": "…" }

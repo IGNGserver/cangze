@@ -7,7 +7,7 @@ WebSocket / REST API 接入（不需要安装 HA 插件或集成），让大语�
 
 [English](README.md)
 
-> **状态：0.2.0 预发布版。** 首个版本的功能已经齐备，并有单元测试与端到端测试覆盖，但项目仍然年轻。
+> **状态：0.3.0 预发布版。** 首个版本的功能已经齐备，并有单元测试与端到端测试覆盖，但项目仍然年轻。
 > 请定期备份，遇到问题欢迎反馈。
 
 <picture>
@@ -44,7 +44,7 @@ WebSocket / REST API 接入（不需要安装 HA 插件或集成），让大语�
 
 ```bash
 mkdir cangze && cd cangze
-VERSION=0.2.0
+VERSION=0.3.0
 curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
 docker compose up -d
 docker compose logs cangze | grep -i bootstrap
