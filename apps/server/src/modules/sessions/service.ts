@@ -1,4 +1,10 @@
-import type { SessionDetail, SessionSummary, ThinkingLevel } from '@cangze/contracts';
+import type {
+  CreateSessionResult,
+  MessageInput,
+  SessionDetail,
+  SessionSummary,
+  ThinkingLevel,
+} from '@cangze/contracts';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { Message } from '@earendil-works/pi-ai';
 import type { Logger } from 'pino';
@@ -16,6 +22,7 @@ import {
   type NoticeData,
 } from '../conversations/context.ts';
 import { toWire, type ConversationStore } from '../conversations/store.ts';
+import type { DraftsService } from '../drafts/service.ts';
 import { buildSystemPrompt } from '../engine/prompt.ts';
 import { userMessage, type ActiveRun, type AgentRunner } from '../engine/runner.ts';
 import type { HaGateway } from '../ha/gateway.ts';
@@ -43,6 +50,18 @@ interface Row {
 /** Extra system prompt sections contributed by other modules (e.g. the subagent roster). */
 export type PromptSectionProvider = () => Array<{ title: string; body: string }>;
 
+export interface SessionCreateInput {
+  title?: string;
+  modelRef?: string;
+  thinkingLevel?: ThinkingLevel;
+  instructions?: string;
+  draftRevision?: number | null;
+}
+
+export interface SessionStartInput extends SessionCreateInput {
+  message: MessageInput;
+}
+
 const COMPACT_AT = 0.8;
 const KEEP_AFTER_COMPACTION = 0.25;
 
@@ -66,6 +85,7 @@ export class SessionsService {
     private readonly approvals: ApprovalsService,
     private readonly stream: StreamHub,
     private readonly usage: UsageLedger,
+    private readonly drafts: DraftsService,
     private readonly logger: Logger,
   ) {}
 
@@ -130,12 +150,9 @@ export class SessionsService {
 
   // ------------------------------------------------------------------ CRUD
 
-  create(input: {
-    title?: string;
-    modelRef?: string;
-    thinkingLevel?: ThinkingLevel;
-    instructions?: string;
-  }): SessionSummary {
+  create(input: SessionCreateInput): CreateSessionResult {
+    if (input.draftRevision !== undefined)
+      throw new AppError(400, 'bad_request', 'draftRevision requires a message');
     if (input.modelRef) this.providers.resolve(input.modelRef);
     const id = newId('ses');
     const now = Date.now();
@@ -158,7 +175,73 @@ export class SessionsService {
       );
     const s = this.summary(this.row(id));
     this.stream.publish('sessions', { kind: 'upsert', session: s });
-    return s;
+    return { ...s, runId: null, queued: false };
+  }
+
+  /** Create a session and its first user message in one transaction, then start the reply. */
+  async start(input: SessionStartInput): Promise<CreateSessionResult> {
+    // Resolve before creating anything so a missing model cannot leave a session behind.
+    this.providers.resolve(input.modelRef);
+    const id = newId('ses');
+    const runId = newId('run');
+    const now = Date.now();
+    const created = this.db.transaction(() => {
+      const consumed = this.drafts.consume('new', input.draftRevision, { sessionId: id, reason: 'sent' });
+      const images = consumed?.images.length ? consumed.images : input.message.images;
+      if (!input.message.text.trim() && !images.length)
+        throw new AppError(400, 'empty_message', 'Message is empty');
+      const conv = this.store.create('session', id);
+      this.db
+        .prepare(
+          `INSERT INTO sessions (id, title, conversation_id, pinned, archived, model_ref, thinking_level, instructions, settings, usage, created_at, updated_at)
+           VALUES (?, ?, ?, 0, 0, ?, ?, ?, '{}', ?, ?, ?)`,
+        )
+        .run(
+          id,
+          input.title?.trim() ?? '',
+          conv,
+          input.modelRef ?? null,
+          input.thinkingLevel ?? null,
+          input.instructions ?? '',
+          json.stringify(ZERO_USAGE),
+          now,
+          now,
+        );
+      const entry = this.store.append(
+        conv,
+        null,
+        'message',
+        { message: userMessage(input.message.text, images) },
+        { role: 'user', runId },
+      );
+      this.db
+        .prepare('UPDATE sessions SET last_message_at = ?, updated_at = ? WHERE id = ?')
+        .run(now, now, id);
+      return { consumed, entry, summary: this.summary(this.row(id)) };
+    })();
+    if (created.consumed) this.drafts.publish(created.consumed.event);
+    this.stream.publish('sessions', { kind: 'upsert', session: created.summary });
+    this.stream.publish(`session:${id}`, {
+      kind: 'entry',
+      entry: toWire(created.entry),
+      activeLeafId: created.entry.id,
+    });
+    const titleSeed = input.message.text.trim() ? input.message.text : null;
+    try {
+      await this.startRun(this.row(id), created.entry.id, [], { runId, titleSeed });
+    } catch (err) {
+      // The session and user message are durable, so return them with a visible notice instead
+      // of leaving the composer on a draft that was already consumed.
+      this.logger.warn({ module: 'sessions', sessionId: id, err }, 'failed to start the first turn');
+      this.addNotice(id, {
+        level: 'error',
+        title: 'Reply failed',
+        body: err instanceof Error ? err.message : 'The reply could not start',
+        forModel: false,
+      });
+      return { ...this.summary(this.row(id)), runId: null, queued: false };
+    }
+    return { ...this.summary(this.row(id)), runId, queued: false };
   }
 
   update(
@@ -205,6 +288,7 @@ export class SessionsService {
 
   delete(id: string): void {
     const r = this.row(id);
+    const draft = this.drafts.get(id);
     this.runs.get(id)?.abort();
     this.runs.delete(id);
     this.db.transaction(() => {
@@ -212,6 +296,13 @@ export class SessionsService {
       this.store.delete(r.conversation_id);
     })();
     this.stream.publish('sessions', { kind: 'delete', id });
+    if (draft)
+      this.drafts.publish({
+        kind: 'delete',
+        scope: id,
+        revision: draft.revision,
+        reason: 'session_deleted',
+      });
   }
 
   private publishSummary(id: string): SessionSummary {
@@ -233,11 +324,9 @@ export class SessionsService {
       text: string;
       images: Array<{ data: string; mimeType: string }>;
       whenBusy: 'steer' | 'followUp';
+      draftRevision?: number | null;
     },
   ) {
-    if (!input.text.trim() && !input.images.length)
-      throw new AppError(400, 'empty_message', 'Message is empty');
-    const msg = userMessage(input.text, input.images);
     return this.withRunLock(id, async () => {
       const r = this.row(id);
       this.db
@@ -247,13 +336,61 @@ export class SessionsService {
         .run(id);
       const active = this.runs.get(id);
       if (active) {
-        if (input.whenBusy === 'followUp') active.followUp(msg);
-        else active.steer(msg);
+        const prepared = this.db.transaction(() => {
+          const consumed = this.drafts.consume(id, input.draftRevision, { sessionId: id, reason: 'sent' });
+          const images = consumed?.images.length ? consumed.images : input.images;
+          if (!input.text.trim() && !images.length)
+            throw new AppError(400, 'empty_message', 'Message is empty');
+          return { consumed, msg: userMessage(input.text, images) };
+        })();
+        if (prepared.consumed) this.drafts.publish(prepared.consumed.event);
+        if (input.whenBusy === 'followUp') active.followUp(prepared.msg);
+        else active.steer(prepared.msg);
         this.stream.publish(`session:${id}`, { kind: 'queued', count: active.queued });
         return { runId: active.runId, queued: true };
       }
-      const runId = await this.startRun(r, this.store.activeLeaf(r.conversation_id), [msg]);
-      return { runId, queued: false };
+      // Resolve before touching the draft so a missing model cannot consume the user's text.
+      this.providers.resolve(r.model_ref);
+      const runId = newId('run');
+      const prepared = this.db.transaction(() => {
+        const consumed = this.drafts.consume(id, input.draftRevision, { sessionId: id, reason: 'sent' });
+        const images = consumed?.images.length ? consumed.images : input.images;
+        if (!input.text.trim() && !images.length)
+          throw new AppError(400, 'empty_message', 'Message is empty');
+        const parent = this.store.activeLeaf(r.conversation_id);
+        const entry = this.store.append(
+          r.conversation_id,
+          parent,
+          'message',
+          { message: userMessage(input.text, images) },
+          { role: 'user', runId },
+        );
+        const now = Date.now();
+        this.db
+          .prepare('UPDATE sessions SET last_message_at = ?, updated_at = ? WHERE id = ?')
+          .run(now, now, id);
+        return { consumed, entry, wasEmpty: parent === null };
+      })();
+      if (prepared.consumed) this.drafts.publish(prepared.consumed.event);
+      this.stream.publish(`session:${id}`, {
+        kind: 'entry',
+        entry: toWire(prepared.entry),
+        activeLeafId: prepared.entry.id,
+      });
+      const titleSeed = prepared.wasEmpty && input.text.trim() ? input.text : null;
+      try {
+        const startedRunId = await this.startRun(r, prepared.entry.id, [], { runId, titleSeed });
+        return { runId: startedRunId, queued: false };
+      } catch (err) {
+        this.logger.warn({ module: 'sessions', sessionId: id, err }, 'failed to start a reply');
+        this.addNotice(id, {
+          level: 'error',
+          title: 'Reply failed',
+          body: err instanceof Error ? err.message : 'The reply could not start',
+          forModel: false,
+        });
+        return { runId: null, queued: false };
+      }
     });
   }
 
@@ -494,15 +631,21 @@ export class SessionsService {
     return true;
   }
 
-  private async startRun(r: Row, parentEntryId: string | null, input: AgentMessage[]): Promise<string> {
+  private async startRun(
+    r: Row,
+    parentEntryId: string | null,
+    input: AgentMessage[],
+    opts: { runId?: string; titleSeed?: string | null } = {},
+  ): Promise<string> {
     const model = this.providers.resolve(r.model_ref);
     const pricesKnown = this.providers.hasKnownPrices(model);
-    const runId = newId('run');
+    const runId = opts.runId ?? newId('run');
     const defaults = this.providers.defaults.get();
     const thinking = (r.thinking_level ?? defaults.thinkingLevel) as ThinkingLevel;
     const sections = this.sectionProviders.flatMap((p) => p());
     const firstUserText =
-      input.length && !this.store.activeLeaf(r.conversation_id) ? textOf(input[0]!) : null;
+      opts.titleSeed ??
+      (input.length && !this.store.activeLeaf(r.conversation_id) ? textOf(input[0]!) : null);
     const run = this.runner.start({
       runId,
       conversationId: r.conversation_id,

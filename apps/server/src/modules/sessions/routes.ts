@@ -1,5 +1,6 @@
 import {
   CreateSession,
+  CreateSessionResult,
   EditMessage,
   EntryRef,
   IdParams,
@@ -38,12 +39,15 @@ export function sessionRoutes(sessions: SessionsService, tools: ToolRegistry): R
     defineRoute({
       method: 'POST',
       url: '/api/v1/sessions',
-      summary: 'Create a session',
+      summary: 'Create a session, optionally with its first message',
       tags: ['sessions'],
       body: CreateSession,
-      response: SessionSummary,
+      response: CreateSessionResult,
       status: 201,
-      handler: ({ body }) => sessions.create(body),
+      handler: ({ body }) => {
+        const { message, ...rest } = body;
+        return message ? sessions.start({ ...rest, message }) : sessions.create(rest);
+      },
     }),
     defineRoute({
       method: 'GET',

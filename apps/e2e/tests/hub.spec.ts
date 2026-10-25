@@ -4,11 +4,21 @@ import { ADMIN_KEY, api, e2eEnv } from './env.ts';
 // One household, set up from scratch: the steps share a browser session and build on each other.
 test.describe.configure({ mode: 'serial' });
 
+interface DraftInfo {
+  scope: string;
+  text: string;
+  revision: number;
+  images: Array<{ id: string }>;
+}
+
+const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+
 let context: BrowserContext;
 let page: Page;
 let baseURL: string;
 const cspViolations: string[] = [];
 const hub = () => api(context.request, baseURL);
+const drafts = async () => (await hub().get<{ items: DraftInfo[] }>('/drafts')).items;
 
 test.beforeAll(async ({ browser }, info) => {
   baseURL = info.project.use.baseURL!;
@@ -66,9 +76,13 @@ test('welcome wizard: connect Home Assistant and add a model', async () => {
     name: 'Fake models',
     api: 'openai-completions',
     baseUrl: env.llmUrl,
-    models: [{ id: 'fake-1' }],
+    models: [{ id: 'fake-1' }, { id: 'fake-vision', name: 'Fake vision', vision: true }],
   });
-  await hub().put('/models/defaults', { chat: `${provider.id}/fake-1`, utility: null, thinkingLevel: 'off' });
+  await hub().put('/models/defaults', {
+    chat: `${provider.id}/fake-vision`,
+    utility: `${provider.id}/fake-1`,
+    thinkingLevel: 'off',
+  });
   // changed behind the UI's back: reload instead of waiting for the query cache to go stale
   await page.reload();
   await expect(page.getByText('Welcome to Cangze')).toBeVisible();
@@ -78,7 +92,77 @@ test('welcome wizard: connect Home Assistant and add a model', async () => {
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByText('All set')).toBeVisible();
   await page.getByRole('button', { name: 'Start your first conversation' }).click();
-  await expect(page).toHaveURL(/\/sessions\/[\w-]+$/);
+  await expect(page).toHaveURL(/\/sessions\/new$/);
+});
+
+test('new chat: no session until the first message, synced across devices', async ({ browser }) => {
+  await expect(composer()).toBeVisible();
+  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(0);
+
+  await composer().fill('Lights check');
+  await expect.poll(async () => (await drafts()).find((d) => d.scope === 'new')?.text).toBe('Lights check');
+  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(0);
+
+  await page.reload();
+  await expect(composer()).toHaveValue('Lights check');
+  await expect.poll(async () => (await drafts()).find((d) => d.scope === 'new')?.text).toBe('Lights check');
+
+  // A second device joins the same new chat and adds text plus an image.
+  const other = await browser.newContext({ baseURL, locale: 'en-US' });
+  const otherPage = await other.newPage();
+  await otherPage.goto('/');
+  await otherPage.getByLabel('Admin key').fill(ADMIN_KEY);
+  await otherPage.getByRole('button', { name: 'Sign in' }).click();
+  await expect(otherPage).toHaveURL(/\/sessions/);
+  await otherPage.goto('/sessions/new');
+  const otherComposer = otherPage.getByPlaceholder(/Enter to send/);
+  await expect(otherComposer).toHaveValue('Lights check');
+  await otherComposer.fill('Lights check from the other device');
+  await expect(otherPage.getByRole('button', { name: 'Attach images' })).toBeEnabled();
+  const chooserPromise = otherPage.waitForEvent('filechooser');
+  await otherPage.getByRole('button', { name: 'Attach images' }).click();
+  await (
+    await chooserPromise
+  ).setFiles({
+    name: 'pixel.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(PNG, 'base64'),
+  });
+  await expect(otherPage.locator('img[src*="/api/v1/drafts/new/images/"]')).toHaveCount(1, {
+    timeout: 20_000,
+  });
+  await expect
+    .poll(async () => {
+      const draft = (await drafts()).find((d) => d.scope === 'new');
+      return draft ? { text: draft.text, images: draft.images.length } : null;
+    })
+    .toEqual({ text: 'Lights check from the other device', images: 1 });
+  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(0);
+
+  // The first device sees the remote edit without losing it.
+  await expect(composer()).toHaveValue('Lights check from the other device');
+  await expect(page.locator('img[src*="/api/v1/drafts/new/images/"]')).toHaveCount(1, {
+    timeout: 20_000,
+  });
+
+  // Removing the image and clearing the text removes the singleton draft everywhere.
+  await page
+    .locator('img[src*="/api/v1/drafts/new/images/"]')
+    .first()
+    .locator('..')
+    .getByRole('button', { name: 'Delete' })
+    .click();
+  await expect(page.locator('img[src*="/api/v1/drafts/new/images/"]')).toHaveCount(0, {
+    timeout: 20_000,
+  });
+  await expect(otherPage.locator('img[src*="/api/v1/drafts/new/images/"]')).toHaveCount(0, {
+    timeout: 20_000,
+  });
+  await composer().fill('');
+  await expect.poll(async () => (await drafts()).length).toBe(0);
+  await expect(otherComposer).toHaveValue('');
+  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(0);
+  await other.close();
 });
 
 test('chat: the model searches devices with a tool', async () => {
@@ -87,6 +171,18 @@ test('chat: the model searches devices with a tool', async () => {
   await expect(page.getByText('light.living_lamp').first()).toBeVisible();
   // the utility model titles the session
   await expect(page.getByText('Lights check').first()).toBeVisible({ timeout: 20_000 });
+});
+
+test('session drafts survive reloads', async () => {
+  const id = page.url().split('/').pop()!;
+  await composer().fill('Draft saved in this session');
+  await expect
+    .poll(async () => (await drafts()).find((d) => d.scope === id)?.text)
+    .toBe('Draft saved in this session');
+  await page.reload();
+  await expect(composer()).toHaveValue('Draft saved in this session');
+  await composer().fill('');
+  await expect.poll(async () => (await drafts()).some((d) => d.scope === id)).toBe(false);
 });
 
 test('approval: unlocking asks the user first', async () => {
@@ -99,6 +195,35 @@ test('approval: unlocking asks the user first', async () => {
     .poll(async () => (await hub().get<{ state: string }>('/ha/entities/lock.front_door')).state)
     .toBe('unlocked');
   await expect(page.getByText('Here is what I found')).toHaveCount(2, { timeout: 20_000 });
+});
+
+test('sending the first message from a draft creates exactly one session', async () => {
+  const before = (await hub().get<Array<{ id: string }>>('/sessions')).length;
+  await page.getByText('New session', { exact: true }).first().click();
+  await expect(page).toHaveURL(/\/sessions\/new$/);
+  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(before);
+
+  await composer().fill('Hello from a draft');
+  await expect(page.getByRole('button', { name: 'Attach images' })).toBeEnabled();
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Attach images' }).click();
+  await (
+    await chooserPromise
+  ).setFiles({
+    name: 'pixel.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(PNG, 'base64'),
+  });
+  await expect(page.locator('img[src*="/api/v1/drafts/new/images/"]')).toHaveCount(1, {
+    timeout: 20_000,
+  });
+
+  await composer().press('Enter');
+  await expect(page).toHaveURL(/\/sessions\/[\w-]+$/);
+  await expect(page.getByText('Hello from a draft').first()).toBeVisible();
+  await expect(page.locator('img[src^="data:image"]').first()).toBeVisible();
+  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(before + 1);
+  await expect.poll(async () => (await drafts()).length).toBe(0);
 });
 
 test('devices: live state and quick controls', async () => {
@@ -214,11 +339,12 @@ test('custom model prices distinguish unknown, configured and explicitly free', 
   const provider = page.locator('.ant-list-item').filter({ hasText: 'Fake models' });
   await provider.getByRole('button', { name: 'Edit', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  const known = dialog.getByRole('checkbox', { name: 'Configure prices (explicit zero = free)' });
+  // fake-1 is the first configured model; fake-vision is second.
+  const known = dialog.getByRole('checkbox', { name: 'Configure prices (explicit zero = free)' }).first();
   await expect(known).not.toBeChecked();
   await known.check();
-  await dialog.getByLabel('Input', { exact: true }).fill('1.5');
-  await dialog.getByLabel('Output', { exact: true }).fill('2');
+  await dialog.getByLabel('Input', { exact: true }).first().fill('1.5');
+  await dialog.getByLabel('Output', { exact: true }).first().fill('2');
   await dialog.getByRole('button', { name: 'OK', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   const models = () =>
@@ -229,8 +355,8 @@ test('custom model prices distinguish unknown, configured and explicitly free', 
   expect((await models()).find((m) => m.ref.endsWith('/fake-1'))?.costKnown).toBe(true);
   await provider.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(known).toBeChecked();
-  await dialog.getByLabel('Input', { exact: true }).fill('0');
-  await dialog.getByLabel('Output', { exact: true }).fill('0');
+  await dialog.getByLabel('Input', { exact: true }).first().fill('0');
+  await dialog.getByLabel('Output', { exact: true }).first().fill('0');
   await dialog.getByRole('button', { name: 'OK', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect

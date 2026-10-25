@@ -54,15 +54,6 @@ export function SessionList({ activeId }: { activeId: string | null }) {
     [list.data, q, t],
   );
 
-  const create = async () => {
-    try {
-      const s = await api.post<SessionSummary>('/sessions', {});
-      navigate(`/sessions/${s.id}`);
-    } catch (e) {
-      void message.error(errorText(t, e));
-    }
-  };
-
   const patch = (id: string, body: Record<string, unknown>) =>
     api.patch(`/sessions/${id}`, body).catch((e) => message.error(errorText(t, e)));
 
@@ -93,7 +84,7 @@ export function SessionList({ activeId }: { activeId: string | null }) {
           activeKey={activeId ?? undefined}
           onActiveChange={(key) => navigate(`/sessions/${key}`)}
           groupable
-          creation={{ label: t('chat.newSession'), onClick: () => void create() }}
+          creation={{ label: t('chat.newSession'), onClick: () => navigate('/sessions/new') }}
           styles={{ root: { padding: 0 }, item: { borderRadius: token.borderRadius } }}
           menu={(conv) => {
             const s = list.data?.find((x) => x.id === conv.key);

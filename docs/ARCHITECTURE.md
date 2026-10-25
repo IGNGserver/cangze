@@ -161,6 +161,13 @@ draft. Arrays (especially permissions and triggers) are atomic to avoid silently
 Resolving a conflict does not save: the next PUT still uses optimistic revision checking. Trigger JSON
 is controlled draft text; invalid or non-object JSON blocks saving and firing until fixed or discarded.
 
+Composer drafts are separate server-side records: one singleton `new` draft and one per session.
+Text saves use optimistic revisions; attachment changes bump the same revision. The `drafts` stream
+topic pushes full draft text plus image metadata (bytes are fetched from an authenticated endpoint),
+and a stale save or send is rejected so two devices cannot silently overwrite each other. Sending
+the first message creates the session, persists the user entry and consumes the draft in one
+transaction, so clicking "new session" never leaves an empty conversation.
+
 The mobile shell includes the same notification inbox as desktop. Reconnects refresh REST-backed
 views; a stream instance identifier distinguishes restarts even when topic sequence numbers coincide.
 Conversation snapshots buffer concurrent events and replay only those newer than the snapshot.
@@ -189,5 +196,6 @@ Run history uses stable `(queued_at, id)` keyset pagination, including equal-mil
 ## Data model (summary)
 
 `settings`, `secrets`, `auth_sessions`, `device_tokens`, `providers`, `conversations`, `entries`,
-`sessions`, `agents`, `agent_revisions`, `agent_triggers`, `agent_memory`, `runs`, `approvals`,
-`audit_log`, `usage_ledger`, `notifications`, `backups`. See `apps/server/src/db/migrations`.
+`sessions`, `drafts`, `draft_attachments`, `agents`, `agent_revisions`, `agent_triggers`,
+`agent_memory`, `runs`, `approvals`, `audit_log`, `usage_ledger`, `notifications`, `backups`.
+See `apps/server/src/db/migrations`.

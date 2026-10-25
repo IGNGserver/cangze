@@ -1,31 +1,23 @@
 import { ChatMultiple24Regular } from '@fluentui/react-icons';
-import type { SessionSummary } from '@cangze/contracts';
-import { App, Button, Empty, Flex, Grid, theme } from 'antd';
+import { Button, Empty, Flex, Grid, theme } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router';
-import { api } from '../../api/client.ts';
-import { errorText } from '../../lib/errors.ts';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { ChatView } from './ChatView.tsx';
+import { NewChatView } from './NewChatView.tsx';
 import { SessionList } from './SessionList.tsx';
 
 export function SessionsPage() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const { message } = App.useApp();
   const { id } = useParams();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const screens = Grid.useBreakpoint();
+  const isNew = pathname === '/sessions/new';
 
-  const create = async () => {
-    try {
-      const s = await api.post<SessionSummary>('/sessions', {});
-      navigate(`/sessions/${s.id}`);
-    } catch (e) {
-      void message.error(errorText(t, e));
-    }
-  };
-
-  const chat = id ? (
+  const pane = isNew ? (
+    <NewChatView />
+  ) : id ? (
     <ChatView key={id} id={id} />
   ) : (
     <Flex align="center" justify="center" style={{ height: '100%' }}>
@@ -33,14 +25,15 @@ export function SessionsPage() {
         image={<ChatMultiple24Regular style={{ fontSize: 48, color: token.colorTextTertiary }} />}
         description={t('chat.pickOrCreate')}
       >
-        <Button type="primary" onClick={() => void create()}>
+        <Button type="primary" onClick={() => navigate('/sessions/new')}>
           {t('chat.newSession')}
         </Button>
       </Empty>
     </Flex>
   );
 
-  if (!screens.md) return id ? chat : <SessionList activeId={null} />;
+  if (!screens.md)
+    return isNew ? <NewChatView /> : id ? <ChatView key={id} id={id} /> : <SessionList activeId={null} />;
 
   return (
     <Flex style={{ height: '100%' }}>
@@ -54,7 +47,7 @@ export function SessionsPage() {
       >
         <SessionList activeId={id ?? null} />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>{chat}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>{pane}</div>
     </Flex>
   );
 }
