@@ -123,6 +123,7 @@
     "count": "{{count}} 个实体",
     "empty": "没有符合条件的实体",
     "noArea": "未分配区域",
+    "noAreaHint": "这些设备在 Home Assistant 中没有分配区域。",
     "connectHint": "在设置中填写 Home Assistant 地址与长期访问令牌。",
     "openSettings": "前往设置",
     "lock": "上锁",
@@ -703,22 +704,30 @@
     }
   },
   "automations": {
-    "subtitle": "子代理的计划、运行队列与 Home Assistant 原生自动化",
+    "subtitle": "子代理的计划、运行队列与 Home Assistant 原生自动化、脚本和场景",
     "tabs": {
       "schedule": "计划",
       "runs": "运行记录",
       "approvals": "待审批",
-      "ha": "HA 自动化"
+      "ha": "HA 自动化、脚本与场景"
     },
     "noSchedule": "没有即将触发的定时任务",
     "noApprovals": "没有等待批准的操作",
-    "noHa": "Home Assistant 中没有自动化",
+    "noHa": "Home Assistant 中没有自动化、脚本或场景",
     "col": {
+      "type": "类型",
       "name": "名称",
       "enabled": "启用",
-      "last": "上次触发"
+      "last": "上次运行"
     },
-    "trigger": "立即触发"
+    "kind": {
+      "automation": "自动化",
+      "script": "脚本",
+      "scene": "场景"
+    },
+    "trigger": "立即触发",
+    "run": "运行",
+    "activate": "激活"
   },
   "logs": {
     "subtitle": "对家庭的每一次操作、模型用量与系统日志",

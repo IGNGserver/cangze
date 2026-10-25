@@ -123,6 +123,7 @@
     "count": "{{count}} entities",
     "empty": "No matching entities",
     "noArea": "No area",
+    "noAreaHint": "These devices have no area in Home Assistant.",
     "connectHint": "Enter your Home Assistant URL and a long-lived access token in Settings.",
     "openSettings": "Open settings",
     "lock": "Lock",
@@ -708,22 +709,30 @@
     }
   },
   "automations": {
-    "subtitle": "Agent schedules, the run queue and Home Assistant's own automations",
+    "subtitle": "Agent schedules, the run queue and Home Assistant's own automations, scripts and scenes",
     "tabs": {
       "schedule": "Schedule",
       "runs": "Runs",
       "approvals": "Approvals",
-      "ha": "HA automations"
+      "ha": "HA automations, scripts & scenes"
     },
     "noSchedule": "Nothing scheduled",
     "noApprovals": "Nothing waiting for approval",
-    "noHa": "No automations in Home Assistant",
+    "noHa": "No automations, scripts or scenes in Home Assistant",
     "col": {
+      "type": "Type",
       "name": "Name",
       "enabled": "Enabled",
-      "last": "Last triggered"
+      "last": "Last run"
     },
-    "trigger": "Trigger now"
+    "kind": {
+      "automation": "Automation",
+      "script": "Script",
+      "scene": "Scene"
+    },
+    "trigger": "Trigger now",
+    "run": "Run",
+    "activate": "Activate"
   },
   "logs": {
     "subtitle": "Every action against the home, model usage and system logs",

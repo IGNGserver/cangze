@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import type { HaDevice } from '@cangze/contracts';
 import { WebSocketServer, type WebSocket } from 'ws';
+import type { EntityRegistryEntry } from '../src/modules/ha/registry.ts';
 
 /**
  * A small in-process Home Assistant stand-in speaking the WebSocket API (auth, states,
@@ -84,6 +86,7 @@ export function defaultHome() {
         model: 'P1',
         labels: [],
         disabled_by: null,
+        entry_type: null,
       },
       {
         id: 'dev_lock',
@@ -94,8 +97,9 @@ export function defaultHome() {
         model: 'L1',
         labels: ['security'],
         disabled_by: null,
+        entry_type: null,
       },
-    ],
+    ] as HaDevice[],
     entities: [
       {
         entity_id: 'light.living_ceiling',
@@ -196,7 +200,7 @@ export function defaultHome() {
         hidden_by: null,
         entity_category: null,
       },
-    ],
+    ] as EntityRegistryEntry[],
     labels: [
       { label_id: 'favorite', name: 'Favorite', color: 'yellow', icon: null },
       { label_id: 'security', name: 'Security', color: 'red', icon: null },
@@ -235,6 +239,14 @@ export function defaultHome() {
         good_night: { fields: {} },
         turn_on: { fields: {}, target: { entity: [{ domain: ['script'] }] } },
       },
+      automation: {
+        trigger: { fields: {}, target: { entity: [{ domain: ['automation'] }] } },
+        turn_on: { fields: {}, target: { entity: [{ domain: ['automation'] }] } },
+        turn_off: { fields: {}, target: { entity: [{ domain: ['automation'] }] } },
+      },
+      scene: {
+        turn_on: { fields: {}, target: { entity: [{ domain: ['scene'] }] } },
+      },
       notify: {
         notify: {
           fields: { message: { required: true, selector: { text: {} } }, title: { selector: { text: {} } } },
@@ -251,6 +263,67 @@ export function defaultHome() {
   };
 }
 
+/** The default home plus config/service entities for placement and UI tests. */
+export function extendedHome() {
+  const home = defaultHome();
+  home.states.push(
+    st('automation.sunset_lights', 'on', {
+      friendly_name: 'Sunset lights',
+      last_triggered: '2026-10-24T10:00:00+00:00',
+    }),
+    st('scene.movie', 'unknown', { friendly_name: 'Movie night' }),
+    st('tts.google_translate_en_com', 'unknown', { friendly_name: 'Google Translate en com' }),
+    st('person.cangze', 'home', { friendly_name: 'Cangze' }),
+  );
+  home.devices.push({
+    id: 'dev_tts',
+    name: 'Google Translate en com',
+    name_by_user: null,
+    area_id: null,
+    manufacturer: 'Google',
+    model: 'Google Translate TTS',
+    labels: [],
+    disabled_by: null,
+    entry_type: 'service',
+  });
+  home.entities.push(
+    {
+      entity_id: 'automation.sunset_lights',
+      area_id: null,
+      device_id: null,
+      labels: [],
+      name: null,
+      platform: 'automation',
+      disabled_by: null,
+      hidden_by: null,
+      entity_category: null,
+    },
+    {
+      entity_id: 'scene.movie',
+      area_id: null,
+      device_id: null,
+      labels: [],
+      name: null,
+      platform: 'homeassistant',
+      disabled_by: null,
+      hidden_by: null,
+      entity_category: null,
+    },
+    {
+      entity_id: 'tts.google_translate_en_com',
+      area_id: null,
+      device_id: 'dev_tts',
+      labels: [],
+      name: null,
+      platform: 'google_translate',
+      disabled_by: null,
+      hidden_by: null,
+      entity_category: null,
+    },
+  );
+  return home;
+}
+
 interface Sub {
   socket: WebSocket;
   id: number;
@@ -259,7 +332,10 @@ interface Sub {
 }
 
 export class FakeHa {
-  readonly home = defaultHome();
+  readonly home: ReturnType<typeof defaultHome>;
+  constructor(home: ReturnType<typeof defaultHome> = defaultHome()) {
+    this.home = home;
+  }
   readonly calls: Array<{
     domain: string;
     service: string;

@@ -1,4 +1,4 @@
-import type { Approval, HaEntity } from '@cangze/contracts';
+import { isHaConfigDomain, type Approval, type HaEntity } from '@cangze/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Badge, Button, Empty, List, Space, Switch, Table, Tabs, Tag, Timeline, Typography } from 'antd';
 import dayjs from 'dayjs';
@@ -33,7 +33,7 @@ export function AutomationsPage() {
             ),
             children: <Approvals list={approvals.data ?? []} />,
           },
-          { key: 'ha', label: t('automations.tabs.ha'), children: <HaAutomations /> },
+          { key: 'ha', label: t('automations.tabs.ha'), children: <HaConfigs /> },
         ]}
       />
     </Page>
@@ -99,54 +99,80 @@ function Approvals({ list }: { list: Approval[] }) {
   );
 }
 
-function HaAutomations() {
+const KIND_ORDER: Record<string, number> = { automation: 0, scene: 1, script: 2 };
+
+function HaConfigs() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   useLiveEntities();
   const entities = useEntities();
   const call = useCallService();
-  const automations = (entities.data ?? []).filter((e) => e.domain === 'automation');
+  const configs = (entities.data ?? [])
+    .filter((e) => isHaConfigDomain(e.domain))
+    .sort(
+      (a, b) => (KIND_ORDER[a.domain] ?? 99) - (KIND_ORDER[b.domain] ?? 99) || a.name.localeCompare(b.name),
+    );
   const run = (domain: string, service: string, entity: string) =>
     call.mutate(
       { domain, service, target: { entity_id: entity } },
       { onError: (e) => void message.error(errorText(t, e)) },
     );
+  const lastUsed = (e: HaEntity) => {
+    const raw =
+      e.attributes.last_triggered ?? e.attributes.last_activated ?? (e.domain === 'scene' ? e.state : null);
+    if (typeof raw !== 'string' || !raw || raw === 'unknown' || raw === 'unavailable') return '—';
+    const d = dayjs(raw);
+    return d.isValid() ? d.format('MM-DD HH:mm') : '—';
+  };
   return (
     <Table<HaEntity>
       size="small"
       rowKey="entity_id"
-      dataSource={automations}
+      dataSource={configs}
       locale={{ emptyText: t('automations.noHa') }}
       pagination={{ pageSize: 50, hideOnSinglePage: true }}
       columns={[
+        {
+          title: t('automations.col.type'),
+          width: 100,
+          render: (_, e) => <Tag>{t(`automations.kind.${e.domain}`)}</Tag>,
+        },
         { title: t('automations.col.name'), dataIndex: 'name' },
         {
           title: t('automations.col.enabled'),
           width: 100,
-          render: (_, e) => (
-            <Switch
-              size="small"
-              checked={e.state === 'on'}
-              onChange={(on) => run('automation', on ? 'turn_on' : 'turn_off', e.entity_id)}
-            />
-          ),
+          render: (_, e) =>
+            e.domain === 'automation' ? (
+              <Switch
+                size="small"
+                checked={e.state === 'on'}
+                onChange={(on) => run('automation', on ? 'turn_on' : 'turn_off', e.entity_id)}
+              />
+            ) : (
+              <Typography.Text type="secondary">—</Typography.Text>
+            ),
         },
         {
           title: t('automations.col.last'),
-          width: 180,
-          render: (_, e) =>
-            e.attributes.last_triggered
-              ? dayjs(String(e.attributes.last_triggered)).format('MM-DD HH:mm')
-              : '—',
+          width: 150,
+          render: (_, e) => lastUsed(e),
         },
         {
           title: '',
-          width: 110,
-          render: (_, e) => (
-            <Button size="small" onClick={() => run('automation', 'trigger', e.entity_id)}>
-              {t('automations.trigger')}
-            </Button>
-          ),
+          width: 120,
+          render: (_, e) => {
+            const action =
+              e.domain === 'automation'
+                ? { service: 'trigger', label: t('automations.trigger') }
+                : e.domain === 'scene'
+                  ? { service: 'turn_on', label: t('automations.activate') }
+                  : { service: 'turn_on', label: t('automations.run') };
+            return (
+              <Button size="small" onClick={() => run(e.domain, action.service, e.entity_id)}>
+                {action.label}
+              </Button>
+            );
+          },
         },
       ]}
     />

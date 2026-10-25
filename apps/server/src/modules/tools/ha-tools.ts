@@ -78,7 +78,7 @@ export function haTools(ha: HaGateway): ToolDef[] {
       group: 'home',
       risk: 'read',
       description:
-        'Floors, areas (with ids) and how many entities of each domain they contain, plus labels. Call this first when you do not know the layout of the home.',
+        'Floors, areas (with ids) and their room-scoped entity counts, whole-home automation/scene/script counts, plus labels. Call this first when you do not know the layout of the home.',
       parameters: Type.Object({}),
       execute: async () => {
         const labels = [...reg.labels.values()].map((l) => `${l.name} (label_id: ${l.label_id})`).join(', ');

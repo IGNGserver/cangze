@@ -386,6 +386,7 @@ export class HaGateway {
         model: d.model ?? null,
         labels: d.labels ?? [],
         disabled_by: d.disabled_by ?? null,
+        entry_type: d.entry_type ?? null,
       })),
     );
     this.registry.setEntities(
@@ -879,6 +880,7 @@ interface RawDevice {
   model?: string | null;
   labels?: string[];
   disabled_by?: string | null;
+  entry_type?: string | null;
 }
 interface RawEntity {
   entity_id: string;
