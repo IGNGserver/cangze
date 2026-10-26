@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Cangze API",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "REST API of the Cangze hub. Live updates are delivered over the /api/v1/stream WebSocket.",
     "license": {
       "name": "Apache-2.0",
