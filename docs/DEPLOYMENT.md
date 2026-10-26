@@ -6,7 +6,7 @@ Cangze ships as one multi-arch image (`linux/amd64`, `linux/arm64`):
 ## Docker Compose
 
 ```bash
-VERSION=0.3.0
+VERSION=0.3.1
 curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
 # v0.3.0 and earlier publish this file as default.env.example; newer releases use env.example.
 curl -fsSL "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/env.example" -o .env \
@@ -23,11 +23,11 @@ The URLs above are pinned to a release and are intentionally not read from the `
 release, the Compose file can also be downloaded from
 `https://github.com/IGNGserver/cangze/releases/latest/download/compose.yaml`.
 
-`compose.yaml` defaults to the release it was published with (`CANGZE_VERSION`, e.g. `0.3.0`). Image tags:
+`compose.yaml` defaults to the release it was published with (`CANGZE_VERSION`, e.g. `0.3.1`). Image tags:
 
 | Tag      | Meaning                                                                 |
 | -------- | ----------------------------------------------------------------------- |
-| `0.3.0`  | one release, never moved                                                |
+| `0.3.1`  | one release, never moved                                                |
 | `next`   | the newest prerelease                                                   |
 | `latest` | the newest formal release (none yet while the project is in prerelease) |
 

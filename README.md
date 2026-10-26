@@ -8,7 +8,7 @@ language models understand, control and automate your home — safely.
 
 [简体中文](README.zh-CN.md)
 
-> **Status: 0.3.0 prerelease.** Feature complete for a first release and covered by unit and end-to-end
+> **Status: 0.3.1 prerelease.** Feature complete for a first release and covered by unit and end-to-end
 > tests, but young. Back up regularly and expect rough edges.
 
 <picture>
@@ -50,7 +50,7 @@ language models understand, control and automate your home — safely.
 
 ```bash
 mkdir cangze && cd cangze
-VERSION=0.3.0
+VERSION=0.3.1
 curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
 docker compose up -d
 docker compose logs cangze | grep -i bootstrap

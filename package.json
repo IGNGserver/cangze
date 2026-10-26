@@ -1,6 +1,6 @@
 {
   "name": "cangze",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "Cangze — an open-source AI hub for your existing Home Assistant.",
