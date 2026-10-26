@@ -10,7 +10,7 @@ name: cangze
 
 services:
   cangze:
-    image: ${CANGZE_IMAGE:-ghcr.io/igngserver/cangze}:${CANGZE_VERSION:-0.3.0}
+    image: ${CANGZE_IMAGE:-ghcr.io/igngserver/cangze}:${CANGZE_VERSION:-0.3.1}
     restart: unless-stopped
     ports:
       - '${CANGZE_BIND:-0.0.0.0}:${CANGZE_PORT:-38417}:38417'
