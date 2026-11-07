@@ -52,7 +52,7 @@ export function SystemLogPanel() {
         expandable={{
           rowExpandable: (r) => Object.keys(r.data).length > 0,
           expandedRowRender: (r) => (
-            <pre className="cz-mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+            <pre className="cz-code-block cz-mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
               {JSON.stringify(r.data, null, 2)}
             </pre>
           ),

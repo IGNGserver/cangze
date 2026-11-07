@@ -3,6 +3,7 @@ import { Button, Card, Col, Descriptions, List, Row, Statistic, Typography } fro
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { useRuns } from '../../api/agents.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 import { RunStatusTag } from './RunStatusTag.tsx';
 
 export function OverviewPanel({ agent, onOpenRuns }: { agent: AgentDetail; onOpenRuns: () => void }) {
@@ -10,7 +11,7 @@ export function OverviewPanel({ agent, onOpenRuns }: { agent: AgentDetail; onOpe
   const runs = useRuns({ agentId: agent.id, limit: 5 });
   const d = agent.definition;
   return (
-    <div style={{ maxWidth: 960 }}>
+    <div style={{ maxWidth: LAYOUT.wideContentMaxWidth }}>
       {d.description && <Typography.Paragraph>{d.description}</Typography.Paragraph>}
       <Row gutter={[12, 12]}>
         <Col xs={12} md={6}>

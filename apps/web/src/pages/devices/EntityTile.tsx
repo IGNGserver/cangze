@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useCallService } from '../../api/ha.ts';
 import { domainIcon, formatState, isActive, isUnavailable, quickControl } from '../../lib/entities.tsx';
 import { errorText } from '../../lib/errors.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 
 export function EntityTile({ entity, onOpen }: { entity: HaEntity; onOpen: () => void }) {
   const { t } = useTranslation();
@@ -98,21 +99,21 @@ export function EntityTile({ entity, onOpen }: { entity: HaEntity; onOpen: () =>
     <div
       role="button"
       tabIndex={0}
+      className="cz-entity-tile"
       onClick={onOpen}
       onKeyDown={(e) => (e.key === 'Enter' ? onOpen() : undefined)}
       style={{
         cursor: 'pointer',
-        padding: 12,
+        padding: `${LAYOUT.paddingSM}px ${LAYOUT.paddingMD}px`,
         borderRadius: token.borderRadiusLG,
-        border: `1px solid ${token.colorBorderSecondary}`,
+        border: `1px solid ${active ? token.colorPrimaryBorder : token.colorBorderSecondary}`,
         background: active ? token.colorPrimaryBg : token.colorBgContainer,
         opacity: unavailable ? 0.6 : 1,
-        transition: `background ${token.motionDurationMid}`,
         minHeight: 72,
       }}
     >
-      <Flex align="center" gap={10} justify="space-between">
-        <Flex align="center" gap={10} style={{ minWidth: 0 }}>
+      <Flex align="center" gap={LAYOUT.gapMD} justify="space-between">
+        <Flex align="center" gap={LAYOUT.gapMD} style={{ minWidth: 0 }}>
           <span style={{ color: active ? token.colorPrimary : token.colorTextSecondary, display: 'flex' }}>
             {domainIcon(entity)}
           </span>

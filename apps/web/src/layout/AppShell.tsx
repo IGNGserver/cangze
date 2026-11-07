@@ -10,6 +10,7 @@ import { useStreamRecovery, useStreamStatus } from '../api/stream.ts';
 import { Logo } from '../components/Logo.tsx';
 import { NotificationCenter } from '../components/NotificationCenter.tsx';
 import { useThemeMode } from '../theme/ThemeProvider.tsx';
+import { LAYOUT } from '../theme/fluent.ts';
 import { NAV } from './nav.tsx';
 
 function StatusDot() {
@@ -59,13 +60,15 @@ export function AppShell() {
           justify="center"
           gap={mobile ? 0 : 2}
           style={{
-            width: mobile ? 56 : 68,
-            height: mobile ? 52 : 56,
+            width: mobile ? 56 : 70,
+            height: mobile ? 50 : 54,
             borderRadius: token.borderRadiusLG,
             color: active ? token.colorPrimary : token.colorTextSecondary,
             background: active ? token.colorBgContainer : 'transparent',
+            border: active && !mobile ? `1px solid ${token.colorBorderSecondary}` : '1px solid transparent',
             boxShadow: active && !mobile ? token.boxShadowTertiary : 'none',
             position: 'relative',
+            transition: `all ${token.motionDurationMid} ${token.motionEaseInOut}`,
           }}
         >
           <Icon filled={active} />
@@ -75,7 +78,7 @@ export function AppShell() {
               fontSize: 11,
               color: 'inherit',
               fontWeight: active ? 600 : 400,
-              maxWidth: mobile ? 52 : 64,
+              maxWidth: mobile ? 52 : 68,
             }}
           >
             {t(item.labelKey)}
@@ -118,10 +121,13 @@ export function AppShell() {
         <Flex
           align="center"
           justify="space-between"
-          style={{ padding: '2px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+          style={{
+            padding: `4px ${LAYOUT.paddingMD}px`,
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          }}
         >
           {userMenu}
-          <Flex gap={12} align="center">
+          <Flex gap={LAYOUT.gapMD} align="center">
             <StatusDot />
             <NotificationCenter />
           </Flex>
@@ -137,7 +143,7 @@ export function AppShell() {
           style={{
             borderTop: `1px solid ${token.colorBorderSecondary}`,
             background: token.colorBgLayout,
-            padding: '2px 4px',
+            padding: `4px ${LAYOUT.paddingMD / 4}px`,
           }}
         >
           {items}
@@ -154,7 +160,7 @@ export function AppShell() {
         justify="space-between"
         style={{
           width: 'var(--cz-rail-width)',
-          padding: '12px 0',
+          padding: `${LAYOUT.paddingMD}px 0`,
           flexShrink: 0,
           background: token.colorBgLayout,
         }}
@@ -173,9 +179,10 @@ export function AppShell() {
         style={{
           flex: 1,
           minWidth: 0,
-          margin: '8px 8px 8px 0',
+          margin: `${LAYOUT.paddingXS}px ${LAYOUT.paddingXS}px ${LAYOUT.paddingXS}px 0`,
           background: token.colorBgContainer,
           borderRadius: token.borderRadiusLG,
+          border: `1px solid ${token.colorBorderSecondary}`,
           boxShadow: token.boxShadowTertiary,
           overflow: 'hidden',
         }}

@@ -10,6 +10,7 @@ import { useDraft } from '../../api/drafts.tsx';
 import { useChat, useModelDefaults, useModels } from '../../api/sessions.ts';
 import { Logo } from '../../components/Logo.tsx';
 import { errorText } from '../../lib/errors.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 import { Composer, type ComposerSend } from './Composer.tsx';
 import { MessageList } from './MessageList.tsx';
 import { ModelPicker } from './ModelPicker.tsx';
@@ -76,15 +77,18 @@ export function ChatView({ id }: { id: string }) {
     { key: 'automation', description: t('chat.suggest.automation') },
   ];
 
+  const padX = screens.md ? LAYOUT.paddingLG : LAYOUT.paddingMD;
+
   return (
     <Flex vertical style={{ height: '100%', minWidth: 0 }}>
       <Flex
         align="center"
-        gap={8}
+        gap={LAYOUT.gapSM}
         style={{
-          padding: '10px 16px',
+          padding: `0 ${padX}px`,
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          minHeight: 56,
+          height: LAYOUT.headerHeight,
+          minHeight: LAYOUT.headerHeight,
         }}
       >
         {!screens.md && (
@@ -97,7 +101,7 @@ export function ChatView({ id }: { id: string }) {
         )}
         <Typography.Title
           level={5}
-          style={{ margin: 0, flex: 1, minWidth: 0 }}
+          style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 16 }}
           ellipsis
           editable={{
             onChange: (v) => v.trim() && v !== d.title && void patch({ title: v.trim() }),
@@ -106,15 +110,12 @@ export function ChatView({ id }: { id: string }) {
         >
           {d.title || t('chat.untitled')}
         </Typography.Title>
-        {screens.md && (
-          <ModelPicker size="small" value={d.modelRef} onChange={(v) => void patch({ modelRef: v })} />
-        )}
+        {screens.md && <ModelPicker value={d.modelRef} onChange={(v) => void patch({ modelRef: v })} />}
         {screens.md && model?.reasoning && (
           <Select<ThinkingLevel | '__default'>
-            size="small"
             value={d.thinkingLevel ?? '__default'}
             onChange={(v) => void patch({ thinkingLevel: v === '__default' ? null : v })}
-            style={{ width: 120 }}
+            style={{ width: 128 }}
             options={[
               { value: '__default', label: t('chat.thinkingDefault') },
               ...model.thinkingLevels.map((l) => ({ value: l, label: t(`chat.levels.${l}`) })),
@@ -122,13 +123,15 @@ export function ChatView({ id }: { id: string }) {
           />
         )}
         <Tooltip title={t('chat.context', { used: d.contextTokens ?? 0, total: d.contextWindow ?? '?' })}>
-          <Progress
-            type="circle"
-            percent={ctxPct}
-            size={22}
-            showInfo={false}
-            strokeColor={ctxPct > 80 ? token.colorWarning : token.colorPrimary}
-          />
+          <Flex align="center" justify="center" style={{ width: 32, height: 32 }}>
+            <Progress
+              type="circle"
+              percent={ctxPct}
+              size={20}
+              showInfo={false}
+              strokeColor={ctxPct > 80 ? token.colorWarning : token.colorPrimary}
+            />
+          </Flex>
         </Tooltip>
         <Button
           type="text"
@@ -138,41 +141,53 @@ export function ChatView({ id }: { id: string }) {
         />
       </Flex>
 
-      <div style={{ flex: 1, minHeight: 0, padding: '0 16px' }}>
+      <div style={{ flex: 1, minHeight: 0 }}>
         {empty ? (
-          <Flex
-            vertical
-            align="center"
-            justify="center"
-            gap={24}
-            style={{ height: '100%', maxWidth: 720, margin: '0 auto' }}
-          >
-            <Welcome
-              icon={<Logo size={48} />}
-              title={t('chat.welcomeTitle')}
-              description={t('chat.welcomeText')}
-              variant="borderless"
-            />
-            {!hasDraft && (
-              <Prompts
-                items={suggestions}
-                wrap
-                onItemClick={(info) =>
-                  void api
-                    .post(`/sessions/${id}/messages`, { text: String(info.data.description) })
-                    .catch((e) => message.error(errorText(t, e)))
-                }
+          <div className="cz-scroll" style={{ height: '100%', padding: `0 ${padX}px` }}>
+            <Flex
+              vertical
+              align="center"
+              justify="center"
+              gap={LAYOUT.gapXL}
+              style={{
+                minHeight: '100%',
+                maxWidth: LAYOUT.contentMaxWidth - padX * 2,
+                margin: '0 auto',
+                padding: `${LAYOUT.paddingLG}px 0`,
+              }}
+            >
+              <Welcome
+                icon={<Logo size={48} />}
+                title={t('chat.welcomeTitle')}
+                description={t('chat.welcomeText')}
+                variant="borderless"
               />
-            )}
-          </Flex>
-        ) : (
-          <div style={{ height: '100%', maxWidth: 860, margin: '0 auto' }}>
-            <MessageList sessionId={id} state={state} />
+              {!hasDraft && (
+                <Prompts
+                  items={suggestions}
+                  wrap
+                  onItemClick={(info) =>
+                    void api
+                      .post(`/sessions/${id}/messages`, { text: String(info.data.description) })
+                      .catch((e) => message.error(errorText(t, e)))
+                  }
+                />
+              )}
+            </Flex>
           </div>
+        ) : (
+          <MessageList sessionId={id} state={state} />
         )}
       </div>
 
-      <div style={{ padding: '8px 16px 16px', maxWidth: 892, width: '100%', margin: '0 auto' }}>
+      <div
+        style={{
+          padding: `${LAYOUT.paddingXS}px ${padX}px ${LAYOUT.paddingMD}px`,
+          maxWidth: LAYOUT.contentMaxWidth,
+          width: '100%',
+          margin: '0 auto',
+        }}
+      >
         {noModel && (
           <Alert
             type="warning"

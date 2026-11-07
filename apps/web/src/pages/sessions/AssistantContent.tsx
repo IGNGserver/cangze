@@ -60,7 +60,7 @@ export function AssistantContent({
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {t('chat.arguments')}
           </Typography.Text>
-          <pre className="cz-mono" style={{ whiteSpace: 'pre-wrap', margin: '4px 0 8px' }}>
+          <pre className="cz-code-block" style={{ whiteSpace: 'pre-wrap', margin: '4px 0 8px' }}>
             {JSON.stringify(c.arguments ?? {}, null, 2)}
           </pre>
           {result && (
@@ -69,7 +69,7 @@ export function AssistantContent({
                 {t('chat.result')}
               </Typography.Text>
               <pre
-                className="cz-mono"
+                className="cz-code-block"
                 style={{ whiteSpace: 'pre-wrap', margin: '4px 0 0', maxHeight: 320, overflow: 'auto' }}
               >
                 {result.text}

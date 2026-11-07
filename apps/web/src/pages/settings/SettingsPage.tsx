@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Page } from '../../components/Page.tsx';
+import { LAYOUT } from '../../theme/fluent.ts';
 import { AboutSettings } from './AboutSettings.tsx';
 import { ClientsSettings } from './ClientsSettings.tsx';
 import { DataSettings } from './DataSettings.tsx';
@@ -53,14 +54,15 @@ export function SettingsPage() {
           items={items}
           onClick={(e) => navigate(`/settings/${e.key}`)}
           style={{
-            width: 220,
+            width: LAYOUT.settingsMenuWidth,
             flexShrink: 0,
-            padding: 8,
+            padding: LAYOUT.paddingXS,
+            background: token.colorFillAlter,
             borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
           }}
         />
       ) : (
-        <div style={{ padding: '12px 16px 0' }}>
+        <div style={{ padding: `${LAYOUT.paddingSM}px ${LAYOUT.paddingMD}px 0` }}>
           <Select
             value={current.key}
             options={items.map((i) => ({ value: i.key, label: i.label }))}
@@ -69,8 +71,8 @@ export function SettingsPage() {
           />
         </div>
       )}
-      <div className="cz-scroll" style={{ flex: 1, minWidth: 0, padding: 24 }}>
-        <div style={{ maxWidth: 760 }}>{current.render()}</div>
+      <div className="cz-scroll" style={{ flex: 1, minWidth: 0, padding: LAYOUT.paddingLG }}>
+        <div style={{ maxWidth: LAYOUT.contentMaxWidth }}>{current.render()}</div>
       </div>
     </Page>
   );

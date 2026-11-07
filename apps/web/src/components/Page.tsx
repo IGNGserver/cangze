@@ -1,5 +1,6 @@
 import { Flex, Grid, theme, Typography } from 'antd';
 import type { CSSProperties, ReactNode } from 'react';
+import { LAYOUT } from '../theme/fluent.ts';
 
 /** Standard page frame: title bar with actions and a scrollable body. */
 export function Page({
@@ -16,24 +17,32 @@ export function Page({
   bodyStyle?: CSSProperties;
 }) {
   const { token } = theme.useToken();
-  const pad = Grid.useBreakpoint().md ? 24 : 16;
+  const pad = Grid.useBreakpoint().md ? LAYOUT.paddingLG : LAYOUT.paddingMD;
   return (
     <Flex vertical style={{ height: '100%' }}>
       <Flex
         align="center"
         justify="space-between"
-        gap={12}
+        gap={LAYOUT.gapMD}
         wrap
-        style={{ padding: `16px ${pad}px`, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+        style={{
+          minHeight: LAYOUT.headerHeight,
+          padding: `${LAYOUT.paddingSM}px ${pad}px`,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        }}
       >
         <div style={{ minWidth: 0 }}>
-          <Typography.Title level={4} style={{ margin: 0 }}>
+          <Typography.Title level={4} style={{ margin: 0, fontSize: 18, lineHeight: 1.3 }}>
             {title}
           </Typography.Title>
-          {subtitle && <Typography.Text type="secondary">{subtitle}</Typography.Text>}
+          {subtitle && (
+            <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+              {subtitle}
+            </Typography.Text>
+          )}
         </div>
         {actions && (
-          <Flex gap={8} wrap>
+          <Flex gap={LAYOUT.gapSM} wrap align="center">
             {actions}
           </Flex>
         )}

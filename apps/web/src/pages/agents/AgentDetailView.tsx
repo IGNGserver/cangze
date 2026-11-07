@@ -26,6 +26,7 @@ import { ak, useAgent } from '../../api/agents.ts';
 import { errorText } from '../../lib/errors.ts';
 import { mergeJson, sameJson } from '../../lib/merge.ts';
 import { parseJsonObject } from '../../lib/json.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 import { DefinitionForm } from './DefinitionForm.tsx';
 import { MemoryPanel } from './MemoryPanel.tsx';
 import { OverviewPanel } from './OverviewPanel.tsx';
@@ -142,13 +143,17 @@ export function AgentDetailView({ id }: { id: string }) {
     <Flex vertical style={{ height: '100%' }}>
       <Flex
         align="center"
-        gap={12}
+        gap={LAYOUT.gapMD}
         wrap
-        style={{ padding: '12px 20px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+        style={{
+          minHeight: LAYOUT.headerHeight,
+          padding: `${LAYOUT.paddingXS}px ${LAYOUT.paddingLG}px`,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        }}
       >
         {!screens.lg && <Button onClick={() => navigate('/agents')}>{t('common.back')}</Button>}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Typography.Title level={4} style={{ margin: 0 }} ellipsis>
+          <Typography.Title level={4} style={{ margin: 0, fontSize: 18, lineHeight: 1.25 }} ellipsis>
             {a.name}
           </Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -233,7 +238,7 @@ export function AgentDetailView({ id }: { id: string }) {
       <Tabs
         activeKey={tab}
         onChange={setTab}
-        style={{ flex: 1, minHeight: 0, padding: '0 20px' }}
+        style={{ flex: 1, minHeight: 0, padding: `0 ${LAYOUT.paddingLG}px` }}
         className="cz-tabs-fill"
         items={[
           {

@@ -17,6 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client.ts';
 import { sk } from '../../api/sessions.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 import { ModelPicker } from '../sessions/ModelPicker.tsx';
 
 interface ToolInfo {
@@ -42,7 +43,7 @@ export function DefinitionForm({
   const memory = ['memory_list', 'memory_write', 'memory_delete'];
 
   return (
-    <Form layout="vertical" style={{ maxWidth: 860 }}>
+    <Form layout="vertical" style={{ maxWidth: LAYOUT.wideContentMaxWidth }}>
       <Row gutter={16}>
         <Col xs={24} md={12}>
           <Form.Item label={t('agents.name')} required>

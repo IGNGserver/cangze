@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client.ts';
 import { ak, useMemory } from '../../api/agents.ts';
 import { errorText } from '../../lib/errors.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 
 export function MemoryPanel({ agentId }: { agentId: string }) {
   const { t } = useTranslation();
@@ -33,7 +34,7 @@ export function MemoryPanel({ agentId }: { agentId: string }) {
   };
 
   return (
-    <div style={{ maxWidth: 860 }}>
+    <div style={{ maxWidth: LAYOUT.wideContentMaxWidth }}>
       <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
         <Typography.Text type="secondary">{t('agents.memoryHint')}</Typography.Text>
         <Space>

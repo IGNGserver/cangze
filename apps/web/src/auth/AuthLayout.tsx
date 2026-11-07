@@ -1,7 +1,8 @@
-import { Card, Flex, Typography } from 'antd';
+import { Card, Flex, theme, Typography } from 'antd';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Logo } from '../components/Logo.tsx';
+import { LAYOUT } from '../theme/fluent.ts';
 
 export function AuthLayout({
   title,
@@ -13,11 +14,15 @@ export function AuthLayout({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   return (
-    <Flex align="center" justify="center" style={{ minHeight: '100%', padding: 16 }}>
-      <Card style={{ width: '100%', maxWidth: 420 }} styles={{ body: { padding: 32 } }}>
+    <Flex align="center" justify="center" style={{ minHeight: '100%', padding: LAYOUT.paddingMD }}>
+      <Card
+        style={{ width: '100%', maxWidth: 420, boxShadow: token.boxShadowSecondary }}
+        styles={{ body: { padding: 32 } }}
+      >
         <Flex vertical gap={20}>
-          <Flex align="center" gap={12}>
+          <Flex align="center" gap={LAYOUT.gapMD}>
             <Logo size={40} />
             <div>
               <Typography.Title level={4} style={{ margin: 0 }}>
@@ -27,10 +32,14 @@ export function AuthLayout({
             </div>
           </Flex>
           <div>
-            <Typography.Title level={5} style={{ marginTop: 0 }}>
+            <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 4 }}>
               {title}
             </Typography.Title>
-            {subtitle && <Typography.Paragraph type="secondary">{subtitle}</Typography.Paragraph>}
+            {subtitle && (
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                {subtitle}
+              </Typography.Paragraph>
+            )}
           </div>
           {children}
         </Flex>

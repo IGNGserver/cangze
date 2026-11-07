@@ -1,7 +1,7 @@
 import { XProvider } from '@ant-design/x';
 import xEnUS from '@ant-design/x/locale/en_US';
 import xZhCN from '@ant-design/x/locale/zh_CN';
-import { App as AntApp } from 'antd';
+import { App as AntApp, theme } from 'antd';
 import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -70,7 +70,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     [mode, resolved],
   );
 
-  const themeConfig = useMemo(() => fluentTheme(resolved), [resolved]);
+  const themeConfig = useMemo(
+    () => ({
+      ...fluentTheme(resolved),
+      algorithm: resolved === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
+    }),
+    [resolved],
+  );
   const locale = i18n.language === 'zh-CN' ? { ...zhCN, ...xZhCN } : { ...enUS, ...xEnUS };
 
   return (

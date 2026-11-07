@@ -6,6 +6,7 @@ import { useHaStatus } from '../api/queries.ts';
 import { useModelDefaults } from '../api/sessions.ts';
 import { Logo } from '../components/Logo.tsx';
 import { WELCOME_DONE_KEY } from '../lib/welcome.ts';
+import { LAYOUT } from '../theme/fluent.ts';
 import { HaSettings } from './settings/HaSettings.tsx';
 import { ModelsSettings } from './settings/ModelsSettings.tsx';
 
@@ -29,9 +30,9 @@ export function WelcomePage() {
 
   return (
     <Flex vertical style={{ height: '100%' }}>
-      <div className="cz-scroll" style={{ flex: 1, padding: 24 }}>
-        <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <Flex align="center" gap={12} style={{ marginBottom: 24 }}>
+      <div className="cz-scroll" style={{ flex: 1, padding: LAYOUT.paddingLG }}>
+        <div style={{ maxWidth: LAYOUT.contentMaxWidth, margin: '0 auto' }}>
+          <Flex align="center" gap={LAYOUT.gapMD} style={{ marginBottom: LAYOUT.gapXL }}>
             <Logo size={40} />
             <div>
               <Typography.Title level={3} style={{ margin: 0 }}>
@@ -43,7 +44,7 @@ export function WelcomePage() {
           <Steps
             current={step}
             onChange={setStep}
-            style={{ marginBottom: 24 }}
+            style={{ marginBottom: LAYOUT.gapXL }}
             items={[
               { title: t('welcome.steps.ha'), status: haOk ? 'finish' : step === 0 ? 'process' : 'wait' },
               {
@@ -66,7 +67,7 @@ export function WelcomePage() {
               </ul>
             </Card>
           )}
-          <Flex justify="space-between" style={{ marginTop: 16 }}>
+          <Flex justify="space-between" style={{ marginTop: LAYOUT.gapLG }}>
             <Button onClick={finish}>{t('welcome.skip')}</Button>
             {step < 2 ? (
               <Button type="primary" onClick={() => setStep(step + 1)}>

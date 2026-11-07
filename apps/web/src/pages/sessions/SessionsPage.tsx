@@ -2,6 +2,7 @@ import { ChatMultiple24Regular } from '@fluentui/react-icons';
 import { Button, Empty, Flex, Grid, theme } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams } from 'react-router';
+import { LAYOUT } from '../../theme/fluent.ts';
 import { ChatView } from './ChatView.tsx';
 import { NewChatView } from './NewChatView.tsx';
 import { SessionList } from './SessionList.tsx';
@@ -39,10 +40,10 @@ export function SessionsPage() {
     <Flex style={{ height: '100%' }}>
       <div
         style={{
-          width: 280,
+          width: LAYOUT.siderWidth,
           flexShrink: 0,
           borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgLayout,
+          background: token.colorFillAlter,
         }}
       >
         <SessionList activeId={id ?? null} />

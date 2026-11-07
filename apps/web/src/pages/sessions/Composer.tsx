@@ -65,7 +65,7 @@ export function Composer({
   const conflict = draft.conflict;
 
   return (
-    <div ref={wrapRef}>
+    <div ref={wrapRef} className="cz-composer">
       {conflict ? (
         <Alert
           type="warning"

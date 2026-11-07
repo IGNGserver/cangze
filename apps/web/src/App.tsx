@@ -43,7 +43,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthGate>
-          <BrowserRouter>
+          <BrowserRouter useTransitions={false}>
             <ErrorBoundary>
               <Suspense fallback={<Spin fullscreen />}>
                 <Routes>
