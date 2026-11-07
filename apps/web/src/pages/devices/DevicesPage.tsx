@@ -7,6 +7,7 @@ import { Link } from 'react-router';
 import { useAreas, useFloors, useLiveEntities } from '../../api/ha.ts';
 import { useEntities, useHaStatus } from '../../api/queries.ts';
 import { Page } from '../../components/Page.tsx';
+import { LAYOUT } from '../../theme/fluent.ts';
 import { EntityDrawer } from './EntityDrawer.tsx';
 import { EntityTile } from './EntityTile.tsx';
 
@@ -124,7 +125,7 @@ export function DevicesPage() {
           }
         />
       )}
-      <Flex gap={12} wrap align="center" style={{ marginBottom: 20 }}>
+      <Flex gap={LAYOUT.gapMD} wrap align="center" style={{ marginBottom: LAYOUT.gapLG }}>
         <Segmented
           value={floor}
           onChange={(v) => setFloor(String(v))}
@@ -153,12 +154,12 @@ export function DevicesPage() {
       ) : groups.length === 0 ? (
         <Empty description={t('devices.empty')} />
       ) : (
-        <Flex vertical gap={28}>
+        <Flex vertical gap={LAYOUT.gapXL}>
           {groups.map((g) => (
             <section key={g.area}>
               <Typography.Title
                 level={5}
-                style={{ marginTop: 0, marginBottom: g.area === '_none' ? 4 : undefined }}
+                style={{ marginTop: 0, marginBottom: g.area === '_none' ? 4 : LAYOUT.gapMD }}
               >
                 {g.area === '_none' ? t('devices.noArea') : areaName(g.area)}
               </Typography.Title>
@@ -170,8 +171,8 @@ export function DevicesPage() {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-                  gap: 10,
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                  gap: LAYOUT.gapMD,
                 }}
               >
                 {g.list.map((e) => (

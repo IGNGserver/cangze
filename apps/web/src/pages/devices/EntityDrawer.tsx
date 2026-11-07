@@ -60,7 +60,7 @@ export function EntityDrawer({
           </Descriptions>
           <div>
             <Typography.Title level={5}>{t('devices.attributes')}</Typography.Title>
-            <pre className="cz-mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+            <pre className="cz-code-block cz-mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
               {JSON.stringify(entity.attributes, null, 2)}
             </pre>
           </div>

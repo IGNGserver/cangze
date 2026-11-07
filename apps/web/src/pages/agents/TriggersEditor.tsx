@@ -25,6 +25,7 @@ import { api } from '../../api/client.ts';
 import { useEntities } from '../../api/queries.ts';
 import { errorText } from '../../lib/errors.ts';
 import { parseJsonObject } from '../../lib/json.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 
 interface TriggerStateView {
   triggerId: string;
@@ -101,7 +102,7 @@ export function TriggersEditor({
   };
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div style={{ maxWidth: LAYOUT.wideContentMaxWidth }}>
       <Card size="small" style={{ marginBottom: 12 }}>
         <Form layout="inline">
           <Form.Item label={t('agents.trig.overlap')}>

@@ -10,6 +10,7 @@ import { useDraft } from '../../api/drafts.tsx';
 import { useModelDefaults, useModels } from '../../api/sessions.ts';
 import { Logo } from '../../components/Logo.tsx';
 import { errorText } from '../../lib/errors.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 import { Composer, type ComposerSend } from './Composer.tsx';
 
 /** The single unsent new chat: no session exists until the first message is sent. */
@@ -63,15 +64,18 @@ export function NewChatView() {
     { key: 'automation', description: t('chat.suggest.automation') },
   ];
 
+  const padX = screens.md ? LAYOUT.paddingLG : LAYOUT.paddingMD;
+
   return (
     <Flex vertical style={{ height: '100%', minWidth: 0 }}>
       <Flex
         align="center"
-        gap={8}
+        gap={LAYOUT.gapSM}
         style={{
-          padding: '10px 16px',
+          padding: `0 ${padX}px`,
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          minHeight: 56,
+          height: LAYOUT.headerHeight,
+          minHeight: LAYOUT.headerHeight,
         }}
       >
         {!screens.md && (
@@ -82,19 +86,24 @@ export function NewChatView() {
             aria-label={t('common.back')}
           />
         )}
-        <Typography.Title level={5} style={{ margin: 0, flex: 1, minWidth: 0 }} ellipsis>
+        <Typography.Title level={5} style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 16 }} ellipsis>
           {t('chat.newSession')}
         </Typography.Title>
       </Flex>
 
-      <div style={{ flex: 1, minHeight: 0, padding: '0 16px' }}>
+      <div className="cz-scroll" style={{ flex: 1, minHeight: 0, padding: `0 ${padX}px` }}>
         {!hasContent && (
           <Flex
             vertical
             align="center"
             justify="center"
-            gap={24}
-            style={{ height: '100%', maxWidth: 720, margin: '0 auto' }}
+            gap={LAYOUT.gapXL}
+            style={{
+              minHeight: '100%',
+              maxWidth: LAYOUT.contentMaxWidth - padX * 2,
+              margin: '0 auto',
+              padding: `${LAYOUT.paddingLG}px 0`,
+            }}
           >
             <Welcome
               icon={<Logo size={48} />}
@@ -111,7 +120,14 @@ export function NewChatView() {
         )}
       </div>
 
-      <div style={{ padding: '8px 16px 16px', maxWidth: 892, width: '100%', margin: '0 auto' }}>
+      <div
+        style={{
+          padding: `${LAYOUT.paddingXS}px ${padX}px ${LAYOUT.paddingMD}px`,
+          maxWidth: LAYOUT.contentMaxWidth,
+          width: '100%',
+          margin: '0 auto',
+        }}
+      >
         {noModel && (
           <Alert
             type="warning"

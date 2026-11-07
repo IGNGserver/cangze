@@ -68,7 +68,7 @@ export function RevisionsPanel({
               {t('agents.restoreHint')}
             </Typography.Paragraph>
             <pre
-              className="cz-mono"
+              className="cz-code-block cz-mono"
               style={{ whiteSpace: 'pre-wrap', maxHeight: 520, overflow: 'auto', margin: 0 }}
             >
               {JSON.stringify(sel.definition, null, 2)}

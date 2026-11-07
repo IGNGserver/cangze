@@ -266,19 +266,23 @@ export function MessageList({
   return (
     <>
       <Bubble.List
+        rootClassName="cz-chat-bubbles"
         items={items}
         autoScroll
         style={{ height: '100%' }}
-        styles={{ scroll: { padding: '16px 0' } }}
         role={{
           user: { placement: 'end', variant: 'filled', shape: 'corner' },
           ai: {
             placement: 'start',
             variant: 'borderless',
-            styles: { content: { width: '100%', maxWidth: 760, padding: 0 } },
+            styles: { content: { width: '100%', padding: 0 } },
           },
           notice: { placement: 'start', variant: 'outlined', styles: { content: { maxWidth: 640 } } },
-          approval: { placement: 'start', variant: 'borderless', styles: { content: { padding: 0 } } },
+          approval: {
+            placement: 'start',
+            variant: 'borderless',
+            styles: { content: { width: '100%', padding: 0 } },
+          },
         }}
       />
       <Modal

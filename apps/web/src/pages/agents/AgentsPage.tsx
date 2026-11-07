@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { api } from '../../api/client.ts';
 import { useAgents } from '../../api/agents.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 import { AgentDetailView } from './AgentDetailView.tsx';
 import { NewAgentModal } from './NewAgentModal.tsx';
 import { RunStatusTag } from './RunStatusTag.tsx';
@@ -25,29 +26,36 @@ export function AgentsPage() {
       <Flex
         align="center"
         justify="space-between"
-        style={{ padding: '14px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+        style={{
+          minHeight: LAYOUT.headerHeight,
+          padding: `${LAYOUT.paddingXS}px ${LAYOUT.paddingMD}px`,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        }}
       >
-        <Typography.Title level={5} style={{ margin: 0 }}>
+        <Typography.Title level={5} style={{ margin: 0, fontSize: 16 }}>
           {t('nav.agents')}
         </Typography.Title>
         <Button type="primary" icon={<Add20Regular />} onClick={() => setCreating(true)}>
           {t('agents.new')}
         </Button>
       </Flex>
-      <div className="cz-scroll" style={{ flex: 1, minHeight: 0 }}>
+      <div className="cz-scroll" style={{ flex: 1, minHeight: 0, padding: LAYOUT.paddingXS }}>
         {agents.isLoading ? (
-          <Skeleton active style={{ padding: 16 }} />
+          <Skeleton active style={{ padding: LAYOUT.paddingMD }} />
         ) : !agents.data?.length ? (
           <Empty style={{ marginTop: 48 }} description={t('agents.empty')} />
         ) : (
           <List
+            split={false}
             dataSource={agents.data}
             renderItem={(a: AgentSummary) => (
               <List.Item
                 onClick={() => navigate(`/agents/${a.id}`)}
                 style={{
                   cursor: 'pointer',
-                  padding: '12px 16px',
+                  padding: `10px ${LAYOUT.paddingSM}px`,
+                  marginBottom: 4,
+                  borderRadius: token.borderRadius,
                   background: a.id === id ? token.colorFillSecondary : undefined,
                 }}
                 extra={
@@ -108,7 +116,14 @@ export function AgentsPage() {
   if (!screens.lg) return id ? detail : list;
   return (
     <Flex style={{ height: '100%' }}>
-      <div style={{ width: 320, flexShrink: 0, borderInlineEnd: `1px solid ${token.colorBorderSecondary}` }}>
+      <div
+        style={{
+          width: LAYOUT.agentSiderWidth,
+          flexShrink: 0,
+          background: token.colorFillAlter,
+          borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
         {list}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>{detail}</div>

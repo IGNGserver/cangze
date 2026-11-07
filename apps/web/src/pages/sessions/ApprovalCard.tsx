@@ -1,6 +1,6 @@
 import { ShieldKeyhole20Regular } from '@fluentui/react-icons';
 import type { Approval } from '@cangze/contracts';
-import { App, Button, Card, Flex, Space, Typography } from 'antd';
+import { App, Button, Card, Flex, Space, theme, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { errorText } from '../../lib/errors.ts';
 
 export function ApprovalCard({ approval }: { approval: Approval }) {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   const { message } = App.useApp();
   const [busy, setBusy] = useState<'yes' | 'no' | null>(null);
   const decide = async (approve: boolean) => {
@@ -22,27 +23,27 @@ export function ApprovalCard({ approval }: { approval: Approval }) {
     }
   };
   return (
-    <Card size="small" style={{ borderColor: '#F7630C', maxWidth: 560 }}>
+    <Card size="small" style={{ borderColor: token.colorWarningBorder, maxWidth: 600 }}>
       <Flex gap={12} align="flex-start">
-        <ShieldKeyhole20Regular style={{ color: '#DA3B01', flexShrink: 0, marginTop: 2 }} />
+        <ShieldKeyhole20Regular style={{ color: token.colorWarning, flexShrink: 0, marginTop: 2 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <Typography.Text strong>{t('chat.approvalTitle')}</Typography.Text>
           <Typography.Paragraph style={{ margin: '4px 0' }}>{approval.summary}</Typography.Paragraph>
           {approval.args !== null && approval.args !== undefined && (
             <details style={{ margin: '4px 0 8px' }}>
               <summary style={{ cursor: 'pointer', fontSize: 12 }}>{t('chat.approvalArguments')}</summary>
-              <Typography.Paragraph>
-                <pre
-                  style={{
-                    maxHeight: 240,
-                    overflow: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {JSON.stringify(approval.args, null, 2)}
-                </pre>
-              </Typography.Paragraph>
+              <pre
+                className="cz-code-block"
+                style={{
+                  margin: '6px 0 0',
+                  maxHeight: 240,
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {JSON.stringify(approval.args, null, 2)}
+              </pre>
             </details>
           )}
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>

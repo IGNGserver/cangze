@@ -71,7 +71,7 @@ export function AuditPanel() {
         scroll={{ x: 900 }}
         expandable={{
           expandedRowRender: (r) => (
-            <pre className="cz-mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+            <pre className="cz-code-block cz-mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
               {JSON.stringify(
                 {
                   args: r.args,

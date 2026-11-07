@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router';
 import { api } from '../../api/client.ts';
 import { useSessionList } from '../../api/sessions.ts';
 import { errorText } from '../../lib/errors.ts';
+import { LAYOUT } from '../../theme/fluent.ts';
 
 export function SessionList({ activeId }: { activeId: string | null }) {
   const { t } = useTranslation();
@@ -59,17 +60,20 @@ export function SessionList({ activeId }: { activeId: string | null }) {
 
   return (
     <Flex vertical style={{ height: '100%' }}>
-      <Flex vertical gap={8} style={{ padding: 12 }}>
+      <Flex
+        vertical
+        gap={LAYOUT.gapSM}
+        style={{ padding: `${LAYOUT.paddingSM}px ${LAYOUT.paddingSM}px ${LAYOUT.paddingXS}px` }}
+      >
         <Input
           allowClear
-          prefix={<Search20Regular />}
+          prefix={<Search20Regular style={{ color: token.colorTextTertiary }} />}
           placeholder={t('chat.searchSessions')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <Segmented
           block
-          size="small"
           value={archived ? 'archived' : 'active'}
           onChange={(v) => setArchived(v === 'archived')}
           options={[
@@ -78,14 +82,26 @@ export function SessionList({ activeId }: { activeId: string | null }) {
           ]}
         />
       </Flex>
-      <div className="cz-scroll" style={{ flex: 1, minHeight: 0, padding: '0 4px' }}>
+      <div
+        className="cz-scroll"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          padding: `0 ${LAYOUT.paddingSM}px ${LAYOUT.paddingSM}px`,
+        }}
+      >
         <Conversations
+          rootClassName="cz-session-conversations"
           items={items}
           activeKey={activeId ?? undefined}
           onActiveChange={(key) => navigate(`/sessions/${key}`)}
           groupable
           creation={{ label: t('chat.newSession'), onClick: () => navigate('/sessions/new') }}
-          styles={{ root: { padding: 0 }, item: { borderRadius: token.borderRadius } }}
+          styles={{
+            root: { padding: 0 },
+            creation: { borderRadius: token.borderRadius },
+            item: { borderRadius: token.borderRadius },
+          }}
           menu={(conv) => {
             const s = list.data?.find((x) => x.id === conv.key);
             return {
