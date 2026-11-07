@@ -6,7 +6,7 @@ Cangze ships as one multi-arch image (`linux/amd64`, `linux/arm64`):
 ## Docker Compose
 
 ```bash
-VERSION=0.3.1
+VERSION=0.4.0
 curl -fsSLO "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/compose.yaml"
 # v0.3.0 and earlier publish this file as default.env.example; newer releases use env.example.
 curl -fsSL "https://github.com/IGNGserver/cangze/releases/download/v${VERSION}/env.example" -o .env \
@@ -23,22 +23,32 @@ The URLs above are pinned to a release and are intentionally not read from the `
 release, the Compose file can also be downloaded from
 `https://github.com/IGNGserver/cangze/releases/latest/download/compose.yaml`.
 
-`compose.yaml` defaults to the release it was published with (`CANGZE_VERSION`, e.g. `0.3.1`). Image tags:
+`compose.yaml` defaults to the release it was published with (`CANGZE_VERSION`, e.g. `0.4.0`). Image tags:
 
 | Tag      | Meaning                                                                 |
 | -------- | ----------------------------------------------------------------------- |
-| `0.3.1`  | one release, never moved                                                |
+| `0.4.0`  | one release, never moved                                                |
 | `next`   | the newest prerelease                                                   |
 | `latest` | the newest formal release (none yet while the project is in prerelease) |
 
 `latest` is only published for a formal release. The default installation should use a numbered version;
-use `next` only when explicitly testing the newest prerelease.
+use `next` only when explicitly testing the newest prerelease. Release retries never overwrite an existing
+numbered image: they reuse its digest and move only the requested channel alias. New images include source,
+revision and license labels, SLSA provenance and an SBOM.
+
+The hub container runs as an unprivileged user with a read-only root filesystem, all capabilities dropped,
+`no-new-privileges`, a small no-exec `/tmp`, and an init process; only `/data` is persistent and writable.
+Run exactly **one hub container/writer** per data volume. Database run claims prevent duplicate dispatch, but
+active execution and coordination state do not support multiple active replicas.
 
 Set `CANGZE_VERSION` in `.env` to upgrade on your own schedule.
 
 ## First run
 
-1. Open `http://<host>:38417` from a device on your local network.
+1. Open `http://127.0.0.1:38417` on the host. For another device, use an SSH tunnel
+   (`ssh -L 38417:127.0.0.1:38417 <host>`), or explicitly set `CANGZE_BIND=0.0.0.0` before startup for LAN-only
+   HTTP access. The default published port is loopback-only; do not expose that HTTP port directly to the public
+   internet.
 2. Enter the one-time **bootstrap code** printed in the container log. It is valid until setup completes;
    restart the container to print a new one.
 3. Choose an admin key (or let Cangze generate one). Store it in a password manager — it is the only
@@ -88,11 +98,11 @@ Database migrations run automatically on start. Create a backup first (_Settings
 
 ## Environment variables
 
-| Variable                      | Default             | Purpose                                                               |
-| ----------------------------- | ------------------- | --------------------------------------------------------------------- |
-| `CANGZE_PORT` / `CANGZE_BIND` | `38417` / `0.0.0.0` | published port and bind address (compose)                             |
-| `CANGZE_PUBLIC_ORIGIN`        | –                   | public URL; enables secure cookies and adds the host to the allowlist |
-| `CANGZE_TRUSTED_PROXIES`      | –                   | CIDRs whose `X-Forwarded-*` headers are trusted                       |
-| `CANGZE_ALLOWED_HOSTS`        | –                   | extra accepted `Host` names                                           |
-| `CANGZE_MASTER_KEY`           | –                   | base64 32-byte key; otherwise `/data/master.key` is generated         |
-| `CANGZE_LOG_LEVEL`            | `info`              | `fatal` … `trace`                                                     |
+| Variable                      | Default               | Purpose                                                               |
+| ----------------------------- | --------------------- | --------------------------------------------------------------------- |
+| `CANGZE_PORT` / `CANGZE_BIND` | `38417` / `127.0.0.1` | published port and bind address (compose)                             |
+| `CANGZE_PUBLIC_ORIGIN`        | –                     | public URL; enables secure cookies and adds the host to the allowlist |
+| `CANGZE_TRUSTED_PROXIES`      | –                     | CIDRs whose `X-Forwarded-*` headers are trusted                       |
+| `CANGZE_ALLOWED_HOSTS`        | –                     | extra accepted `Host` names                                           |
+| `CANGZE_MASTER_KEY`           | –                     | base64 32-byte key; otherwise `/data/master.key` is generated         |
+| `CANGZE_LOG_LEVEL`            | `info`                | `fatal` … `trace`                                                     |

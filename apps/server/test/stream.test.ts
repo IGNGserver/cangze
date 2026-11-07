@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
-import { harness, ORIGIN, type Harness } from './helpers.ts';
+import { harness, type Harness } from './helpers.ts';
 
 let h: Harness | undefined;
 afterEach(async () => {
@@ -40,7 +40,7 @@ describe('stream hub', () => {
     h = await harness();
     await h.app.listen({ port: 0, host: '127.0.0.1' });
     const port = (h.app.server.address() as { port: number }).port;
-    const headers = { cookie: h.cookie, origin: ORIGIN, host: `127.0.0.1:${port}` };
+    const headers = { cookie: h.cookie, origin: `http://127.0.0.1:${port}`, host: `127.0.0.1:${port}` };
 
     const a = open(`ws://127.0.0.1:${port}/api/v1/stream`, headers);
     const hello = await a.waitFor((m) => m.type === 'hello');

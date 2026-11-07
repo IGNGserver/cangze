@@ -45,7 +45,7 @@ describe.skipIf(!url || !token)('real Home Assistant', () => {
     expect(status.haVersion).toMatch(/^\d{4}\.\d+/);
     expect(status.timeZone).toBeTruthy();
     await waitFor(() => h.s.ha.registry.states.has(HELPER), 15_000);
-    const helpers = (await h.call('GET', '/api/v1/ha/entities?domain=input_boolean')).json();
+    const helpers = (await h.call('GET', '/api/v1/ha/entities?domain=input_boolean')).json().items;
     expect(helpers.map((e: { entity_id: string }) => e.entity_id)).toContain(HELPER);
   });
 

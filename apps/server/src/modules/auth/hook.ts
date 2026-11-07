@@ -37,7 +37,7 @@ export function installAuth(app: FastifyInstance, auth: AuthService, network: Ne
     // Cookie sessions are ambient credentials: require a same-origin Origin on state changes.
     if (req.caller.kind === 'cookie' && !SAFE_METHODS.has(req.method)) {
       const origin = req.headers.origin;
-      if (!origin || !network.isOriginAllowed(origin, req.headers.host)) {
+      if (!origin || !network.isOriginAllowed(origin, req.headers.host, req.protocol)) {
         throw new AppError(403, 'origin_mismatch', 'Cross-origin request rejected');
       }
     }

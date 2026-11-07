@@ -1,5 +1,6 @@
 import {
   AgentDetail,
+  AgentListSnapshot,
   AgentRevision,
   AgentSummary,
   EffectivePermissions,
@@ -7,6 +8,7 @@ import {
   MemoryNote,
   Ok,
   RunAgent,
+  RunListSnapshot,
   RunStatus,
   RunSummary,
   SaveAgent,
@@ -19,6 +21,7 @@ import { principalId } from '../../core/principal.ts';
 import { defineRoute, type RouteSpec } from '../../http/route.ts';
 import type { HaGateway } from '../ha/gateway.ts';
 import type { Scheduler } from '../scheduler/service.ts';
+import type { StreamHub } from '../stream/hub.ts';
 import type { UsageLedger } from '../usage/ledger.ts';
 import { adminPrincipal } from '../auth/hook.ts';
 import { effectivePermissions } from './permissions.ts';
@@ -27,6 +30,12 @@ import type { AgentsService } from './service.ts';
 
 const MemoryParams = z.object({ id: z.string(), noteId: z.string() });
 const TriggerParams = z.object({ id: z.string(), triggerId: z.string() });
+const RunListQuery = z.object({
+  agentId: z.string().max(64).optional(),
+  status: RunStatus.optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+const RunHistoryQuery = RunListQuery.extend({ before: z.string().max(64).optional() });
 
 export function agentRoutes(
   agents: AgentsService,
@@ -34,6 +43,7 @@ export function agentRoutes(
   scheduler: Scheduler,
   usage: UsageLedger,
   ha: HaGateway,
+  stream: StreamHub,
 ): RouteSpec[] {
   const summary = (id: string): AgentSummary => {
     const r = agents.row(id);
@@ -83,8 +93,11 @@ export function agentRoutes(
       url: '/api/v1/agents',
       summary: 'List subagents',
       tags: ['agents'],
-      response: z.array(AgentSummary),
-      handler: () => agents.rows().map((r) => summary(r.id)),
+      response: AgentListSnapshot,
+      handler: () => {
+        const streamSeq = stream.seq('agents');
+        return { items: agents.rows().map((r) => summary(r.id)), streamSeq };
+      },
     }),
     defineRoute({
       method: 'POST',
@@ -278,12 +291,19 @@ export function agentRoutes(
       url: '/api/v1/runs',
       summary: 'Subagent runs, newest first',
       tags: ['agents'],
-      query: z.object({
-        agentId: z.string().max(64).optional(),
-        status: RunStatus.optional(),
-        before: z.string().max(64).optional(),
-        limit: z.coerce.number().int().min(1).max(200).default(50),
-      }),
+      query: RunListQuery,
+      response: RunListSnapshot,
+      handler: ({ query }) => {
+        const streamSeq = stream.seq('runs');
+        return { items: runs.list(query), streamSeq };
+      },
+    }),
+    defineRoute({
+      method: 'GET',
+      url: '/api/v1/runs/history',
+      summary: 'Paginated subagent run history, newest first',
+      tags: ['agents'],
+      query: RunHistoryQuery,
       response: z.array(RunSummary),
       handler: ({ query }) => runs.list(query),
     }),

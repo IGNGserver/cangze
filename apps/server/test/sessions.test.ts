@@ -375,7 +375,7 @@ describe('sessions', () => {
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe('draft_conflict');
-    expect((await h.call('GET', '/api/v1/sessions')).json()).toEqual([]);
+    expect((await h.call('GET', '/api/v1/sessions')).json()).toMatchObject({ items: [] });
     expect((await h.call('GET', '/api/v1/drafts')).json().items[0].text).toBe('two');
   });
 
@@ -383,7 +383,7 @@ describe('sessions', () => {
     const res = await h.call('POST', '/api/v1/sessions', { message: { text: '   ' } });
     expect(res.statusCode).toBe(400);
     expect(res.json().error.code).toBe('empty_message');
-    expect((await h.call('GET', '/api/v1/sessions')).json()).toEqual([]);
+    expect((await h.call('GET', '/api/v1/sessions')).json()).toMatchObject({ items: [] });
   });
 
   it('does not create a session when the model is missing', async () => {
@@ -391,7 +391,7 @@ describe('sessions', () => {
     const res = await h.call('POST', '/api/v1/sessions', { message: { text: 'hello' } });
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe('no_model');
-    expect((await h.call('GET', '/api/v1/sessions')).json()).toEqual([]);
+    expect((await h.call('GET', '/api/v1/sessions')).json()).toMatchObject({ items: [] });
   });
 
   it('consumes a session draft when a message is sent', async () => {
@@ -534,8 +534,12 @@ describe('session list filters', () => {
     const id = await newSession();
     await h.call('PATCH', `/api/v1/sessions/${id}`, { archived: true });
     const other = await newSession();
-    const active = (await h.call('GET', '/api/v1/sessions?archived=false')).json().map((s: any) => s.id);
-    const archived = (await h.call('GET', '/api/v1/sessions?archived=true')).json().map((s: any) => s.id);
+    const active = (await h.call('GET', '/api/v1/sessions?archived=false'))
+      .json()
+      .items.map((s: any) => s.id);
+    const archived = (await h.call('GET', '/api/v1/sessions?archived=true'))
+      .json()
+      .items.map((s: any) => s.id);
     expect(active).toEqual([other]);
     expect(archived).toEqual([id]);
   });

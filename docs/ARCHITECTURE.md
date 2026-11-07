@@ -104,7 +104,10 @@ Prompting a busy session queues the message as _steer_ (default) or _follow-up_.
 
 Subagents are global objects. A definition is stored as immutable revisions (instructions, model, tools,
 permission rules, risk policy, limits, context mode); updates carry `baseRevision` for optimistic
-concurrency because several equal main sessions may edit the same agent. Each subagent owns:
+concurrency because several equal main sessions may edit the same agent. Session-tool management changes require an
+administrator approval, whose id is recorded on the new revision. Only administrator-authorized revisions may use
+unattended `highRisk: "allow"`; older or unapproved session revisions fail closed to per-action approval. Delegating
+from a main session to an unattended `allow` agent also requires approval. Each subagent owns:
 
 - a conversation (context mode `continuous`: every run appends to it and it is compacted; or `isolated`:
   each run starts from instructions + memory + recent run summaries),
@@ -138,7 +141,11 @@ at most once; interval cadence survives reconnects and unrelated definition edit
 are persisted, but downtime counts only when HA's state timestamp still matches on reconnect. Unreadable
 trigger payloads never enter model context. Emergency stop is distinct from pausing automatic triggers.
 
-Triggers enqueue rows in `runs`. A worker pool (global concurrency, default 2) claims queued runs.
+Triggers enqueue rows in `runs`. A worker pool (global concurrency, default 2) claims queued runs with an
+atomic `UPDATE … WHERE status = 'queued'`; candidate selection excludes agents that already have a running
+or approval-waiting run, and report delivery similarly claims `reported_at IS NULL`. This prevents duplicate
+dispatch within the supported deployment. Active execution maps, startup recovery and entity leases are still
+process-local: **run exactly one hub writer against a database**, not multiple active replicas.
 Per-agent overlap policy: `skip`, `queue` or `replace`. Misfired schedules after downtime: `run_once` or
 `skip`. Each run has a wall-clock timeout and tool-call limit; the agent has a daily cost budget. Event
 triggers are debounced per trigger. Runs that wait for approval keep their worker slot (status `waiting_approval`) until the decision or timeout.
@@ -159,8 +166,10 @@ before a write:
 - **Flap protection**: at most N writes per entity per minute across all principals (default 6).
 - **Loop protection**: events whose context id originates from a run's own calls do not trigger that same
   agent; trigger chains deeper than 3 are dropped.
-- **Run leases**: two runs may not hold writes to the same entity concurrently; the second waits briefly
-  and then gets a conflict error.
+- **Run leases**: after authorization and any approval have completed, a session/subagent run atomically
+  reserves all target entities before the HA request. The same run is reentrant; another run waits up to
+  2 seconds and then receives `409 conflict_entity_busy`. Success and failure observers release the lease.
+  These leases are process-local and complement, rather than replace, the single-writer deployment rule.
 
 Conflicts are returned to the model as tool errors with an explanation, and audited.
 
@@ -182,6 +191,10 @@ transaction, so clicking "new session" never leaves an empty conversation.
 The mobile shell includes the same notification inbox as desktop. Reconnects refresh REST-backed
 views; a stream instance identifier distinguishes restarts even when topic sequence numbers coincide.
 Conversation snapshots buffer concurrent events and replay only those newer than the snapshot.
+Session/agent/run lists and HA entities use the same epoch-based REST snapshot + WS replay contract. Full-object
+PUT autosaves are serialized and merged with the latest optimistic state: an older response cannot overwrite
+newer form edits, and failed saves only roll back the mutation that actually failed. Agent revision saves rebase
+edits made while the request was in flight. Composer persistence errors are visible in both supported languages.
 Run history uses stable `(queued_at, id)` keyset pagination, including equal-millisecond runs.
 
 ## Security model
@@ -209,4 +222,5 @@ Run history uses stable `(queued_at, id)` keyset pagination, including equal-mil
 `settings`, `secrets`, `auth_sessions`, `device_tokens`, `providers`, `conversations`, `entries`,
 `sessions`, `drafts`, `draft_attachments`, `agents`, `agent_revisions`, `agent_triggers`,
 `agent_memory`, `runs`, `approvals`, `audit_log`, `usage_ledger`, `notifications`, `backups`.
+Migration 7 removes only the abandoned legacy `attachments` table; `draft_attachments` remains authoritative.
 See `apps/server/src/db/migrations`.

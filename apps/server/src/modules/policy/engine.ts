@@ -65,7 +65,7 @@ export class PolicyEngine {
         'policy_denied',
         'High-risk action requires approval, which is only possible from a conversation',
       );
-    const status = await this.approvals.request({
+    const approval = await this.approvals.request({
       principal: req.principal,
       toolName: ctx.toolName,
       toolCallId: ctx.toolCallId,
@@ -78,8 +78,9 @@ export class PolicyEngine {
       timeoutMs: timeoutSeconds * 1000,
       signal: ctx.signal,
     });
-    if (status === 'approved') return;
-    if (status === 'denied') throw new AppError(403, 'approval_rejected', 'The user denied this action');
+    if (approval.status === 'approved') return;
+    if (approval.status === 'denied')
+      throw new AppError(403, 'approval_rejected', 'The user denied this action');
     throw new AppError(403, 'approval_rejected', 'Approval was not given in time');
   }
 }

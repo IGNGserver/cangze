@@ -93,6 +93,11 @@ export class RunsService {
     });
     this.approvals.onChange((a) => {
       if (!a.runId || !a.agentId) return;
+      // Session management approvals may name a target agent while runId belongs to the main session.
+      const ownsRun = this.db
+        .prepare('SELECT 1 FROM runs WHERE id = ? AND agent_id = ?')
+        .get(a.runId, a.agentId);
+      if (!ownsRun) return;
       if (a.status === 'pending') this.setStatus(a.runId, 'waiting_approval');
       else if (this.active.has(a.runId)) this.setStatus(a.runId, 'running');
     });
@@ -190,6 +195,7 @@ export class RunsService {
   }
 
   detail(id: string) {
+    const streamSeq = this.stream.seq(`run:${id}`);
     const r = this.row(id);
     const entries = (
       this.db.prepare('SELECT id FROM entries WHERE run_id = ? ORDER BY seq').all(id) as Array<{ id: string }>
@@ -199,7 +205,7 @@ export class RunsService {
       entries,
       live: this.active.get(id)?.run.snapshot() ?? null,
       approvals: this.approvals.list({ status: 'pending' }).filter((a) => a.runId === id),
-      streamSeq: this.stream.seq(`run:${id}`),
+      streamSeq,
     };
   }
 
@@ -338,12 +344,18 @@ export class RunsService {
     this.pumping = true;
     try {
       while (!this.stopped && this.active.size < this.settings.get().concurrency) {
-        const busyAgents = [...new Set([...this.active.values()].map((a) => a.agentId))];
         const next = this.db
           .prepare(
-            `SELECT * FROM runs WHERE status = 'queued' ${busyAgents.length ? `AND agent_id NOT IN (${busyAgents.map(() => '?').join(',')})` : ''} ORDER BY queued_at LIMIT 1`,
+            `SELECT * FROM runs AS candidate
+             WHERE candidate.status = 'queued'
+               AND NOT EXISTS (
+                 SELECT 1 FROM runs AS busy
+                 WHERE busy.agent_id = candidate.agent_id AND busy.status IN ('running', 'waiting_approval')
+               )
+             ORDER BY candidate.queued_at, candidate.id
+             LIMIT 1`,
           )
-          .get(...busyAgents) as RunRow | undefined;
+          .get() as RunRow | undefined;
         if (!next) break;
         this.launch(next);
       }
@@ -361,6 +373,12 @@ export class RunsService {
   }
 
   private launch(r: RunRow): void {
+    // Atomic durable claim: another dispatcher cannot launch the same row after this succeeds.
+    const claimed = this.db
+      .prepare("UPDATE runs SET status = 'running', started_at = ? WHERE id = ? AND status = 'queued'")
+      .run(Date.now(), r.id).changes;
+    if (claimed !== 1) return;
+    this.publish(r.id);
     let def: AgentDefinition;
     try {
       def = this.agents.definition(r.agent_id, r.revision);
@@ -420,9 +438,6 @@ export class RunsService {
       readAll: readsEverything(def.permissions),
       canRead: (id: string) => canRead(def.permissions, id, reg),
     };
-
-    this.db.prepare("UPDATE runs SET status = 'running', started_at = ? WHERE id = ?").run(Date.now(), r.id);
-    this.publish(r.id);
 
     let toolCalls = 0;
     let limitHit: string | null = null;
@@ -525,7 +540,10 @@ export class RunsService {
     }
     const agentName = run.agentName;
     this.db.transaction(() => {
-      this.db.prepare('UPDATE runs SET reported_at = ? WHERE id = ?').run(Date.now(), id);
+      const claimed = this.db
+        .prepare('UPDATE runs SET reported_at = ? WHERE id = ? AND reported_at IS NULL')
+        .run(Date.now(), id).changes;
+      if (claimed !== 1) return;
       if (run.reportSessionId && this.sessions.exists(run.reportSessionId)) {
         const ok = run.status === 'succeeded';
         this.sessions.receiveReport(run.reportSessionId, run.id, {

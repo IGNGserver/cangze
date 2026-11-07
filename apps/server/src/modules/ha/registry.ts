@@ -9,6 +9,7 @@ import {
   type HaLabel,
   type HaTarget,
 } from '@cangze/contracts';
+import { badRequest } from '../../core/errors.ts';
 
 /** Entity registry entry as returned by `config/entity_registry/list`. */
 export interface EntityRegistryEntry {
@@ -164,6 +165,37 @@ export class HaRegistry {
     return out;
   }
 
+  /** Member ids for HA groups and domain groups. Scene/script/automation actions stay indirect. */
+  private groupMembers(entityId: string): string[] | null {
+    if (['scene', 'script', 'automation'].includes(domainOf(entityId))) return null;
+    const raw = this.states.get(entityId)?.attributes.entity_id;
+    if (!Array.isArray(raw) && typeof raw !== 'string') return null;
+    return asList(raw).map((id) => id.toLowerCase());
+  }
+
+  /** Recursively expand core/domain groups before authorization, rejecting cycles. */
+  private expandGroups(ids: Iterable<string>): string[] {
+    const result = new Set<string>();
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+    const visit = (id: string): void => {
+      if (visiting.has(id)) throw badRequest(`Group membership cycle detected at ${id}`);
+      if (visited.has(id)) return;
+      const members = this.groupMembers(id);
+      if (members === null) {
+        visited.add(id);
+        result.add(id);
+        return;
+      }
+      visiting.add(id);
+      for (const member of members) visit(member);
+      visiting.delete(id);
+      visited.add(id);
+    };
+    for (const id of ids) visit(id);
+    return [...result];
+  }
+
   /**
    * Expand a service call target to the concrete entity ids it can affect.
    * `serviceDomain` restricts indirect matches to entities of that domain unless the domain is
@@ -206,7 +238,7 @@ export class HaRegistry {
         }
       }
     }
-    return [...result].sort();
+    return this.expandGroups(result).sort();
   }
 
   toEntity(entityId: string): HaEntity | null {
@@ -271,7 +303,7 @@ export class HaRegistry {
       }
       const entity = this.toEntity(id);
       if (entity) out.push(entity);
-      if (out.length >= (q.limit ?? 2000)) break;
+      if (q.limit !== undefined && out.length >= q.limit) break;
     }
     return out;
   }

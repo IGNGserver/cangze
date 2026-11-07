@@ -80,6 +80,19 @@ describe('network policy', () => {
     );
   });
 
+  it('compares origin scheme, hostname and effective port', async () => {
+    const h = await harness();
+    expect(h.s.network.isOriginAllowed('http://hub.local:8080', 'hub.local:8080', 'http')).toBe(true);
+    expect(h.s.network.isOriginAllowed('http://hub.local:8081', 'hub.local:8080', 'http')).toBe(false);
+    expect(h.s.network.isOriginAllowed('https://hub.local:8080', 'hub.local:8080', 'http')).toBe(false);
+    expect(h.s.network.isOriginAllowed('https://hub.local', 'hub.local', 'https')).toBe(true);
+    expect(h.s.network.isOriginAllowed('https://hub.local:444', 'hub.local', 'https')).toBe(false);
+    const pub = await harness({ CANGZE_PUBLIC_ORIGIN: 'https://home.example.com' });
+    expect(pub.s.network.isOriginAllowed('https://home.example.com', '127.0.0.1:38417', 'http')).toBe(true);
+    await h.app.close();
+    await pub.app.close();
+  });
+
   it('requires the confirmation phrase to enable public HTTP', async () => {
     const h = await harness();
     const bad = await h.call('PATCH', '/api/v1/settings/security', {

@@ -24,6 +24,7 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, api } from '../../api/client.ts';
+import { useFullPut } from '../../api/full-put.ts';
 import { errorText } from '../../lib/errors.ts';
 import { Section } from './Section.tsx';
 
@@ -144,23 +145,18 @@ export function DataSettings() {
     return false;
   };
 
-  const saveSchedule = async (patch: Partial<BackupSchedule> & { passphrase?: string }) => {
-    try {
-      const next = await api.put<BackupSchedule>('/settings/backup', { ...schedule.data, ...patch });
-      qc.setQueryData(['settings', 'backup'], next);
-    } catch (e) {
-      void message.error(errorText(t, e));
-    }
-  };
-
-  const saveRetention = async (patch: Partial<RetentionSettings>) => {
-    try {
-      const next = await api.put<RetentionSettings>('/settings/retention', { ...retention.data, ...patch });
-      qc.setQueryData(['settings', 'retention'], next);
-    } catch (e) {
-      void message.error(errorText(t, e));
-    }
-  };
+  const saveSchedule = useFullPut<BackupSchedule & { passphrase?: string }>({
+    queryKey: ['settings', 'backup'],
+    url: '/settings/backup',
+    data: schedule.data,
+    onError: (e) => void message.error(errorText(t, e)),
+  });
+  const saveRetention = useFullPut<RetentionSettings>({
+    queryKey: ['settings', 'retention'],
+    url: '/settings/retention',
+    data: retention.data,
+    onError: (e) => void message.error(errorText(t, e)),
+  });
 
   return (
     <>

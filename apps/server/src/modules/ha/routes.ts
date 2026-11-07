@@ -3,6 +3,7 @@ import {
   HaDevice,
   HaEntity,
   HaEntityQuery,
+  HaEntitySnapshot,
   HaFloor,
   HaHistoryPoint,
   HaHistoryQuery,
@@ -16,7 +17,7 @@ import {
   Ok,
 } from '@cangze/contracts';
 import { z } from 'zod';
-import { badRequest, notFound } from '../../core/errors.ts';
+import { AppError, badRequest, notFound } from '../../core/errors.ts';
 import type { Principal } from '../../core/principal.ts';
 import { defineRoute, type RouteSpec } from '../../http/route.ts';
 import type { SecretsService } from '../secrets/service.ts';
@@ -27,6 +28,34 @@ const ServiceParams = z.object({
   domain: z.string().regex(/^[a-z0-9_]+$/),
   service: z.string().regex(/^[a-z0-9_]+$/),
 });
+
+const MAX_CAMERA_BYTES = 25 * 1024 * 1024;
+async function readCameraBody(res: Response): Promise<Buffer> {
+  const declared = Number(res.headers.get('content-length') ?? 0);
+  if (declared > MAX_CAMERA_BYTES) {
+    await res.body?.cancel();
+    throw new AppError(413, 'camera_too_large', 'Camera image exceeds the 25 MiB limit');
+  }
+  if (!res.body) throw new AppError(502, 'camera_empty', 'Camera returned an empty response');
+  const reader = res.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_CAMERA_BYTES) {
+        await reader.cancel();
+        throw new AppError(413, 'camera_too_large', 'Camera image exceeds the 25 MiB limit');
+      }
+      chunks.push(Buffer.from(value.buffer, value.byteOffset, value.byteLength));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, total);
+}
 
 const HaSettingsView = z.object({
   url: z.string().nullable(),
@@ -102,8 +131,8 @@ export function haRoutes(
       summary: 'Search entities (registry merged with live state)',
       tags: ['home-assistant'],
       query: HaEntityQuery,
-      response: z.array(HaEntity),
-      handler: ({ query }) => ha.registry.search(query),
+      response: HaEntitySnapshot,
+      handler: ({ query }) => ha.entitiesSnapshot(query),
     }),
     defineRoute({
       method: 'GET',
@@ -186,8 +215,13 @@ export function haRoutes(
       handler: async ({ query }) => {
         const end = query.end ? new Date(query.end) : new Date();
         const start = query.start ? new Date(query.start) : new Date(end.getTime() - query.hours * 3600_000);
-        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()))
-          throw badRequest('Invalid time range');
+        if (
+          Number.isNaN(start.getTime()) ||
+          Number.isNaN(end.getTime()) ||
+          end.getTime() <= start.getTime() ||
+          end.getTime() - start.getTime() > 31 * 24 * 3600_000
+        )
+          throw badRequest('History range must be valid, positive and no longer than 31 days');
         const res = await ha.history([query.entityId], start, end, false);
         return res[query.entityId] ?? [];
       },
@@ -200,11 +234,12 @@ export function haRoutes(
       params: EntityParams,
       response: z.unknown(),
       raw: true,
+      contentType: 'image/jpeg',
       handler: async ({ params, reply }) => {
         if (!params.entityId.startsWith('camera.')) throw badRequest('Not a camera entity');
         const res = await ha.rest('GET', `/api/camera_proxy/${params.entityId}`);
         if (!res.ok) throw notFound('Camera image');
-        const buf = Buffer.from(await res.arrayBuffer());
+        const buf = await readCameraBody(res);
         await reply
           .header('content-type', res.headers.get('content-type') ?? 'image/jpeg')
           .header('cache-control', 'no-store')

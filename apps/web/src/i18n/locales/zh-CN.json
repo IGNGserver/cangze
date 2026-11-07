@@ -417,6 +417,7 @@
     "default": "默认",
     "defaultModel": "使用默认模型",
     "approvalTitle": "需要你的批准",
+    "approvalArguments": "查看实际操作参数",
     "approvalExpires": "{{time}} 前未批准将自动取消",
     "approve": "批准",
     "deny": "拒绝",

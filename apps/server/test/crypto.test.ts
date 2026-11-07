@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { redactSensitive } from '../src/core/redact.ts';
 import {
   hashPassword,
   loadMasterKey,
@@ -48,5 +49,25 @@ describe('crypto', () => {
     const sealed = await sealWithPassphrase(Buffer.from('backup'), 'pass phrase');
     expect((await openWithPassphrase(sealed, 'pass phrase')).toString()).toBe('backup');
     await expect(openWithPassphrase(sealed, 'wrong')).rejects.toThrow();
+  });
+
+  it('redacts structured and embedded credentials while retaining approval details', () => {
+    const redacted = redactSensitive({
+      service: 'notify.mobile_app',
+      token: 'secret-token',
+      nested: { apiKey: 'sk-secret', safe: 42 },
+      config: 'password: "two words"\ntopic: upstairs',
+      url: 'https://user:pass@example.test/path',
+      header: 'Bearer eyJ.secret.signature',
+    });
+    expect(redacted).toEqual({
+      service: 'notify.mobile_app',
+      token: '[redacted]',
+      nested: { apiKey: '[redacted]', safe: 42 },
+      config: 'password: [redacted]\ntopic: upstairs',
+      url: 'https://[redacted]@example.test/path',
+      header: 'Bearer [redacted]',
+    });
+    expect(JSON.stringify(redacted)).not.toContain('secret-token');
   });
 });

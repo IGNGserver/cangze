@@ -28,6 +28,23 @@ export function ApprovalCard({ approval }: { approval: Approval }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <Typography.Text strong>{t('chat.approvalTitle')}</Typography.Text>
           <Typography.Paragraph style={{ margin: '4px 0' }}>{approval.summary}</Typography.Paragraph>
+          {approval.args !== null && approval.args !== undefined && (
+            <details style={{ margin: '4px 0 8px' }}>
+              <summary style={{ cursor: 'pointer', fontSize: 12 }}>{t('chat.approvalArguments')}</summary>
+              <Typography.Paragraph>
+                <pre
+                  style={{
+                    maxHeight: 240,
+                    overflow: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {JSON.stringify(approval.args, null, 2)}
+                </pre>
+              </Typography.Paragraph>
+            </details>
+          )}
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {t('chat.approvalExpires', { time: dayjs(approval.expiresAt).format('HH:mm:ss') })}
           </Typography.Text>

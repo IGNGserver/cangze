@@ -199,6 +199,18 @@ export const AgentSummary = z.object({
 });
 export type AgentSummary = z.infer<typeof AgentSummary>;
 
+export const AgentListSnapshot = z.object({
+  items: z.array(AgentSummary),
+  streamSeq: z.number(),
+});
+export type AgentListSnapshot = z.infer<typeof AgentListSnapshot>;
+
+export const RunListSnapshot = z.object({
+  items: z.array(RunSummary),
+  streamSeq: z.number(),
+});
+export type RunListSnapshot = z.infer<typeof RunListSnapshot>;
+
 export const AgentDetail = AgentSummary.extend({
   definition: AgentDefinition,
   triggers: z.array(TriggerState),

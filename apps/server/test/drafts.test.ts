@@ -36,6 +36,11 @@ describe('composer drafts', () => {
       details: { draft: { text: 'hello world', revision: 2 } },
     });
 
+    // An empty stale update is a conflict too: it must not delete revision 2.
+    res = await h.call('PUT', '/api/v1/drafts/new', { text: '', baseRevision: 1 });
+    expect(res.statusCode).toBe(409);
+    expect(h.s.drafts.get('new')).toMatchObject({ text: 'hello world', revision: 2 });
+
     const seq = (await h.call('GET', '/api/v1/drafts')).json().streamSeq;
     expect(seq).toBeGreaterThan(0);
 

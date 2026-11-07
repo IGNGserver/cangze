@@ -1,12 +1,4 @@
-import type {
-  HaArea,
-  HaEntity,
-  HaFloor,
-  HaHistoryPoint,
-  HaLabel,
-  HaStateEvent,
-  HaTarget,
-} from '@cangze/contracts';
+import type { HaArea, HaFloor, HaHistoryPoint, HaLabel, HaTarget } from '@cangze/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client.ts';
 import { qk } from './queries.ts';
@@ -24,31 +16,9 @@ export const useHistory = (entityId: string | null, hours: number) =>
     enabled: Boolean(entityId),
   });
 
-/** Keep the cached entity list current from the `ha:states` stream. */
+/** Keep connection-dependent caches current. Entity state lives in useEntities' snapshot barrier. */
 export function useLiveEntities(): void {
   const qc = useQueryClient();
-  useTopic<{ updates: HaStateEvent[] }>(
-    'ha:states',
-    ({ updates }) => {
-      qc.setQueryData<HaEntity[]>(qk.entities, (prev) => {
-        if (!prev) return prev;
-        const byId = new Map(updates.map((u) => [u.entity_id, u]));
-        return prev.map((e) => {
-          const u = byId.get(e.entity_id);
-          if (!u) return e;
-          if (u.state === null) return { ...e, state: 'unavailable' };
-          return {
-            ...e,
-            state: u.state,
-            attributes: u.attributes ?? e.attributes,
-            last_changed: u.last_changed ?? e.last_changed,
-            last_updated: u.last_updated ?? e.last_updated,
-          };
-        });
-      });
-    },
-    () => void qc.invalidateQueries({ queryKey: qk.entities }),
-  );
   useTopic('ha:status', () => {
     void qc.invalidateQueries({ queryKey: qk.haStatus });
   });

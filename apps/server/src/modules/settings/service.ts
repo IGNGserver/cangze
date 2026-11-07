@@ -16,6 +16,8 @@ export interface SettingHandle<T> {
 export class SettingsService {
   private readonly defs = new Map<string, z.ZodType>();
   private readonly cache = new Map<string, unknown>();
+  private readonly changedKeys = new Set<string>();
+  private transactionDepth = 0;
 
   constructor(
     private readonly db: Db,
@@ -59,7 +61,30 @@ export class SettingsService {
       )
       .run(key, JSON.stringify(parsed), Date.now());
     this.cache.set(key, parsed);
-    this.bus.emit('settings.changed', { key });
+    if (this.transactionDepth) this.changedKeys.add(key);
+    else this.bus.emit('settings.changed', { key });
+  }
+
+  /** Atomically update settings and their related secrets; notify listeners only after commit. */
+  transaction<T>(fn: () => T): T {
+    if (this.transactionDepth) return fn();
+    const snapshot = new Map(this.cache);
+    this.transactionDepth = 1;
+    let result: T;
+    try {
+      result = this.db.transaction(fn)();
+    } catch (err) {
+      this.cache.clear();
+      for (const [key, value] of snapshot) this.cache.set(key, value);
+      this.changedKeys.clear();
+      throw err;
+    } finally {
+      this.transactionDepth = 0;
+    }
+    const changed = [...this.changedKeys];
+    this.changedKeys.clear();
+    for (const key of changed) this.bus.emit('settings.changed', { key });
+    return result;
   }
 
   /** Drop cached values, e.g. after a restore swapped the database. */

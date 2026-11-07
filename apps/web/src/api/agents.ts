@@ -1,15 +1,18 @@
 import type {
   AgentDetail,
+  AgentListSnapshot,
   AgentSummary,
   Approval,
   Entry,
   MemoryNote,
   RunSummary,
+  RunListSnapshot,
   UpcomingFire,
 } from '@cangze/contracts';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client.ts';
 import { useLiveConversation } from './sessions.ts';
+import { useLiveList } from './live-list.ts';
 import { useTopic } from './stream.ts';
 
 export const ak = {
@@ -24,8 +27,12 @@ export const ak = {
 
 export function useAgents() {
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ak.list, queryFn: () => api.get<AgentSummary[]>('/agents') });
-  useTopic('agents', () => void qc.invalidateQueries({ queryKey: ak.list }));
+  const q = useLiveList<AgentSummary, { kind: 'upsert' | 'delete'; agentId: string }>({
+    queryKey: ak.list,
+    topic: 'agents',
+    fetcher: () => api.get<AgentListSnapshot>('/agents'),
+    applyEvent: () => null,
+  });
   useTopic('runs', () => void qc.invalidateQueries({ queryKey: ak.list }));
   return q;
 }
@@ -49,19 +56,22 @@ export const useMemory = (id: string) =>
   useQuery({ queryKey: ak.memory(id), queryFn: () => api.get<MemoryNote[]>(`/agents/${id}/memory`) });
 
 export function useRuns(filter: { agentId?: string; status?: string; limit?: number }) {
-  const qc = useQueryClient();
   const key = { agentId: filter.agentId, status: filter.status, limit: filter.limit ?? 50 };
-  const q = useQuery({
+  return useLiveList<RunSummary, { kind: 'upsert'; run: RunSummary }>({
     queryKey: ak.runs(key),
-    queryFn: () =>
-      api.get<RunSummary[]>('/runs', {
-        agentId: filter.agentId,
-        status: filter.status,
-        limit: filter.limit ?? 50,
-      }),
+    topic: 'runs',
+    fetcher: () => api.get<RunListSnapshot>('/runs', key),
+    applyEvent: (items, ev) => {
+      if (ev.kind !== 'upsert') return items;
+      const matches =
+        (!key.agentId || ev.run.agentId === key.agentId) && (!key.status || ev.run.status === key.status);
+      const without = items.filter((r) => r.id !== ev.run.id);
+      if (!matches) return items.length >= key.limit && without.length < items.length ? null : without;
+      return [ev.run, ...without]
+        .sort((a, b) => Date.parse(b.queuedAt) - Date.parse(a.queuedAt) || b.id.localeCompare(a.id))
+        .slice(0, key.limit);
+    },
   });
-  useTopic('runs', () => void qc.invalidateQueries({ queryKey: ['runs'] }));
-  return q;
 }
 
 export function useRunHistory(filter: { agentId?: string; status?: string }) {
@@ -69,7 +79,8 @@ export function useRunHistory(filter: { agentId?: string; status?: string }) {
   const q = useInfiniteQuery({
     queryKey: ['runs', 'history', filter],
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) => api.get<RunSummary[]>('/runs', { ...filter, before: pageParam, limit: 50 }),
+    queryFn: ({ pageParam }) =>
+      api.get<RunSummary[]>('/runs/history', { ...filter, before: pageParam, limit: 50 }),
     getNextPageParam: (last) => (last.length === 50 ? last.at(-1)!.id : undefined),
   });
   useTopic('runs', () => void qc.invalidateQueries({ queryKey: ['runs'] }));

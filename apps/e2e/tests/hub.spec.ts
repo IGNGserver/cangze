@@ -19,6 +19,7 @@ let baseURL: string;
 const cspViolations: string[] = [];
 const hub = () => api(context.request, baseURL);
 const drafts = async () => (await hub().get<{ items: DraftInfo[] }>('/drafts')).items;
+const sessions = async () => (await hub().get<{ items: Array<{ id: string }> }>('/sessions')).items;
 
 test.beforeAll(async ({ browser }, info) => {
   baseURL = info.project.use.baseURL!;
@@ -97,11 +98,11 @@ test('welcome wizard: connect Home Assistant and add a model', async () => {
 
 test('new chat: no session until the first message, synced across devices', async ({ browser }) => {
   await expect(composer()).toBeVisible();
-  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(0);
+  expect(await sessions()).toHaveLength(0);
 
   await composer().fill('Lights check');
   await expect.poll(async () => (await drafts()).find((d) => d.scope === 'new')?.text).toBe('Lights check');
-  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(0);
+  expect(await sessions()).toHaveLength(0);
 
   await page.reload();
   await expect(composer()).toHaveValue('Lights check');
@@ -137,7 +138,7 @@ test('new chat: no session until the first message, synced across devices', asyn
       return draft ? { text: draft.text, images: draft.images.length } : null;
     })
     .toEqual({ text: 'Lights check from the other device', images: 1 });
-  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(0);
+  expect(await sessions()).toHaveLength(0);
 
   // The first device sees the remote edit without losing it.
   await expect(composer()).toHaveValue('Lights check from the other device');
@@ -161,7 +162,7 @@ test('new chat: no session until the first message, synced across devices', asyn
   await composer().fill('');
   await expect.poll(async () => (await drafts()).length).toBe(0);
   await expect(otherComposer).toHaveValue('');
-  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(0);
+  expect(await sessions()).toHaveLength(0);
   await other.close();
 });
 
@@ -190,6 +191,9 @@ test('approval: unlocking asks the user first', async () => {
   await expect(page.getByText('Approval needed')).toBeVisible({ timeout: 20_000 });
   const before = await hub().get<{ state: string }>('/ha/entities/lock.front_door');
   expect(before.state).toBe('locked');
+  const argumentsDetails = page.locator('details').filter({ hasText: 'Inspect actual operation arguments' });
+  await argumentsDetails.locator('summary').click();
+  await expect(argumentsDetails.locator('pre')).toContainText('lock.front_door');
   await page.getByRole('button', { name: 'Approve' }).click();
   await expect
     .poll(async () => (await hub().get<{ state: string }>('/ha/entities/lock.front_door')).state)
@@ -198,10 +202,10 @@ test('approval: unlocking asks the user first', async () => {
 });
 
 test('sending the first message from a draft creates exactly one session', async () => {
-  const before = (await hub().get<Array<{ id: string }>>('/sessions')).length;
+  const before = (await sessions()).length;
   await page.getByText('New session', { exact: true }).first().click();
   await expect(page).toHaveURL(/\/sessions\/new$/);
-  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(before);
+  expect(await sessions()).toHaveLength(before);
 
   await composer().fill('Hello from a draft');
   await expect(page.getByRole('button', { name: 'Attach images' })).toBeEnabled();
@@ -222,7 +226,7 @@ test('sending the first message from a draft creates exactly one session', async
   await expect(page).toHaveURL(/\/sessions\/[\w-]+$/);
   await expect(page.getByText('Hello from a draft').first()).toBeVisible();
   await expect(page.locator('img[src^="data:image"]').first()).toBeVisible();
-  expect(await hub().get<Array<{ id: string }>>('/sessions')).toHaveLength(before + 1);
+  expect(await sessions()).toHaveLength(before + 1);
   await expect.poll(async () => (await drafts()).length).toBe(0);
 });
 
@@ -402,8 +406,8 @@ test('backup and restore', async () => {
   // the page reloads by itself once the hub is back; the restored database still knows this sign-in
   await expect(page.getByText('Restoring and restarting the hub')).toBeHidden({ timeout: 60_000 });
   await expect(page.getByRole('button', { name: 'Back up now' }).first()).toBeVisible();
-  const sessions = await hub().get<Array<{ id: string }>>('/sessions');
-  expect(sessions.map((s) => s.id)).not.toContain(later.id);
+  const restoredSessions = await sessions();
+  expect(restoredSessions.map((s) => s.id)).not.toContain(later.id);
   await expect(page.locator('.ant-list-item').filter({ hasText: 'pre-restore' })).toHaveCount(1, {
     timeout: 15_000,
   });

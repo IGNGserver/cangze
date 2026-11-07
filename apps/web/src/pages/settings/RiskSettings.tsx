@@ -1,28 +1,26 @@
 import type { RiskPolicy } from '@cangze/contracts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { App, Form, InputNumber, Select, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client.ts';
+import { useFullPut } from '../../api/full-put.ts';
 import { errorText } from '../../lib/errors.ts';
 import { Section } from './Section.tsx';
 
 export function RiskSettings() {
   const { t } = useTranslation();
   const { message } = App.useApp();
-  const qc = useQueryClient();
   const policy = useQuery({
     queryKey: ['settings', 'risk'],
     queryFn: () => api.get<RiskPolicy>('/settings/risk'),
   });
 
-  const save = async (patch: Partial<RiskPolicy>) => {
-    try {
-      const next = await api.put<RiskPolicy>('/settings/risk', { ...policy.data, ...patch });
-      qc.setQueryData(['settings', 'risk'], next);
-    } catch (e) {
-      void message.error(errorText(t, e));
-    }
-  };
+  const save = useFullPut<RiskPolicy>({
+    queryKey: ['settings', 'risk'],
+    url: '/settings/risk',
+    data: policy.data,
+    onError: (e) => void message.error(errorText(t, e)),
+  });
 
   const p = policy.data;
   return (

@@ -88,10 +88,12 @@ export function AgentDetailView({ id }: { id: string }) {
   const save = async () => {
     if (invalidJson || remoteChanged) return;
     setSaving(true);
+    const submitted = draft;
     try {
-      const next = await api.put<AgentDetail>(`/agents/${id}`, { baseRevision: base, definition: draft });
+      const next = await api.put<AgentDetail>(`/agents/${id}`, { baseRevision: base, definition: submitted });
       qc.setQueryData(ak.detail(id), next);
-      setDraft(next.definition);
+      // Keep keystrokes made while the request was in flight; rebase them onto our new revision.
+      setDraft((current) => (current && !sameJson(current, submitted) ? current : next.definition));
       setBase(next.revision);
       setBaseDefinition(next.definition);
       setJsonDrafts({});

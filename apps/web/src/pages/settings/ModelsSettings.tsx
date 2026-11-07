@@ -22,6 +22,7 @@ import {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client.ts';
+import { useFullPut } from '../../api/full-put.ts';
 import { sk, useModelDefaults } from '../../api/sessions.ts';
 import { errorText } from '../../lib/errors.ts';
 import { ModelPicker } from '../sessions/ModelPicker.tsx';
@@ -60,14 +61,12 @@ export function ModelsSettings() {
       qc.invalidateQueries({ queryKey: sk.defaults }),
     ]);
 
-  const setDefaults = async (patch: Partial<ModelDefaults>) => {
-    try {
-      await api.put('/models/defaults', { ...defaults.data, ...patch });
-      await refresh();
-    } catch (e) {
-      void message.error(errorText(t, e));
-    }
-  };
+  const setDefaults = useFullPut<ModelDefaults>({
+    queryKey: sk.defaults,
+    url: '/models/defaults',
+    data: defaults.data,
+    onError: (e) => void message.error(errorText(t, e)),
+  });
 
   const test = async (p: Provider) => {
     setTesting(p.id);

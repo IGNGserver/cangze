@@ -96,6 +96,7 @@ export class HaGateway {
   };
   private services: Record<string, Record<string, RawService>> = {};
   private readonly guards: WriteGuard[] = [];
+  private readonly reservations: WriteGuard[] = [];
   private readonly observers: WriteObserver[] = [];
   private readonly eventListeners = new Map<string, Set<(ev: HassEvent) => void>>();
   private readonly eventUnsubs = new Map<string, () => Promise<void>>();
@@ -109,7 +110,7 @@ export class HaGateway {
   private dispatcher: Agent | null = null;
 
   constructor(
-    settings: SettingsService,
+    private readonly settings: SettingsService,
     private readonly secrets: SecretsService,
     private readonly stream: StreamHub,
     private readonly bus: EventBus<HubEvents>,
@@ -126,6 +127,11 @@ export class HaGateway {
 
   get connected(): boolean {
     return this.status.state === 'connected' && this.conn !== null;
+  }
+
+  entitiesSnapshot(query: Parameters<HaRegistry['search']>[0]) {
+    const streamSeq = this.stream.seq('ha:states');
+    return { items: this.registry.search(query), streamSeq };
   }
 
   /** User id of the HA account Cangze connects as; used to tell Cangze's own writes from humans'. */
@@ -146,19 +152,36 @@ export class HaGateway {
     if (this.retryTimer) clearTimeout(this.retryTimer);
     if (this.flushTimer) clearTimeout(this.flushTimer);
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
-    this.conn?.close();
+    this.retryTimer = null;
+    this.flushTimer = null;
+    this.refreshTimer = null;
+    this.pendingStates = new Map();
+    const conn = this.conn;
     this.conn = null;
+    this.discardEventSubscriptions();
+    conn?.close();
+    this.haUserId = null;
     await this.dispatcher?.close().catch(() => undefined);
     this.dispatcher = null;
+  }
+
+  private discardEventSubscriptions(): void {
+    const unsubs = [...this.eventUnsubs.values()];
+    this.eventUnsubs.clear();
+    for (const unsub of unsubs) void unsub().catch(() => undefined);
   }
 
   async configure(input: { url: string; token?: string; verifyTls: boolean }): Promise<HaStatus> {
     const url = normalizeUrl(input.url);
     const current = this.connection.get();
-    let tokenSecretId = current?.tokenSecretId;
-    if (input.token) tokenSecretId = this.secrets.put('ha_token', input.token, tokenSecretId);
-    if (!tokenSecretId) throw new AppError(400, 'token_required', 'A long-lived access token is required');
-    this.connection.set({ url, tokenSecretId, verifyTls: input.verifyTls });
+    if (!input.token && !current?.tokenSecretId)
+      throw new AppError(400, 'token_required', 'A long-lived access token is required');
+    this.settings.transaction(() => {
+      const tokenSecretId = input.token
+        ? this.secrets.put('ha_token', input.token, current?.tokenSecretId)
+        : current!.tokenSecretId;
+      this.connection.set({ url, tokenSecretId, verifyTls: input.verifyTls });
+    });
     await this.stop();
     await this.connect();
     return this.getStatus();
@@ -167,9 +190,17 @@ export class HaGateway {
   async clear(): Promise<void> {
     const current = this.connection.get();
     await this.stop();
-    this.secrets.delete(current?.tokenSecretId);
-    this.connection.set(null);
+    this.settings.transaction(() => {
+      this.secrets.delete(current?.tokenSecretId);
+      this.connection.set(null);
+    });
     this.registry.setStates([]);
+    this.registry.setAreas([]);
+    this.registry.setFloors([]);
+    this.registry.setDevices([]);
+    this.registry.setEntities([]);
+    this.registry.setLabels([]);
+    this.services = {};
     this.setStatus({
       state: 'unconfigured',
       url: null,
@@ -246,8 +277,9 @@ export class HaGateway {
     }
     this.dispatcher = cfg.verifyTls ? null : new Agent({ connect: { rejectUnauthorized: false } });
     this.setStatus({ state: 'connecting', url: cfg.url, error: null, verifyTls: cfg.verifyTls });
+    let conn: Connection | null = null;
     try {
-      const conn = await createConnection({
+      conn = await createConnection({
         auth: createLongLivedTokenAuth(cfg.url, token),
         createSocket: socketFactory({ wsUrl: toWsUrl(cfg.url), token, verifyTls: cfg.verifyTls }),
         setupRetry: 0,
@@ -259,21 +291,23 @@ export class HaGateway {
       this.conn = conn;
       this.retryDelay = 2000;
       conn.addEventListener('disconnected', () => {
-        if (gen !== this.generation) return;
+        if (gen !== this.generation || this.conn !== conn) return;
         this.logger.warn({ module: 'ha' }, 'connection lost, reconnecting');
         this.setStatus({ state: 'disconnected' });
       });
       conn.addEventListener('ready', () => {
-        if (gen !== this.generation) return;
+        if (gen !== this.generation || this.conn !== conn) return;
         this.logger.info({ module: 'ha' }, 'reconnected');
-        void this.loadAll(gen).then(() => {
-          if (gen !== this.generation) return;
-          this.setStatus({ state: 'connected', error: null });
-          this.bus.emit('ha.ready', { timeZone: this.status.timeZone ?? 'UTC' });
-        });
+        void this.loadAll(gen)
+          .then(() => {
+            if (gen !== this.generation || this.conn !== conn) return;
+            this.setStatus({ state: 'connected', error: null });
+            this.bus.emit('ha.ready', { timeZone: this.status.timeZone ?? 'UTC' });
+          })
+          .catch((err: unknown) => this.recoverFromRefresh(gen, err));
       });
       conn.addEventListener('reconnect-error', (_c, err) => {
-        if (gen !== this.generation) return;
+        if (gen !== this.generation || this.conn !== conn) return;
         if (err === ERR_INVALID_AUTH)
           this.setStatus({ state: 'auth_invalid', error: 'Home Assistant rejected the token' });
       });
@@ -292,6 +326,7 @@ export class HaGateway {
       // re-establish event subscriptions requested by triggers before (re)connect
       for (const type of this.eventListeners.keys()) await this.ensureEventSubscription(type);
       await this.loadAll(gen);
+      if (gen !== this.generation || this.conn !== conn) return;
       this.setStatus({
         state: 'connected',
         error: null,
@@ -305,6 +340,9 @@ export class HaGateway {
       );
     } catch (err) {
       if (gen !== this.generation) return;
+      if (this.conn === conn) this.conn = null;
+      this.discardEventSubscriptions();
+      conn?.close();
       const invalid = err === ERR_INVALID_AUTH;
       this.setStatus({ state: invalid ? 'auth_invalid' : 'error', error: describeError(err) });
       this.logger.warn({ module: 'ha', error: describeError(err) }, 'cannot connect to Home Assistant');
@@ -312,9 +350,26 @@ export class HaGateway {
     }
   }
 
+  private recoverFromRefresh(gen: number, err: unknown): void {
+    if (gen !== this.generation) return;
+    this.logger.warn({ module: 'ha', error: describeError(err) }, 'refresh after reconnect failed');
+    const conn = this.conn;
+    this.conn = null;
+    this.discardEventSubscriptions();
+    conn?.close();
+    this.setStatus({ state: 'error', error: describeError(err) });
+    this.scheduleRetry(gen);
+  }
+
   private scheduleRefresh(gen: number): void {
+    if (gen !== this.generation) return;
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
-    this.refreshTimer = setTimeout(() => void this.loadRegistries(gen), 1000);
+    this.refreshTimer = setTimeout(() => {
+      void this.loadRegistries(gen).catch((err: unknown) => {
+        if (gen === this.generation)
+          this.logger.warn({ module: 'ha', error: describeError(err) }, 'registry refresh failed');
+      });
+    }, 1000);
     this.refreshTimer.unref();
   }
 
@@ -333,6 +388,7 @@ export class HaGateway {
       conn.sendMessagePromise<{ id: string; name: string; is_admin: boolean }>({ type: 'auth/current_user' }),
       conn.sendMessagePromise<HaEntityState[]>({ type: 'get_states' }),
     ]);
+    if (gen !== this.generation || conn !== this.conn) return;
     this.haUserId = user.id;
     this.registry.setStates(states);
     this.status = {
@@ -349,69 +405,77 @@ export class HaGateway {
   private async loadRegistries(gen: number): Promise<void> {
     const conn = this.conn;
     if (!conn || gen !== this.generation) return;
-    const safe = <T>(p: Promise<T>, fallback: T) => p.catch(() => fallback);
+    const safe = <T>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
     const [areas, floors, devices, entities, labels, services] = await Promise.all([
-      safe(conn.sendMessagePromise<RawArea[]>({ type: 'config/area_registry/list' }), []),
-      safe(conn.sendMessagePromise<RawFloor[]>({ type: 'config/floor_registry/list' }), []),
-      safe(conn.sendMessagePromise<RawDevice[]>({ type: 'config/device_registry/list' }), []),
-      safe(conn.sendMessagePromise<RawEntity[]>({ type: 'config/entity_registry/list' }), []),
-      safe(conn.sendMessagePromise<RawLabel[]>({ type: 'config/label_registry/list' }), []),
-      safe(conn.sendMessagePromise<Record<string, Record<string, RawService>>>({ type: 'get_services' }), {}),
+      safe(conn.sendMessagePromise<RawArea[]>({ type: 'config/area_registry/list' })),
+      safe(conn.sendMessagePromise<RawFloor[]>({ type: 'config/floor_registry/list' })),
+      safe(conn.sendMessagePromise<RawDevice[]>({ type: 'config/device_registry/list' })),
+      safe(conn.sendMessagePromise<RawEntity[]>({ type: 'config/entity_registry/list' })),
+      safe(conn.sendMessagePromise<RawLabel[]>({ type: 'config/label_registry/list' })),
+      safe(conn.sendMessagePromise<Record<string, Record<string, RawService>>>({ type: 'get_services' })),
     ]);
-    this.registry.setAreas(
-      areas.map((a) => ({
-        area_id: a.area_id,
-        name: a.name,
-        floor_id: a.floor_id ?? null,
-        icon: a.icon ?? null,
-        labels: a.labels ?? [],
-        aliases: a.aliases ?? [],
-      })),
-    );
-    this.registry.setFloors(
-      floors.map((f) => ({
-        floor_id: f.floor_id,
-        name: f.name,
-        level: f.level ?? null,
-        icon: f.icon ?? null,
-      })),
-    );
-    this.registry.setDevices(
-      devices.map((d) => ({
-        id: d.id,
-        name: d.name ?? null,
-        name_by_user: d.name_by_user ?? null,
-        area_id: d.area_id ?? null,
-        manufacturer: d.manufacturer ?? null,
-        model: d.model ?? null,
-        labels: d.labels ?? [],
-        disabled_by: d.disabled_by ?? null,
-        entry_type: d.entry_type ?? null,
-      })),
-    );
-    this.registry.setEntities(
-      entities.map((e): EntityRegistryEntry => ({
-        entity_id: e.entity_id,
-        name: e.name ?? null,
-        original_name: e.original_name ?? null,
-        device_id: e.device_id ?? null,
-        area_id: e.area_id ?? null,
-        platform: e.platform ?? null,
-        labels: e.labels ?? [],
-        disabled_by: e.disabled_by ?? null,
-        hidden_by: e.hidden_by ?? null,
-        entity_category: e.entity_category ?? null,
-      })),
-    );
-    this.registry.setLabels(
-      labels.map((l) => ({
-        label_id: l.label_id,
-        name: l.name,
-        color: l.color ?? null,
-        icon: l.icon ?? null,
-      })),
-    );
-    this.services = services;
+    if (gen !== this.generation || conn !== this.conn) return;
+    if (areas)
+      this.registry.setAreas(
+        areas.map((a) => ({
+          area_id: a.area_id,
+          name: a.name,
+          floor_id: a.floor_id ?? null,
+          icon: a.icon ?? null,
+          labels: a.labels ?? [],
+          aliases: a.aliases ?? [],
+        })),
+      );
+    if (floors)
+      this.registry.setFloors(
+        floors.map((f) => ({
+          floor_id: f.floor_id,
+          name: f.name,
+          level: f.level ?? null,
+          icon: f.icon ?? null,
+        })),
+      );
+    if (devices)
+      this.registry.setDevices(
+        devices.map((d) => ({
+          id: d.id,
+          name: d.name ?? null,
+          name_by_user: d.name_by_user ?? null,
+          area_id: d.area_id ?? null,
+          manufacturer: d.manufacturer ?? null,
+          model: d.model ?? null,
+          labels: d.labels ?? [],
+          disabled_by: d.disabled_by ?? null,
+          entry_type: d.entry_type ?? null,
+        })),
+      );
+    if (entities) {
+      this.registry.setEntities(
+        entities.map((e): EntityRegistryEntry => ({
+          entity_id: e.entity_id,
+          name: e.name ?? null,
+          original_name: e.original_name ?? null,
+          device_id: e.device_id ?? null,
+          area_id: e.area_id ?? null,
+          platform: e.platform ?? null,
+          labels: e.labels ?? [],
+          disabled_by: e.disabled_by ?? null,
+          hidden_by: e.hidden_by ?? null,
+          entity_category: e.entity_category ?? null,
+        })),
+      );
+      this.stream.publish('ha:states', { updates: [], registry: true });
+    }
+    if (labels)
+      this.registry.setLabels(
+        labels.map((l) => ({
+          label_id: l.label_id,
+          name: l.name,
+          color: l.color ?? null,
+          icon: l.icon ?? null,
+        })),
+      );
+    if (services) this.services = services;
   }
 
   private requireConn(): Connection {
@@ -482,14 +546,22 @@ export class HaGateway {
   }
 
   private async ensureEventSubscription(eventType: string): Promise<void> {
-    if (eventType === 'state_changed' || this.eventUnsubs.has(eventType) || !this.conn) return;
+    const conn = this.conn;
+    const gen = this.generation;
+    if (eventType === 'state_changed' || this.eventUnsubs.has(eventType) || !conn) return;
     try {
-      const unsub = await this.conn.subscribeEvents<HassEvent>((ev) => {
+      const unsub = await conn.subscribeEvents<HassEvent>((ev) => {
+        if (gen !== this.generation || conn !== this.conn) return;
         for (const l of this.eventListeners.get(eventType) ?? []) l(ev);
       }, eventType);
+      if (gen !== this.generation || conn !== this.conn || !this.eventListeners.has(eventType)) {
+        await unsub().catch(() => undefined);
+        return;
+      }
       this.eventUnsubs.set(eventType, unsub);
     } catch (err) {
-      this.logger.warn({ module: 'ha', eventType, error: describeError(err) }, 'event subscription failed');
+      if (gen === this.generation)
+        this.logger.warn({ module: 'ha', eventType, error: describeError(err) }, 'event subscription failed');
     }
   }
 
@@ -611,6 +683,11 @@ export class HaGateway {
     this.guards.push(guard);
   }
 
+  /** Reservations run after all authorization/approval guards and immediately before the HA write. */
+  addWriteReservation(reservation: WriteGuard): void {
+    this.reservations.push(reservation);
+  }
+
   addWriteObserver(observer: WriteObserver): void {
     this.observers.push(observer);
   }
@@ -705,6 +782,7 @@ export class HaGateway {
     const started = Date.now();
     try {
       for (const guard of this.guards) await guard(req);
+      for (const reservation of this.reservations) await reservation(req);
       const result = await send();
       for (const o of this.observers)
         safeObserve(o, req, { ok: true, result, durationMs: Date.now() - started }, this.logger);

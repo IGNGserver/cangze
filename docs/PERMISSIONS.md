@@ -8,8 +8,9 @@ not by the model. Main sessions are trusted (they act for the person chatting) b
 1. **Reads** — HA tools filter what a subagent can see: searches only return readable entities; state, history,
    logbook, camera, calendar and to-do tools refuse unreadable entities; templates and the full logbook require read
    access to everything.
-2. **Writes** — every write goes through `HaGateway`, which expands area/floor/device/label targets to concrete
-   entities and runs the guards in order:
+2. **Writes** — every write goes through `HaGateway`, which recursively expands area/floor/device/label targets and
+   groups (including nested domain groups) to concrete leaf entities before running the guards. Cyclic groups are
+   rejected rather than called indirectly. The guards run in order:
    1. **coordination** — human changes win for `respectManualMinutes`, higher-priority writers are protected for the hold
       time, at most `maxWritesPerMinute` writes per entity;
    2. **policy** — the rules of the revision the run started with must allow _every_ affected entity; high-risk calls
@@ -17,6 +18,8 @@ not by the model. Main sessions are trusted (they act for the person chatting) b
    3. the call is sent with explicit `entity_id`s only.
 3. **Tools** — subagents only get the tools listed in their definition, plus their own memory tools. Agent management
    tools (`agent_*`) can never be granted, so subagents cannot create or edit agents, including themselves.
+   `memory_write` and `memory_delete` are `configure`-risk, sequential tools: they follow the agent's high-risk
+   policy and cannot race another tool step in the same run.
 
 Every decision lands in the audit log with the principal `agent:<id>@<revision>` and the run id.
 
@@ -70,7 +73,14 @@ are high risk (configurable in _Settings → Risk & approvals_). Even when rules
 | Main session                              | waits for approval in the UI (unless disabled)           |
 | Subagent, `highRisk: "deny"`              | refused                                                  |
 | Subagent, `highRisk: "approve"` (default) | waits for approval; the run shows _waiting for approval_ |
-| Subagent, `highRisk: "allow"`             | executed                                                 |
+| Subagent, `highRisk: "allow"`             | executed only from an administrator-authorized revision  |
+
+Agent management is itself security-sensitive. A main session may prepare agents, but creating, updating, enabling or
+deleting one through an `agent_*` tool waits for administrator approval. An approved create/update records the approval
+on the immutable revision. A session-created `highRisk: "allow"` revision without that record is rejected when saved;
+legacy unapproved revisions are treated as `approve` by the Gateway. Dispatching an existing `allow` agent from a main
+session also requires approval of that delegation, so a session cannot borrow an unattended agent's authority to bypass
+its own high-risk confirmation. Manual administrator API actions remain explicit administrator requests.
 
 ## Loops and chains
 

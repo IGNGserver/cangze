@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Cangze API",
-    "version": "0.3.1",
+    "version": "0.4.0",
     "description": "REST API of the Cangze hub. Live updates are delivered over the /api/v1/stream WebSocket.",
     "license": {
       "name": "Apache-2.0",
@@ -5652,216 +5652,229 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
-                      },
-                      "slug": {
-                        "type": "string"
-                      },
-                      "name": {
-                        "type": "string"
-                      },
-                      "description": {
-                        "type": "string"
-                      },
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "revision": {
-                        "type": "number"
-                      },
-                      "modelRef": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "triggerCount": {
-                        "type": "number"
-                      },
-                      "running": {
-                        "type": "boolean"
-                      },
-                      "lastRun": {
-                        "anyOf": [
-                          {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "agentId": {
-                                "type": "string"
-                              },
-                              "agentName": {
-                                "type": "string"
-                              },
-                              "revision": {
-                                "type": "number"
-                              },
-                              "triggerId": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "triggerKind": {
-                                "type": "string"
-                              },
-                              "triggerPayload": {},
-                              "requestedBy": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "reportSessionId": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "task": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "status": {
-                                "type": "string",
-                                "enum": [
-                                  "queued",
-                                  "running",
-                                  "waiting_approval",
-                                  "succeeded",
-                                  "failed",
-                                  "aborted",
-                                  "skipped"
-                                ]
-                              },
-                              "chainDepth": {
-                                "type": "number"
-                              },
-                              "queuedAt": {
-                                "type": "string"
-                              },
-                              "startedAt": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "finishedAt": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "error": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "summary": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "usage": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "revision": {
+                            "type": "number"
+                          },
+                          "modelRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "triggerCount": {
+                            "type": "number"
+                          },
+                          "running": {
+                            "type": "boolean"
+                          },
+                          "lastRun": {
+                            "anyOf": [
+                              {
                                 "type": "object",
                                 "properties": {
-                                  "input": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "agentId": {
+                                    "type": "string"
+                                  },
+                                  "agentName": {
+                                    "type": "string"
+                                  },
+                                  "revision": {
                                     "type": "number"
                                   },
-                                  "output": {
+                                  "triggerId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "triggerKind": {
+                                    "type": "string"
+                                  },
+                                  "triggerPayload": {},
+                                  "requestedBy": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "reportSessionId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "task": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "queued",
+                                      "running",
+                                      "waiting_approval",
+                                      "succeeded",
+                                      "failed",
+                                      "aborted",
+                                      "skipped"
+                                    ]
+                                  },
+                                  "chainDepth": {
                                     "type": "number"
                                   },
-                                  "cacheRead": {
-                                    "type": "number"
+                                  "queuedAt": {
+                                    "type": "string"
                                   },
-                                  "cacheWrite": {
-                                    "type": "number"
+                                  "startedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   },
-                                  "cost": {
-                                    "type": "number"
+                                  "finishedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   },
-                                  "costUnknown": {
-                                    "type": "boolean"
+                                  "error": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "summary": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "usage": {
+                                    "type": "object",
+                                    "properties": {
+                                      "input": {
+                                        "type": "number"
+                                      },
+                                      "output": {
+                                        "type": "number"
+                                      },
+                                      "cacheRead": {
+                                        "type": "number"
+                                      },
+                                      "cacheWrite": {
+                                        "type": "number"
+                                      },
+                                      "cost": {
+                                        "type": "number"
+                                      },
+                                      "costUnknown": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "input",
+                                      "output",
+                                      "cacheRead",
+                                      "cacheWrite",
+                                      "cost"
+                                    ],
+                                    "additionalProperties": false
                                   }
                                 },
                                 "required": [
-                                  "input",
-                                  "output",
-                                  "cacheRead",
-                                  "cacheWrite",
-                                  "cost"
+                                  "id",
+                                  "agentId",
+                                  "agentName",
+                                  "revision",
+                                  "triggerId",
+                                  "triggerKind",
+                                  "triggerPayload",
+                                  "requestedBy",
+                                  "reportSessionId",
+                                  "task",
+                                  "status",
+                                  "chainDepth",
+                                  "queuedAt",
+                                  "startedAt",
+                                  "finishedAt",
+                                  "error",
+                                  "summary",
+                                  "usage"
                                 ],
                                 "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
                               }
-                            },
-                            "required": [
-                              "id",
-                              "agentId",
-                              "agentName",
-                              "revision",
-                              "triggerId",
-                              "triggerKind",
-                              "triggerPayload",
-                              "requestedBy",
-                              "reportSessionId",
-                              "task",
-                              "status",
-                              "chainDepth",
-                              "queuedAt",
-                              "startedAt",
-                              "finishedAt",
-                              "error",
-                              "summary",
-                              "usage"
-                            ],
-                            "additionalProperties": false
+                            ]
                           },
-                          {
-                            "type": "null"
+                          "nextFireAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
                           }
-                        ]
-                      },
-                      "nextFireAt": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "createdAt": {
-                        "type": "string"
-                      },
-                      "updatedAt": {
-                        "type": "string"
+                        },
+                        "required": [
+                          "id",
+                          "slug",
+                          "name",
+                          "description",
+                          "enabled",
+                          "revision",
+                          "modelRef",
+                          "triggerCount",
+                          "running",
+                          "lastRun",
+                          "nextFireAt",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
                       }
                     },
-                    "required": [
-                      "id",
-                      "slug",
-                      "name",
-                      "description",
-                      "enabled",
-                      "revision",
-                      "modelRef",
-                      "triggerCount",
-                      "running",
-                      "lastRun",
-                      "nextFireAt",
-                      "createdAt",
-                      "updatedAt"
-                    ],
-                    "additionalProperties": false
-                  }
+                    "streamSeq": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "streamSeq"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -10353,8 +10366,11 @@
           "200": {
             "description": "Success",
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -10712,7 +10728,6 @@
             "in": "query",
             "required": false,
             "schema": {
-              "default": 2000,
               "type": "integer",
               "minimum": 1,
               "maximum": 5000
@@ -10725,97 +10740,110 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "entity_id": {
-                        "type": "string"
-                      },
-                      "domain": {
-                        "type": "string"
-                      },
-                      "name": {
-                        "type": "string"
-                      },
-                      "state": {
-                        "type": "string"
-                      },
-                      "attributes": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
                         "type": "object",
-                        "propertyNames": {
-                          "type": "string"
+                        "properties": {
+                          "entity_id": {
+                            "type": "string"
+                          },
+                          "domain": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "attributes": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "last_changed": {
+                            "type": "string"
+                          },
+                          "last_updated": {
+                            "type": "string"
+                          },
+                          "area_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "device_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "placement": {
+                            "type": "string",
+                            "enum": [
+                              "room",
+                              "unassigned",
+                              "config",
+                              "integration",
+                              "household"
+                            ]
+                          },
+                          "labels": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "entity_category": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hidden": {
+                            "type": "boolean"
+                          },
+                          "platform": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
                         },
-                        "additionalProperties": {}
-                      },
-                      "last_changed": {
-                        "type": "string"
-                      },
-                      "last_updated": {
-                        "type": "string"
-                      },
-                      "area_id": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "device_id": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "placement": {
-                        "type": "string",
-                        "enum": [
-                          "room",
-                          "unassigned",
-                          "config",
-                          "integration",
-                          "household"
-                        ]
-                      },
-                      "labels": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "entity_category": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "hidden": {
-                        "type": "boolean"
-                      },
-                      "platform": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
+                        "required": [
+                          "entity_id",
+                          "domain",
+                          "name",
+                          "state",
+                          "attributes",
+                          "last_changed",
+                          "last_updated",
+                          "area_id",
+                          "device_id",
+                          "placement",
+                          "labels",
+                          "entity_category",
+                          "hidden",
+                          "platform"
+                        ],
+                        "additionalProperties": false
                       }
                     },
-                    "required": [
-                      "entity_id",
-                      "domain",
-                      "name",
-                      "state",
-                      "attributes",
-                      "last_changed",
-                      "last_updated",
-                      "area_id",
-                      "device_id",
-                      "placement",
-                      "labels",
-                      "entity_category",
-                      "hidden",
-                      "platform"
-                    ],
-                    "additionalProperties": false
-                  }
+                    "streamSeq": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "streamSeq"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -13639,13 +13667,13 @@
         }
       }
     },
-    "/api/v1/runs": {
+    "/api/v1/runs/history": {
       "get": {
-        "summary": "Subagent runs, newest first",
+        "summary": "Paginated subagent run history, newest first",
         "tags": [
           "agents"
         ],
-        "operationId": "getApiV1Runs",
+        "operationId": "getApiV1RunsHistory",
         "security": [
           {
             "cookieAuth": []
@@ -13682,15 +13710,6 @@
             }
           },
           {
-            "name": "before",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 64
-            }
-          },
-          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -13699,6 +13718,15 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
             }
           }
         ],
@@ -13848,6 +13876,236 @@
                     ],
                     "additionalProperties": false
                   }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs": {
+      "get": {
+        "summary": "Subagent runs, newest first",
+        "tags": [
+          "agents"
+        ],
+        "operationId": "getApiV1Runs",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "waiting_approval",
+                "succeeded",
+                "failed",
+                "aborted",
+                "skipped"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "agentName": {
+                            "type": "string"
+                          },
+                          "revision": {
+                            "type": "number"
+                          },
+                          "triggerId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "triggerKind": {
+                            "type": "string"
+                          },
+                          "triggerPayload": {},
+                          "requestedBy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reportSessionId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "task": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "running",
+                              "waiting_approval",
+                              "succeeded",
+                              "failed",
+                              "aborted",
+                              "skipped"
+                            ]
+                          },
+                          "chainDepth": {
+                            "type": "number"
+                          },
+                          "queuedAt": {
+                            "type": "string"
+                          },
+                          "startedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "finishedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "error": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "summary": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "usage": {
+                            "type": "object",
+                            "properties": {
+                              "input": {
+                                "type": "number"
+                              },
+                              "output": {
+                                "type": "number"
+                              },
+                              "cacheRead": {
+                                "type": "number"
+                              },
+                              "cacheWrite": {
+                                "type": "number"
+                              },
+                              "cost": {
+                                "type": "number"
+                              },
+                              "costUnknown": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "input",
+                              "output",
+                              "cacheRead",
+                              "cacheWrite",
+                              "cost"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "agentId",
+                          "agentName",
+                          "revision",
+                          "triggerId",
+                          "triggerKind",
+                          "triggerPayload",
+                          "requestedBy",
+                          "reportSessionId",
+                          "task",
+                          "status",
+                          "chainDepth",
+                          "queuedAt",
+                          "startedAt",
+                          "finishedAt",
+                          "error",
+                          "summary",
+                          "usage"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "streamSeq": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "streamSeq"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -15599,77 +15857,90 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
-                      },
-                      "title": {
-                        "type": "string"
-                      },
-                      "pinned": {
-                        "type": "boolean"
-                      },
-                      "archived": {
-                        "type": "boolean"
-                      },
-                      "modelRef": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "thinkingLevel": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "enum": [
-                              "off",
-                              "minimal",
-                              "low",
-                              "medium",
-                              "high",
-                              "xhigh",
-                              "max"
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "pinned": {
+                            "type": "boolean"
+                          },
+                          "archived": {
+                            "type": "boolean"
+                          },
+                          "modelRef": {
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           },
-                          {
-                            "type": "null"
+                          "thinkingLevel": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "minimal",
+                                  "low",
+                                  "medium",
+                                  "high",
+                                  "xhigh",
+                                  "max"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "running": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "lastMessageAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
-                        ]
-                      },
-                      "running": {
-                        "type": "boolean"
-                      },
-                      "createdAt": {
-                        "type": "string"
-                      },
-                      "updatedAt": {
-                        "type": "string"
-                      },
-                      "lastMessageAt": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "pinned",
+                          "archived",
+                          "modelRef",
+                          "thinkingLevel",
+                          "running",
+                          "createdAt",
+                          "updatedAt",
+                          "lastMessageAt"
+                        ],
+                        "additionalProperties": false
                       }
                     },
-                    "required": [
-                      "id",
-                      "title",
-                      "pinned",
-                      "archived",
-                      "modelRef",
-                      "thinkingLevel",
-                      "running",
-                      "createdAt",
-                      "updatedAt",
-                      "lastMessageAt"
-                    ],
-                    "additionalProperties": false
-                  }
+                    "streamSeq": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "streamSeq"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }

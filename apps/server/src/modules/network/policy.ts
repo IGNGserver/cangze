@@ -63,13 +63,18 @@ export class NetworkPolicy {
   }
 
   /** Allowed Origin values for cookie-authenticated, state-changing requests. */
-  isOriginAllowed(origin: string, hostHeader: string | undefined): boolean {
+  isOriginAllowed(origin: string, hostHeader: string | undefined, protocol = 'http'): boolean {
     try {
       const o = new URL(origin);
-      const host = parseHost(hostHeader ?? '');
-      if (host && o.hostname.toLowerCase() === host) return true;
       if (this.config.publicOrigin && o.origin === new URL(this.config.publicOrigin).origin) return true;
-      return false;
+      if (!hostHeader || (o.protocol !== 'http:' && o.protocol !== 'https:')) return false;
+      const request = new URL(`${protocol === 'https' ? 'https' : 'http'}://${hostHeader}`);
+      const port = (u: URL) => u.port || (u.protocol === 'https:' ? '443' : '80');
+      return (
+        o.protocol === request.protocol &&
+        o.hostname.toLowerCase() === request.hostname.toLowerCase() &&
+        port(o) === port(request)
+      );
     } catch {
       return false;
     }

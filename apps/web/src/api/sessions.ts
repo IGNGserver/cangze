@@ -5,6 +5,7 @@ import type {
   ModelInfo,
   SessionDetail,
   SessionEvent,
+  SessionListSnapshot,
   SessionSummary,
 } from '@cangze/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,6 +14,7 @@ import { api } from './client.ts';
 import { stream, useTopic } from './stream.ts';
 import { SnapshotEvents } from './snapshot-events.ts';
 import { fetchEpochSnapshot } from './epoch-snapshot.ts';
+import { useLiveList } from './live-list.ts';
 
 export const sk = {
   list: (archived: boolean) => ['sessions', 'list', archived] as const,
@@ -31,31 +33,22 @@ export const useModelDefaults = () =>
 
 /** Session list kept current by the `sessions` topic. */
 export function useSessionList(archived: boolean) {
-  const qc = useQueryClient();
-  const q = useQuery({
+  type Event = { kind: 'upsert'; session: SessionSummary } | { kind: 'delete'; id: string };
+  return useLiveList<SessionSummary, Event>({
     queryKey: sk.list(archived),
-    queryFn: () => api.get<SessionSummary[]>('/sessions', { archived }),
-  });
-  useTopic<{ kind: 'upsert'; session: SessionSummary } | { kind: 'delete'; id: string }>(
-    'sessions',
-    (ev) => {
-      for (const flag of [false, true]) {
-        qc.setQueryData<SessionSummary[]>(sk.list(flag), (prev) => {
-          if (!prev) return prev;
-          if (ev.kind === 'delete') return prev.filter((s) => s.id !== ev.id);
-          const without = prev.filter((s) => s.id !== ev.session.id);
-          if (ev.session.archived !== flag) return without;
-          return [ev.session, ...without].sort(
-            (a, b) =>
-              Number(b.pinned) - Number(a.pinned) ||
-              Date.parse(b.lastMessageAt ?? b.createdAt) - Date.parse(a.lastMessageAt ?? a.createdAt),
-          );
-        });
-      }
+    topic: 'sessions',
+    fetcher: () => api.get<SessionListSnapshot>('/sessions', { archived }),
+    applyEvent: (items, ev) => {
+      if (ev.kind === 'delete') return items.filter((s) => s.id !== ev.id);
+      const without = items.filter((s) => s.id !== ev.session.id);
+      if (ev.session.archived !== archived) return without;
+      return [ev.session, ...without].sort(
+        (a, b) =>
+          Number(b.pinned) - Number(a.pinned) ||
+          Date.parse(b.lastMessageAt ?? b.createdAt) - Date.parse(a.lastMessageAt ?? a.createdAt),
+      );
     },
-    () => void qc.invalidateQueries({ queryKey: ['sessions', 'list'] }),
-  );
-  return q;
+  });
 }
 
 export interface LiveTool {

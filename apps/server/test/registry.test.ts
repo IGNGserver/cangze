@@ -58,6 +58,54 @@ describe('target expansion', () => {
       'light.living_lamp',
     ]);
   });
+
+  it('recursively expands core and domain groups to deduplicated leaves', () => {
+    const local = registry();
+    local.states.set('light.upstairs', {
+      entity_id: 'light.upstairs',
+      state: 'on',
+      attributes: { entity_id: ['light.bedroom', 'light.living_lamp'] },
+      last_changed: '',
+      last_updated: '',
+    });
+    local.states.set('group.audit_lights', {
+      entity_id: 'group.audit_lights',
+      state: 'on',
+      attributes: { entity_id: ['light.upstairs', 'light.bedroom'] },
+      last_changed: '',
+      last_updated: '',
+    });
+    expect(local.resolveTarget({ entity_id: 'group.audit_lights' }, 'homeassistant')).toEqual([
+      'light.bedroom',
+      'light.living_lamp',
+    ]);
+    // Scenes keep their indirect-action semantics even when they carry member ids.
+    local.states.set('scene.movie', {
+      entity_id: 'scene.movie',
+      state: 'unknown',
+      attributes: { entity_id: ['light.bedroom'] },
+      last_changed: '',
+      last_updated: '',
+    });
+    expect(local.resolveTarget({ entity_id: 'scene.movie' }, 'scene')).toEqual(['scene.movie']);
+  });
+
+  it('rejects cyclic groups instead of issuing an indirect group write', () => {
+    const local = registry();
+    for (const [id, member] of [
+      ['group.a', 'group.b'],
+      ['group.b', 'group.a'],
+    ] as const) {
+      local.states.set(id, {
+        entity_id: id,
+        state: 'on',
+        attributes: { entity_id: [member] },
+        last_changed: '',
+        last_updated: '',
+      });
+    }
+    expect(() => local.resolveTarget({ entity_id: 'group.a' }, 'homeassistant')).toThrow(/cycle/);
+  });
 });
 
 describe('entity placement', () => {
@@ -93,6 +141,21 @@ describe('search and overview', () => {
   it('hides diagnostic entities unless asked', () => {
     expect(r.search({ q: 'power' })).toHaveLength(0);
     expect(r.search({ q: 'power', includeHidden: true })).toHaveLength(1);
+  });
+
+  it('does not silently truncate large homes when no limit was requested', () => {
+    const local = new HaRegistry();
+    local.setStates(
+      Array.from({ length: 2001 }, (_, i) => ({
+        entity_id: `sensor.item_${String(i).padStart(4, '0')}`,
+        state: 'on',
+        attributes: {},
+        last_changed: '',
+        last_updated: '',
+      })),
+    );
+    expect(local.search({})).toHaveLength(2001);
+    expect(local.search({ limit: 2000 })).toHaveLength(2000);
   });
 
   it('summarizes rooms and keeps config entities out of the unassigned bucket', () => {
