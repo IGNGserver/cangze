@@ -8,7 +8,7 @@ export function registerStream(app: FastifyInstance, hub: StreamHub, network: Ne
     // Browsers always send Origin on WebSocket upgrades; reject cross-site pages using the cookie.
     if (req.caller?.kind === 'cookie') {
       const origin = req.headers.origin;
-      if (!origin || !network.isOriginAllowed(origin, req.headers.host)) {
+      if (!origin || !network.isOriginAllowed(origin, req.headers.host, req.protocol)) {
         socket.close(1008, 'origin not allowed');
         return;
       }

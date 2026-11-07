@@ -2,6 +2,7 @@ import type { Approval, ApprovalStatus, RiskLevel } from '@cangze/contracts';
 import { AppError, conflict, notFound } from '../../core/errors.ts';
 import { newId } from '../../core/ids.ts';
 import { principalId, type Principal } from '../../core/principal.ts';
+import { redactSensitive } from '../../core/redact.ts';
 import { json, type Db } from '../../db/index.ts';
 import type { StreamHub } from '../stream/hub.ts';
 
@@ -89,7 +90,8 @@ export class ApprovalsService {
     for (const l of this.listeners) l(a);
   }
 
-  async request(req: ApprovalRequest): Promise<ApprovalStatus> {
+  /** Returns the final persisted approval, including its id for revision/delegation authorization links. */
+  async request(req: ApprovalRequest): Promise<Approval> {
     const id = newId('apr');
     const now = Date.now();
     this.db
@@ -105,14 +107,13 @@ export class ApprovalsService {
         req.agentId ?? null,
         req.toolName,
         req.toolCallId,
-        json.stringify(req.args),
+        json.stringify(redactSensitive(req.args)),
         req.summary,
         req.risk,
         now,
         now + req.timeoutMs,
       );
-    this.publish(this.get(id));
-    return new Promise<ApprovalStatus>((resolve) => {
+    await new Promise<ApprovalStatus>((resolve) => {
       const timer = setTimeout(() => this.finish(id, 'expired', 'timed out'), req.timeoutMs);
       timer.unref();
       const onAbort = () => this.finish(id, 'expired', 'run aborted');
@@ -122,7 +123,9 @@ export class ApprovalsService {
         req.signal?.removeEventListener('abort', onAbort);
         resolve(status);
       });
+      this.publish(this.get(id));
     });
+    return this.get(id);
   }
 
   private finish(id: string, status: ApprovalStatus, note?: string): Approval {

@@ -25,7 +25,7 @@ export interface ComposerDraftState {
   uploading: DraftUpload[];
   saving: boolean;
   sending: boolean;
-  error: boolean;
+  error: unknown;
   conflict: DraftConflict | null;
   syncAvailable: boolean;
   ready: boolean;
@@ -376,7 +376,7 @@ export function useComposerDraft(scope: string, vision: boolean): ComposerDraftS
     uploading,
     saving: busy > 0,
     sending,
-    error: Boolean(error ?? feedError),
+    error: error ?? feedError,
     conflict,
     syncAvailable,
     ready,

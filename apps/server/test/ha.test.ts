@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AppError } from '../src/core/errors.ts';
+import type { Principal } from '../src/core/principal.ts';
 import { FakeHa, FAKE_TOKEN, waitFor } from './fake-ha.ts';
 import { harness, type Harness } from './helpers.ts';
 
@@ -46,7 +47,7 @@ describe('Home Assistant gateway', () => {
     expect(JSON.stringify(view)).not.toContain(FAKE_TOKEN);
     const areas = (await h.call('GET', '/api/v1/ha/areas')).json();
     expect(areas.map((a: { area_id: string }) => a.area_id)).toContain('living_room');
-    const lights = (await h.call('GET', '/api/v1/ha/entities?domain=light&area=living_room')).json();
+    const lights = (await h.call('GET', '/api/v1/ha/entities?domain=light&area=living_room')).json().items;
     expect(lights.map((e: { entity_id: string }) => e.entity_id)).toEqual([
       'light.living_ceiling',
       'light.living_lamp',
@@ -139,6 +140,31 @@ describe('Home Assistant gateway', () => {
     await waitFor(() => h.s.ha.registry.states.get('light.bedroom')?.state === 'on');
   });
 
+  it('restores custom event subscriptions after reconfiguration', async () => {
+    await connect();
+    let events = 0;
+    const off = h.s.ha.onEvent('cangze_test', () => events++);
+    await waitFor(() => ha.eventSubscriptionCount('cangze_test') === 1);
+    await connect();
+    await waitFor(() => ha.eventSubscriptionCount('cangze_test') === 1);
+    ha.fireEvent('cangze_test', { value: 1 });
+    await waitFor(() => events === 1);
+    off();
+  });
+
+  it('keeps last-known-good registries when one refresh command fails', async () => {
+    await connect();
+    const areas = (await h.call('GET', '/api/v1/ha/areas')).json();
+    ha.failCommands.add('config/area_registry/list');
+    ha.home.areas = [];
+    ha.home.floors = ha.home.floors.map((f, i) => (i === 0 ? { ...f, name: 'Updated floor' } : f));
+    const before = ha.requests.filter((r) => r === 'config/area_registry/list').length;
+    ha.fireEvent('area_registry_updated', {});
+    await waitFor(() => ha.requests.filter((r) => r === 'config/area_registry/list').length > before);
+    await waitFor(() => [...h.s.ha.registry.floors.values()].some((f) => f.name === 'Updated floor'));
+    expect((await h.call('GET', '/api/v1/ha/areas')).json()).toEqual(areas);
+  });
+
   it('marks an invalid token and does not retry', async () => {
     ha.rejectAuth = true;
     await h.call('PUT', '/api/v1/settings/ha', { url: ha.url, token: FAKE_TOKEN, verifyTls: true });
@@ -159,6 +185,76 @@ describe('Home Assistant gateway', () => {
     await expect(h.s.ha.query({ type: 'call_service', domain: 'light', service: 'turn_on' })).rejects.toThrow(
       /must not be used/,
     );
+  });
+
+  it('bounds camera responses and explicit history ranges', async () => {
+    await connect();
+    ha.cameraContentLength = 26 * 1024 * 1024;
+    const camera = await h.call('GET', '/api/v1/ha/camera/camera.door');
+    expect(camera.statusCode).toBe(413);
+    expect(camera.json().error.code).toBe('camera_too_large');
+    ha.cameraContentLength = null;
+    ha.cameraBody = Buffer.alloc(26 * 1024 * 1024);
+    const streamed = await h.call('GET', '/api/v1/ha/camera/camera.door');
+    expect(streamed.statusCode).toBe(413);
+    expect(streamed.json().error.code).toBe('camera_too_large');
+    ha.cameraBody = null;
+    const history = await h.call(
+      'GET',
+      '/api/v1/ha/history?entityId=light.bedroom&start=2026-01-01T00:00:00.000Z&end=2026-02-02T00:00:00.000Z',
+    );
+    expect(history.statusCode).toBe(400);
+  });
+
+  it('serializes another run entity lease and releases it after the HA response', async () => {
+    await connect();
+    const one: Principal = { kind: 'session', sessionId: 's1', runId: 'r1' };
+    const two: Principal = { kind: 'session', sessionId: 's2', runId: 'r2' };
+    ha.serviceDelayMs = 150;
+    const first = h.s.ha.callService(one, {
+      domain: 'light',
+      service: 'turn_on',
+      target: { entity_id: 'light.bedroom' },
+    });
+    await waitFor(() => ha.calls.some((c) => c.target?.entity_id?.includes('light.bedroom')));
+    const second = h.s.ha.callService(two, {
+      domain: 'light',
+      service: 'turn_off',
+      target: { entity_id: 'light.bedroom' },
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(ha.state('light.bedroom')?.state).toBe('on');
+    await Promise.all([first, second]);
+    await waitFor(() => ha.state('light.bedroom')?.state === 'off');
+  });
+
+  it('returns a bounded conflict while another run owns the entity lease', async () => {
+    await connect();
+    const one: Principal = { kind: 'session', sessionId: 's1', runId: 'r1' };
+    const two: Principal = { kind: 'session', sessionId: 's2', runId: 'r2' };
+    ha.serviceDelayMs = 3000;
+    const first = h.s.ha.callService(one, {
+      domain: 'light',
+      service: 'turn_on',
+      target: { entity_id: 'light.bedroom' },
+    });
+    await waitFor(() => ha.calls.length > 0);
+    await expect(
+      h.s.ha.callService(two, {
+        domain: 'light',
+        service: 'turn_off',
+        target: { entity_id: 'light.bedroom' },
+      }),
+    ).rejects.toMatchObject({ status: 409, code: 'conflict_entity_busy' });
+    ha.serviceDelayMs = 0;
+    await first;
+    await expect(
+      h.s.ha.callService(two, {
+        domain: 'light',
+        service: 'turn_off',
+        target: { entity_id: 'light.bedroom' },
+      }),
+    ).resolves.toBeDefined();
   });
 
   it('returns history points', async () => {

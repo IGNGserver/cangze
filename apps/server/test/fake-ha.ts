@@ -340,7 +340,7 @@ export class FakeHa {
     domain: string;
     service: string;
     service_data: Record<string, unknown>;
-    target?: unknown;
+    target?: { entity_id?: string[] };
   }> = [];
   readonly sockets = new Set<WebSocket>();
   private subs: Sub[] = [];
@@ -348,6 +348,11 @@ export class FakeHa {
   private wss!: WebSocketServer;
   url = '';
   rejectAuth = false;
+  readonly requests: string[] = [];
+  readonly failCommands = new Set<string>();
+  serviceDelayMs = 0;
+  cameraContentLength: number | null = null;
+  cameraBody: Buffer | null = null;
 
   async start(port = 0): Promise<this> {
     this.server = createServer((req, res) => {
@@ -356,7 +361,12 @@ export class FakeHa {
         return;
       }
       if (req.url?.startsWith('/api/camera_proxy/')) {
-        res.writeHead(200, { 'content-type': 'image/jpeg' }).end(Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+        res
+          .writeHead(200, {
+            'content-type': 'image/jpeg',
+            ...(this.cameraContentLength ? { 'content-length': this.cameraContentLength } : {}),
+          })
+          .end(this.cameraBody ?? Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
         return;
       }
       res.writeHead(404).end();
@@ -411,6 +421,10 @@ export class FakeHa {
     );
   }
 
+  eventSubscriptionCount(eventType: string): number {
+    return this.subs.filter((s) => s.kind === 'events' && s.eventType === eventType).length;
+  }
+
   fireEvent(
     eventType: string,
     data: Record<string, unknown>,
@@ -452,7 +466,7 @@ export class FakeHa {
         }
         return;
       }
-      this.handle(ws, msg);
+      void this.handle(ws, msg);
     });
   }
 
@@ -464,8 +478,11 @@ export class FakeHa {
     ws.send(JSON.stringify({ id, type: 'result', success: false, error: { code, message } }));
   }
 
-  private handle(ws: WebSocket, msg: { id: number; type: string; [k: string]: any }): void {
+  private async handle(ws: WebSocket, msg: { id: number; type: string; [k: string]: any }): Promise<void> {
     const h = this.home;
+    this.requests.push(msg.type);
+    if (this.failCommands.has(msg.type))
+      return this.error(ws, msg.id, 'injected_failure', `Injected failure for ${msg.type}`);
     switch (msg.type) {
       case 'supported_features':
         return this.result(ws, msg.id, null);
@@ -539,7 +556,7 @@ export class FakeHa {
     }
   }
 
-  private callService(
+  private async callService(
     ws: WebSocket,
     msg: {
       id: number;
@@ -579,6 +596,7 @@ export class FakeHa {
       else if (msg.service === 'set_temperature')
         this.setState(id, this.state(id)?.state ?? 'heat', { temperature: data.temperature }, context);
     }
+    if (this.serviceDelayMs > 0) await new Promise((r) => setTimeout(r, this.serviceDelayMs));
     return this.result(ws, msg.id, { context, ...(msg.return_response ? { response: { ok: true } } : {}) });
   }
 }

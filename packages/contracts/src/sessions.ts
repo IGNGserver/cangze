@@ -65,6 +65,13 @@ export const SessionSummary = z.object({
 });
 export type SessionSummary = z.infer<typeof SessionSummary>;
 
+export const SessionListSnapshot = z.object({
+  items: z.array(SessionSummary),
+  /** Captured before reading rows; replay `sessions` after this sequence. */
+  streamSeq: z.number(),
+});
+export type SessionListSnapshot = z.infer<typeof SessionListSnapshot>;
+
 export const LiveRun = z.object({
   runId: z.string(),
   startedAt: z.string(),

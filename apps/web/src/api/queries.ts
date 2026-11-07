@@ -1,6 +1,14 @@
-import type { AuthState, HaEntity, HaStatus, SystemInfo } from '@cangze/contracts';
+import type {
+  AuthState,
+  HaEntity,
+  HaEntitySnapshot,
+  HaStateEvent,
+  HaStatus,
+  SystemInfo,
+} from '@cangze/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { api } from './client.ts';
+import { useLiveList } from './live-list.ts';
 
 export const qk = {
   system: ['system'] as const,
@@ -29,7 +37,26 @@ export const useHaStatus = () =>
     refetchInterval: 30_000,
   });
 export const useEntities = () =>
-  useQuery({
+  useLiveList<HaEntity, { updates: HaStateEvent[]; registry?: boolean }>({
     queryKey: qk.entities,
-    queryFn: () => api.get<HaEntity[]>('/ha/entities', { includeHidden: true }),
+    topic: 'ha:states',
+    fetcher: () => api.get<HaEntitySnapshot>('/ha/entities', { includeHidden: true }),
+    applyEvent: (items, event) => {
+      if (event.registry || event.updates.some((u) => !items.some((e) => e.entity_id === u.entity_id)))
+        return null;
+      const byId = new Map(event.updates.map((u) => [u.entity_id, u]));
+      return items
+        .filter((e) => byId.get(e.entity_id)?.state !== null)
+        .map((e) => {
+          const u = byId.get(e.entity_id);
+          if (!u) return e;
+          return {
+            ...e,
+            state: u.state ?? e.state,
+            attributes: u.attributes ?? e.attributes,
+            last_changed: u.last_changed ?? e.last_changed,
+            last_updated: u.last_updated ?? e.last_updated,
+          };
+        });
+    },
   });

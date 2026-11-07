@@ -67,6 +67,11 @@ Server → client:
 - `hello.instanceId` identifies the server process. When it changes, discard old sequence cursors and
   reload REST snapshots even if sequence numbers happen to coincide. Reconnects should also refresh
   REST-backed lists; while a conversation snapshot loads, buffer events and apply only `seq > streamSeq`.
+- `GET /sessions`, `GET /agents`, `GET /runs` and `GET /ha/entities` return `{ items, streamSeq }`.
+  Capture the sequence before the database/cache read, subscribe from that sequence, buffer WS events while
+  the fetch is in flight, then apply each event once. A changed `instanceId`, replay gap or sequence mismatch
+  invalidates the list epoch and requires a fresh snapshot. HA registry additions/updates also invalidate the
+  snapshot; deletions remove the entity locally. Paginated history is separate from these live snapshots.
 - Topics: `sessions`, `session:<id>`, `runs`, `run:<id>`, `agents`, `agent:<id>`, `drafts`,
   `approvals`, `notifications`, `ha:status`, `ha:states`, `system`.
 - The server pings every 25 s and drops clients that do not answer, and closes clients whose send buffer
@@ -97,7 +102,22 @@ from the snapshot without gaps.
   `draftRevision`; a stale draft is rejected before the message is accepted.
 - `POST /sessions/:id/edit` re-asks from an edited user message as a new branch; `/regenerate` answers a message
   again; `/branch` switches to the branch containing an entry. Old branches are never deleted.
-- High-risk actions pause the tool until `POST /approvals/:id/decide { approve }`.
+- High-risk actions pause the tool until `POST /approvals/:id/decide { approve }`. Pending cards expose
+  the non-sensitive action arguments so the reviewer can inspect the actual request. Credentials in structured
+  fields, configuration text, bearer headers and URL userinfo are replaced with `[redacted]` before the approval
+  is persisted or published; execution still revalidates the original in-memory arguments after approval.
+
+## Home Assistant resources
+
+- `GET /ha/entities` returns a live `{ items, streamSeq }` snapshot. Without an explicit `limit` it does not
+  silently truncate the registry; callers that only need a page must request one explicitly.
+- `GET /ha/camera/:entityId` returns JPEG bytes and reads at most 25 MiB, including when the upstream has no
+  `Content-Length`; larger responses fail with `413 camera_too_large`.
+- `GET /ha/history` accepts bounded relative `hours` or an explicit `start`/`end` range. Explicit ranges must
+  be valid, positive and at most 31 days.
+- Backup restore validates the manifest and SQLite header before staging. Gzip output is limited to 1 GiB,
+  the manifest to 64 KiB, and decompression is asynchronous. Malformed archives and invalid SQLite payloads
+  return `400 invalid_backup`; exceeding the decompression limit returns `413 archive_too_large`.
 
 ## Drafts
 
@@ -109,7 +129,7 @@ does not change session ordering.
 - `PUT /api/v1/drafts/:scope { text, baseRevision }` returns `{ draft }`. `baseRevision: null`
   creates a draft, a number updates only that revision, and a stale revision returns
   `409 draft_conflict` with `details.draft` set to the current value (or null). Empty text with no
-  images deletes the draft.
+  images deletes the draft only after the same revision check; an empty stale update cannot delete newer content.
 - `POST /api/v1/drafts/:scope/images { mimeType, data, width?, height? }` adds one image (at most
   four) and returns the updated draft. `GET /api/v1/drafts/:scope/images/:id` returns the bytes with
   the stored media type; `DELETE` on the same path removes it. Image bytes never travel on the
@@ -132,8 +152,11 @@ Stopping or archiving that session suppresses automatic continuation, not report
   `409 revision_conflict` with `details.currentRevision`. Every save creates a new immutable revision
   (`GET /agents/:id/revisions`).
 - `POST /agents/:id/run { task? }` queues a manual run; `GET /runs?agentId=&status=`, `GET /runs/:id` (read-only
-  transcript, live state, pending approvals, `streamSeq`), `POST /runs/:id/abort`.
-- `GET /runs?before=<last-run-id>&limit=50` continues history in descending `(queued_at, id)` order.
+  transcript, live state, pending approvals, `streamSeq`), `POST /runs/:id/abort`. Main-session `agent_*` management
+  tools require administrator approval for create/update/enable/delete. Dispatching a `highRisk: "allow"` agent also
+  requires approval of that delegation; unattended `allow` behavior is recorded on the authorized immutable revision.
+- `GET /runs/history?before=<last-run-id>&limit=50` continues history in descending `(queued_at, id)` order
+  and returns `RunSummary[]`. `GET /runs` remains the live snapshot endpoint regardless of history filters.
   Use the last returned id, not a timestamp: several runs can be queued in the same millisecond.
   Unknown cursors are rejected with `404` rather than silently returning an empty page.
 - Live updates: `agents` (list changes), `agent:<id>` (definition, memory and run changes), `runs`, and `run:<id>` with the

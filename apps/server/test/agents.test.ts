@@ -7,6 +7,8 @@ import {
 } from '@earendil-works/pi-ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeHa, FAKE_TOKEN, waitFor } from './fake-ha.ts';
+import { toolCallStore } from '../src/core/tool-context.ts';
+import { toAgentTool } from '../src/modules/tools/types.ts';
 import { harness, type Harness } from './helpers.ts';
 
 let h: Harness;
@@ -68,7 +70,22 @@ async function runToEnd(runId: string) {
   return h.s.runs.get(runId);
 }
 
+async function approveTool(toolName: string) {
+  await waitFor(() => h.s.approvals.list({ status: 'pending' }).some((a) => a.toolName === toolName));
+  const approval = h.s.approvals.list({ status: 'pending' }).find((a) => a.toolName === toolName)!;
+  return h.s.approvals.decide(approval.id, true);
+}
+
 describe('subagents', () => {
+  it('validates an explicit model reference before creating a revision', async () => {
+    const res = await h.call('POST', '/api/v1/agents', {
+      definition: { ...LIVING_LIGHTS, modelRef: 'missing/model' },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('model_unavailable');
+    expect(h.s.agents.rows()).toHaveLength(0);
+  });
+
   it('refuses daily budgets on unknown-price models without issuing a request', async () => {
     h.s.db
       .prepare("UPDATE providers SET kind = 'custom', config = ? WHERE id = 'faux'")
@@ -231,7 +248,7 @@ describe('subagents', () => {
     for (;;) {
       const response = await h.call(
         'GET',
-        `/api/v1/runs?agentId=${agent.id}&limit=50${before ? `&before=${before}` : ''}`,
+        `/api/v1/runs/history?agentId=${agent.id}&limit=50${before ? `&before=${before}` : ''}`,
       );
       expect(response.statusCode).toBe(200);
       const rows = response.json() as Array<{ id: string }>;
@@ -241,7 +258,7 @@ describe('subagents', () => {
     }
     expect(seen).toEqual(ids.sort().reverse());
     expect(new Set(seen).size).toBe(123);
-    const missing = await h.call('GET', '/api/v1/runs?before=missing');
+    const missing = await h.call('GET', '/api/v1/runs/history?before=missing');
     expect(missing.statusCode).toBe(404);
   });
 
@@ -353,6 +370,7 @@ describe('subagents', () => {
     await h.call('POST', `/api/v1/sessions/${sid}/messages`, {
       text: 'create an agent and ask it about motion',
     });
+    await approveTool('agent_create');
     await waitFor(() => {
       const d = h.s.sessions.get(sid);
       return d.entries.some((e) => e.kind === 'notice');
@@ -361,6 +379,272 @@ describe('subagents', () => {
     expect(notice.data).toMatchObject({ level: 'report', body: 'Hall motion is off.', forModel: true });
     expect(h.s.agents.rows()).toHaveLength(1);
     expect(h.s.agents.revisions(h.s.agents.rows()[0]!.id)[0]!.createdBy).toBe(`session:${sid}`);
+  });
+
+  it('authorizes every recursive group member before issuing a write', async () => {
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      permissions: [
+        { id: 'all-lights', access: 'control', targets: { domains: ['light'] }, services: ['turn_off'] },
+        { id: 'no-bedroom', effect: 'deny', access: 'control', targets: { entities: ['light.bedroom'] } },
+      ],
+    });
+    h.s.ha.registry.states.set('group.audit_lights', {
+      entity_id: 'group.audit_lights',
+      state: 'on',
+      attributes: { entity_id: ['light.living_lamp', 'light.bedroom'] },
+      last_changed: '',
+      last_updated: '',
+    });
+    await expect(
+      h.s.ha.callService(
+        { kind: 'agent', agentId: agent.id, revision: 1, runId: 'run-group' },
+        {
+          domain: 'homeassistant',
+          service: 'turn_off',
+          target: { entity_id: 'group.audit_lights' },
+          data: {},
+        },
+      ),
+    ).rejects.toThrow(/explicitly denied/);
+    expect(ha.calls.filter((c) => c.service === 'turn_off')).toHaveLength(0);
+    expect(h.s.audit.query({ agentId: agent.id, limit: 1 })[0]).toMatchObject({
+      decision: 'denied',
+      target: 'light.bedroom,light.living_lamp',
+    });
+  });
+
+  it('requires approval for session updates, re-enabling and deletion', async () => {
+    const agent = await createAgent();
+    const sid = h.s.sessions.create({}).id;
+    const env = {
+      principal: { kind: 'session' as const, sessionId: sid, runId: 'run-management' },
+      runId: 'run-management',
+      sessionId: sid,
+      model: h.s.providers.resolve(null),
+    };
+    const invoke = (name: string, params: unknown) =>
+      toAgentTool(h.s.tools.get(name)!, env).execute(`test-${name}`, params as never, undefined);
+    // Invoke the actual tools, with approvals resolved only after checking their pending state.
+    const updating = invoke('agent_update', {
+      agent: agent.id,
+      base_revision: 1,
+      definition: { ...LIVING_LIGHTS, description: 'Updated by a session' },
+    });
+    await waitFor(() => h.s.approvals.list({ status: 'pending' }).some((a) => a.toolName === 'agent_update'));
+    expect(h.s.agents.row(agent.id).current_revision).toBe(1);
+    await approveTool('agent_update');
+    expect((await updating).isError).toBeFalsy();
+    expect(h.s.agents.row(agent.id).current_revision).toBe(2);
+
+    expect((await invoke('agent_set_enabled', { agent: agent.id, enabled: false })).isError).toBeFalsy();
+    expect(h.s.agents.row(agent.id).enabled).toBe(0);
+    const enabling = invoke('agent_set_enabled', { agent: agent.id, enabled: true });
+    await waitFor(() =>
+      h.s.approvals.list({ status: 'pending' }).some((a) => a.toolName === 'agent_set_enabled'),
+    );
+    expect(h.s.agents.row(agent.id).enabled).toBe(0);
+    await approveTool('agent_set_enabled');
+    expect((await enabling).isError).toBeFalsy();
+    expect(h.s.agents.row(agent.id).enabled).toBe(1);
+
+    const deleting = invoke('agent_delete', { agent: agent.id });
+    await waitFor(() => h.s.approvals.list({ status: 'pending' }).some((a) => a.toolName === 'agent_delete'));
+    expect(h.s.agents.rows()).toHaveLength(1);
+    await approveTool('agent_delete');
+    expect((await deleting).isError).toBeFalsy();
+    expect(h.s.agents.rows()).toHaveLength(0);
+  });
+
+  it('revalidates running state and revision after management approval', async () => {
+    const agent = await createAgent({ ...LIVING_LIGHTS, highRisk: 'allow' });
+    const sid = h.s.sessions.create({}).id;
+    const env = {
+      principal: { kind: 'session' as const, sessionId: sid, runId: 'run-management-race' },
+      runId: 'run-management-race',
+      sessionId: sid,
+      model: h.s.providers.resolve(null),
+    };
+    const invoke = (name: string, params: unknown) =>
+      toAgentTool(h.s.tools.get(name)!, env).execute(`test-${name}`, params as never, undefined);
+
+    const busy = vi.spyOn(h.s.runs, 'isAgentRunning').mockReturnValue(false);
+    const deleting = invoke('agent_delete', { agent: agent.id });
+    await waitFor(() => h.s.approvals.list({ status: 'pending' }).some((a) => a.toolName === 'agent_delete'));
+    busy.mockReturnValue(true);
+    await approveTool('agent_delete');
+    expect((await deleting).isError).toBe(true);
+    expect(h.s.agents.row(agent.id).id).toBe(agent.id);
+    busy.mockReturnValue(false);
+
+    const delegating = invoke('agent_run', { agent: agent.id, task: 'Use only revision 1' });
+    await waitFor(() => h.s.approvals.list({ status: 'pending' }).some((a) => a.toolName === 'agent_run'));
+    expect(h.s.approvals.list({ status: 'pending' })[0]!.args).toMatchObject({ revision: 1 });
+    const updated = await h.call('PUT', `/api/v1/agents/${agent.id}`, {
+      baseRevision: 1,
+      definition: { ...LIVING_LIGHTS, highRisk: 'allow', description: 'Changed during approval' },
+    });
+    expect(updated.statusCode).toBe(200);
+    await approveTool('agent_run');
+    expect((await delegating).isError).toBe(true);
+    expect(h.s.runs.list({ agentId: agent.id, limit: 10 })).toEqual([]);
+
+    expect((await invoke('agent_set_enabled', { agent: agent.id, enabled: false })).isError).toBeFalsy();
+    const enabling = invoke('agent_set_enabled', { agent: agent.id, enabled: true });
+    await waitFor(() =>
+      h.s.approvals.list({ status: 'pending' }).some((a) => a.toolName === 'agent_set_enabled'),
+    );
+    h.s.runs.emergencyStop(agent.id);
+    await approveTool('agent_set_enabled');
+    expect((await enabling).isError).toBe(true);
+    expect(h.s.agents.row(agent.id)).toMatchObject({ halted: 1, enabled: 0 });
+  });
+
+  it('requires administrator approval for privileged agent creation and delegation', async () => {
+    const definition = {
+      ...LIVING_LIGHTS,
+      name: 'Door delegate',
+      tools: ['ha_call_service'],
+      permissions: [
+        {
+          id: 'unlock',
+          access: 'control',
+          targets: { entities: ['lock.front_door'] },
+          services: ['unlock'],
+        },
+      ],
+      highRisk: 'allow',
+    };
+    expect(() => h.s.agents.create(definition as never, 'session:unapproved')).toThrow(
+      /without administrator approval/,
+    );
+
+    const route = (ctx: any) => {
+      const system = JSON.stringify(ctx.messages[0]);
+      if (system.includes('short title')) return fauxAssistantMessage('Door delegation');
+      if (system.includes('You are a background agent')) {
+        const last = ctx.messages.at(-1);
+        if (last.role === 'toolResult') return fauxAssistantMessage('The door is unlocked.');
+        return fauxAssistantMessage(
+          [
+            fauxToolCall('ha_call_service', {
+              domain: 'lock',
+              service: 'unlock',
+              target: { entity_id: ['lock.front_door'] },
+            }),
+          ],
+          { stopReason: 'toolUse' },
+        );
+      }
+      const last = ctx.messages.at(-1);
+      if (last.role === 'user' && JSON.stringify(last).includes('task report'))
+        return fauxAssistantMessage('Delegation complete.');
+      if (last.role === 'user')
+        return fauxAssistantMessage([fauxToolCall('agent_create', { definition })], {
+          stopReason: 'toolUse',
+        });
+      if (last.role === 'toolResult' && last.toolName === 'agent_create') {
+        const id = /id (agt_[a-z0-9]+)/.exec(last.content[0].text)![1]!;
+        return fauxAssistantMessage([fauxToolCall('agent_run', { agent: id, task: 'Unlock the door' })], {
+          stopReason: 'toolUse',
+        });
+      }
+      return fauxAssistantMessage('Delegated.');
+    };
+    faux.setResponses(Array.from({ length: 10 }, () => route));
+    const sid = (await h.call('POST', '/api/v1/sessions', {})).json().id;
+    await h.call('POST', `/api/v1/sessions/${sid}/messages`, { text: 'create a door delegate' });
+
+    await waitFor(() => h.s.approvals.list({ status: 'pending' }).some((a) => a.toolName === 'agent_create'));
+    expect(h.s.agents.rows()).toHaveLength(0);
+    await approveTool('agent_create');
+    await waitFor(() => h.s.approvals.list({ status: 'pending' }).some((a) => a.toolName === 'agent_run'));
+    expect(h.s.runs.list({ limit: 10 })).toHaveLength(0);
+    await approveTool('agent_run');
+
+    const agent = h.s.agents.rows()[0]!;
+    await waitFor(() => h.s.runs.list({ agentId: agent.id, limit: 1 }).length === 1);
+    const run = h.s.runs.list({ agentId: agent.id, limit: 1 })[0]!;
+    expect(await runToEnd(run.id)).toMatchObject({ status: 'succeeded', error: null });
+    expect(ha.calls.filter((c) => c.service === 'unlock')).toHaveLength(1);
+    expect(h.s.approvals.list({ limit: 100 }).filter((a) => a.toolName === 'ha_call_service')).toHaveLength(
+      0,
+    );
+    expect(h.s.agents.highRiskFor(agent.id, 1, 'allow')).toBe('allow');
+
+    // Legacy session revisions without an authorization record fail closed at the Gateway.
+    h.s.db.prepare('UPDATE agent_revisions SET authorized_by = NULL WHERE agent_id = ?').run(agent.id);
+    expect(h.s.agents.highRiskFor(agent.id, 1, 'allow')).toBe('approve');
+  });
+
+  it('reserves rate-limit quota atomically after concurrent approvals', async () => {
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      permissions: [
+        {
+          id: 'unlock-once',
+          access: 'control',
+          targets: { entities: ['lock.front_door'] },
+          services: ['unlock'],
+          constraints: { maxCallsPerHour: 1 },
+        },
+      ],
+      highRisk: 'approve',
+    });
+    const principal = {
+      kind: 'agent' as const,
+      agentId: agent.id,
+      revision: 1,
+      runId: 'run-concurrent-approval',
+    };
+    const invoke = (toolCallId: string) =>
+      toolCallStore.run({ principal, toolName: 'ha_call_service', toolCallId, runId: principal.runId }, () =>
+        h.s.ha.callService(principal, {
+          domain: 'lock',
+          service: 'unlock',
+          target: { entity_id: 'lock.front_door' },
+        }),
+      );
+    const first = invoke('approval-1');
+    const second = invoke('approval-2');
+    await waitFor(() => h.s.approvals.list({ status: 'pending' }).length === 2);
+    const approval = (callId: string) =>
+      h.s.approvals.list({ status: 'pending' }).find((a) => a.toolCallId === callId)!;
+    h.s.approvals.decide(approval('approval-1').id, true);
+    await expect(first).resolves.toMatchObject({ entityIds: ['lock.front_door'] });
+    h.s.approvals.decide(approval('approval-2').id, true);
+    await expect(second).rejects.toThrow(/rate limit/);
+    expect(ha.calls.filter((c) => c.service === 'unlock')).toHaveLength(1);
+  });
+
+  it('rejects an approved write when the agent was halted while waiting', async () => {
+    const agent = await createAgent({
+      ...LIVING_LIGHTS,
+      permissions: [
+        {
+          id: 'unlock',
+          access: 'control',
+          targets: { entities: ['lock.front_door'] },
+          services: ['unlock'],
+        },
+      ],
+      highRisk: 'approve',
+    });
+    const principal = { kind: 'agent' as const, agentId: agent.id, revision: 1, runId: 'run-halted' };
+    const writing = toolCallStore.run(
+      { principal, toolName: 'ha_call_service', toolCallId: 'halted-call', runId: principal.runId },
+      () =>
+        h.s.ha.callService(principal, {
+          domain: 'lock',
+          service: 'unlock',
+          target: { entity_id: 'lock.front_door' },
+        }),
+    );
+    await waitFor(() => h.s.approvals.list({ status: 'pending' }).length === 1);
+    h.s.db.prepare('UPDATE agents SET halted = 1 WHERE id = ?').run(agent.id);
+    h.s.approvals.decide(h.s.approvals.list({ status: 'pending' })[0]!.id, true);
+    await expect(writing).rejects.toThrow(/emergency stopped/);
+    expect(ha.calls.filter((c) => c.service === 'unlock')).toHaveLength(0);
   });
 
   it('fires on state changes but never on its own changes', async () => {

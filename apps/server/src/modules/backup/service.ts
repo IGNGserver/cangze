@@ -72,7 +72,7 @@ export class BackupService {
     private readonly db: Db,
     private readonly dataDir: string,
     private readonly masterKey: Buffer,
-    settings: SettingsService,
+    private readonly settings: SettingsService,
     private readonly secrets: SecretsService,
     private readonly ha: HaGateway,
     private readonly notifications: NotificationsService,
@@ -159,6 +159,45 @@ export class BackupService {
 
   nextRun(): string | null {
     return this.job?.nextRun()?.toISOString() ?? null;
+  }
+
+  updateSchedule(input: {
+    enabled: boolean;
+    cron: string;
+    keep: number;
+    encrypt: boolean;
+    includeCredentials: boolean;
+    passphrase?: string;
+  }): void {
+    // Validate before rotating the passphrase or changing the persisted schedule.
+    try {
+      new Cron(input.cron, { paused: true }).stop();
+    } catch (err) {
+      throw new AppError(
+        400,
+        'bad_request',
+        `Invalid backup cron expression: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    if (input.includeCredentials && !input.encrypt)
+      throw new AppError(400, 'bad_request', 'Including credentials requires encryption');
+    const cur = this.schedule.get();
+    if (input.encrypt && !input.passphrase && !this.secrets.has(cur.passphraseSecretId))
+      throw new AppError(400, 'bad_request', 'Set a passphrase to encrypt scheduled backups');
+    this.settings.transaction(() => {
+      const secretId = input.passphrase
+        ? this.secrets.put('backup_passphrase', input.passphrase, cur.passphraseSecretId ?? undefined)
+        : cur.passphraseSecretId;
+      this.schedule.set({
+        enabled: input.enabled,
+        cron: input.cron,
+        keep: input.keep,
+        encrypt: input.encrypt,
+        includeCredentials: input.includeCredentials,
+        passphraseSecretId: secretId,
+      });
+    });
+    this.arm();
   }
 
   list(): BackupInfo[] {
@@ -256,12 +295,16 @@ export class BackupService {
     // Check the database itself before touching anything.
     const probe = join(this.dataDir, `.restore-check-${Date.now()}.sqlite`);
     writeFileSync(probe, db);
+    let check: InstanceType<typeof Database> | undefined;
     try {
-      const check = new Database(probe, { readonly: true });
+      check = new Database(probe, { readonly: true });
       const ok = (check.pragma('integrity_check', { simple: true }) as string) === 'ok';
-      check.close();
       if (!ok) throw new AppError(400, 'invalid_backup', 'The backup database failed its integrity check');
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError(400, 'invalid_backup', 'The backup database could not be opened');
     } finally {
+      check?.close();
       rmSync(probe, { force: true });
     }
     // Stage an unencrypted copy (the data volume already holds the live database in clear);

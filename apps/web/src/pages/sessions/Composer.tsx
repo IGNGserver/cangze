@@ -101,7 +101,13 @@ export function Composer({
       ) : !draft.syncAvailable ? (
         <Alert type="warning" showIcon style={{ marginBottom: 8 }} message={t('chat.draftSyncUnavailable')} />
       ) : draft.error ? (
-        <Alert type="warning" showIcon style={{ marginBottom: 8 }} message={t('chat.draftSaveFailed')} />
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 8 }}
+          message={t('chat.draftSaveFailed')}
+          description={errorText(t, draft.error)}
+        />
       ) : draft.uploading.length > 0 || draft.saving ? (
         <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
           {draft.uploading.length > 0 ? t('chat.imageUploading') : t('chat.draftSaving')}

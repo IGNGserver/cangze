@@ -48,6 +48,7 @@ export class CoordinationService {
   private readonly writeTimes = new Map<string, number[]>();
   private readonly manualAt = new Map<string, number>();
   private readonly origins = new Map<string, ContextOrigin>();
+  private readonly entityLeases = new Map<string, string>();
   /** Priority / respect-manual settings of agents, provided by the agents module. */
   private agentInfo: (
     p: AgentPrincipal,
@@ -71,8 +72,13 @@ export class CoordinationService {
 
   install(): void {
     this.ha.addWriteGuard((req) => this.guard(req));
+    this.ha.addWriteReservation((req) => this.reserve(req));
     this.ha.addWriteObserver((req, outcome) => {
-      if (outcome.ok) this.record(req.principal, req.entityIds, outcome.result.contextId);
+      try {
+        if (outcome.ok) this.record(req.principal, req.entityIds, outcome.result.contextId);
+      } finally {
+        this.release(req.principal, req.entityIds);
+      }
     });
   }
 
@@ -122,6 +128,38 @@ export class CoordinationService {
         );
       }
     }
+  }
+
+  private async reserve(req: WriteRequest): Promise<void> {
+    const p = req.principal;
+    const runId = p.kind === 'agent' || p.kind === 'session' ? p.runId : null;
+    if (!runId || req.kind !== 'service' || req.entityIds.length === 0) return;
+    const ids = [...new Set(req.entityIds)].sort();
+    const deadline = Date.now() + 2000;
+    for (;;) {
+      const conflict = ids.find((id) => {
+        const owner = this.entityLeases.get(id);
+        return owner !== undefined && owner !== runId;
+      });
+      if (!conflict) {
+        for (const id of ids) this.entityLeases.set(id, runId);
+        return;
+      }
+      if (Date.now() >= deadline) {
+        throw new AppError(
+          409,
+          'conflict_entity_busy',
+          `${conflict} is being changed by another run; retry after that write completes`,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.min(50, deadline - Date.now())));
+    }
+  }
+
+  private release(p: Principal, entityIds: string[]): void {
+    const runId = p.kind === 'agent' || p.kind === 'session' ? p.runId : null;
+    if (!runId) return;
+    for (const id of entityIds) if (this.entityLeases.get(id) === runId) this.entityLeases.delete(id);
   }
 
   record(p: Principal, entityIds: string[], contextId: string | null): void {

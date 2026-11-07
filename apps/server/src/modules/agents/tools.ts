@@ -1,6 +1,8 @@
 import { StringEnum, Type } from '@earendil-works/pi-ai';
-import { AppError } from '../../core/errors.ts';
+import { AppError, conflict } from '../../core/errors.ts';
 import { principalId } from '../../core/principal.ts';
+import { currentToolCall } from '../../core/tool-context.ts';
+import type { ApprovalsService } from '../approvals/service.ts';
 import type { ToolRegistry } from '../tools/registry.ts';
 import { defineTool, type ToolDef, type ToolEnv } from '../tools/types.ts';
 import type { RunsService } from './runs.ts';
@@ -20,14 +22,43 @@ const DEFINITION_HELP = `An agent definition is JSON with:
 - permissions: rules {id, effect:"allow"|"deny", access:"read"|"control"|"configure", targets:{all?, entities?:["light.*"], domains?, areas?, floors?, devices?, labels?}, services?:["turn_on"], constraints?:{numeric?:[{field,min,max}], timeWindow?:{start:"22:00",end:"06:00",days?:[]}, maxCallsPerHour?}}
   Default deny: grant only what the task needs. Control includes read.
 - triggers: {id, kind, ...} kinds: cron {expression:"0 7 * * *"}, interval {minutes}, ha_state {entityIds, to?, from?, attribute?, forSeconds?}, ha_event {eventType, dataMatch?}, ha_trigger {trigger:{platform:"sun",event:"sunset"}}, manual {}
-- highRisk: "deny" | "approve" | "allow"; allowIndirectActions (default false; scripts/scenes/automations can affect devices beyond their target); limits {maxRunSeconds, maxToolCalls, dailyCostLimit, overlap, misfire}; priority 1-100; respectManualMinutes.`;
+- highRisk: "deny" | "approve" | "allow" (allow requires administrator approval of this revision); allowIndirectActions (default false; scripts/scenes/automations can affect devices beyond their target); limits {maxRunSeconds, maxToolCalls, dailyCostLimit, overlap, misfire}; priority 1-100; respectManualMinutes.`;
 
 /** Tools that let main sessions create and direct subagents. Never grantable to subagents. */
 export function agentManagementTools(
   agents: AgentsService,
   runs: RunsService,
   registry: () => ToolRegistry,
+  approvals: ApprovalsService,
 ): ToolDef[] {
+  const authorize = async (toolName: string, summary: string, args: unknown, agentId?: string) => {
+    const ctx = currentToolCall();
+    if (!ctx || ctx.principal.kind !== 'session') {
+      throw new AppError(
+        403,
+        'agent_authorization_required',
+        'Administrator approval requires a main-session tool call',
+      );
+    }
+    const approval = await approvals.request({
+      principal: ctx.principal,
+      toolName,
+      toolCallId: ctx.toolCallId,
+      summary,
+      args,
+      risk: 'high',
+      sessionId: ctx.sessionId,
+      runId: ctx.runId,
+      agentId,
+      timeoutMs: 15 * 60_000,
+      signal: ctx.signal,
+    });
+    if (approval.status !== 'approved') {
+      throw new AppError(403, 'approval_rejected', `Agent change was ${approval.status}`);
+    }
+    return { authorizedBy: `admin:approval:${approval.id}` };
+  };
+
   const brief = (id: string) => {
     const row = agents.row(id);
     const def = agents.definition(row.id);
@@ -120,7 +151,13 @@ export function agentManagementTools(
       parameters: Type.Object({ definition: Json, note: Type.Optional(Type.String()) }),
       execute: async (env, p) => {
         sessionOnly(env);
-        const row = agents.create(p.definition as never, principalId(env.principal), p.note);
+        const definition = agents.validate(p.definition as never);
+        const authorization = await authorize(
+          'agent_create',
+          `Create subagent ${definition.name} with ${definition.highRisk} high-risk policy`,
+          { definition, note: p.note },
+        );
+        const row = agents.create(definition, principalId(env.principal), p.note, authorization);
         return {
           text: `Created subagent ${row.name} (id ${row.id}, slug ${row.slug}, revision 1).`,
           details: { agentId: row.id },
@@ -143,12 +180,21 @@ export function agentManagementTools(
       }),
       execute: async (env, p) => {
         sessionOnly(env);
+        const current = agents.row(p.agent);
+        const definition = agents.validate(p.definition as never);
+        const authorization = await authorize(
+          'agent_update',
+          `Update subagent ${current.name} from revision ${p.base_revision}`,
+          { agent: current.id, baseRevision: p.base_revision, definition, note: p.note },
+          current.id,
+        );
         const row = agents.update(
-          p.agent,
+          current.id,
           p.base_revision,
-          p.definition as never,
+          definition,
           principalId(env.principal),
           p.note,
+          authorization,
         );
         return { text: `Updated ${row.name}; now at revision ${row.current_revision}.` };
       },
@@ -162,7 +208,18 @@ export function agentManagementTools(
       description: "Turn a subagent's triggers on or off.",
       execute: async (env, p) => {
         sessionOnly(env);
-        const row = agents.setEnabled(p.agent, p.enabled);
+        const current = agents.row(p.agent);
+        if (p.enabled) {
+          await authorize(
+            'agent_set_enabled',
+            `Enable subagent ${current.name} and its automatic triggers`,
+            p,
+            current.id,
+          );
+          if (agents.row(current.id).halted)
+            throw conflict('Agent was emergency stopped while approval was pending; request a new approval');
+        }
+        const row = agents.setEnabled(current.id, p.enabled);
         return { text: `${row.name} is now ${row.enabled ? 'enabled' : 'disabled'}.` };
       },
     }),
@@ -177,6 +234,8 @@ export function agentManagementTools(
       execute: async (env, p) => {
         sessionOnly(env);
         const row = agents.row(p.agent);
+        runs.ensureNotRunning(row.id);
+        await authorize('agent_delete', `Delete subagent ${row.name} and its history`, p, row.id);
         runs.ensureNotRunning(row.id);
         agents.delete(row.id);
         return { text: `Deleted subagent ${row.name}.` };
@@ -197,6 +256,16 @@ export function agentManagementTools(
       execute: async (env, p) => {
         const sessionId = sessionOnly(env);
         const row = agents.row(p.agent);
+        if (agents.definition(row.id).highRisk === 'allow') {
+          await authorize(
+            'agent_run',
+            `Delegate a task to unattended subagent ${row.name}`,
+            { ...p, revision: row.current_revision },
+            row.id,
+          );
+          if (agents.row(row.id).current_revision !== row.current_revision)
+            throw conflict('Subagent changed while approval was pending; request a new approval');
+        }
         const run = runs.enqueue({
           agentId: row.id,
           triggerKind: 'manual',
@@ -272,7 +341,8 @@ export function memoryTools(agents: AgentsService, agentId: string): ToolDef[] {
       name: 'memory_write',
       label: 'Write memory',
       group: 'memory',
-      risk: 'read',
+      risk: 'configure',
+      sequential: true,
       description:
         'Remember something across runs. Pass id to update an existing note instead of creating a duplicate.',
       parameters: Type.Object({
@@ -289,7 +359,8 @@ export function memoryTools(agents: AgentsService, agentId: string): ToolDef[] {
       name: 'memory_delete',
       label: 'Delete memory',
       group: 'memory',
-      risk: 'read',
+      risk: 'configure',
+      sequential: true,
       description: 'Delete a memory note by id.',
       parameters: Type.Object({ id: Type.String() }),
       execute: async (_env, p) => {

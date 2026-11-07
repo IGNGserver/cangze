@@ -181,7 +181,7 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
     logger.child({ module: 'runs' }),
   );
   runs.setExtraTools((agentId) => memoryTools(agents, agentId));
-  tools.register(agentManagementTools(agents, runs, () => tools));
+  tools.register(agentManagementTools(agents, runs, () => tools, approvals));
   policy.setAgentEvaluator(createAgentEvaluator(agents, policy, ha));
   coordination.setAgentInfo((p) => {
     try {
@@ -295,7 +295,7 @@ export function buildRouteSpecs(s: Services): RouteSpec[] {
     ...draftRoutes(s.drafts),
     ...approvalRoutes(s.approvals),
     ...policyRoutes(s.policy),
-    ...agentRoutes(s.agents, s.runs, s.scheduler, s.usage, s.ha),
+    ...agentRoutes(s.agents, s.runs, s.scheduler, s.usage, s.ha, s.stream),
     ...notificationRoutes(s.notifications),
     ...backupRoutes(s.backup, s.secrets),
     ...logRoutes(s.ring, s.audit, s.usage, s.db, s.maintenance),

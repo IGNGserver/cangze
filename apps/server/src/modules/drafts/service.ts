@@ -54,7 +54,8 @@ export class DraftsService {
   ) {}
 
   snapshot(): { items: Draft[]; streamSeq: number } {
-    return { items: this.list(), streamSeq: this.stream.seq('drafts') };
+    const streamSeq = this.stream.seq('drafts');
+    return { items: this.list(), streamSeq };
   }
 
   list(): Draft[] {
@@ -71,6 +72,12 @@ export class DraftsService {
     this.assertScope(scope);
     const result = this.db.transaction((): MutationResult => {
       const r = this.row(scope);
+      // Every mutation, including deletion, must validate the caller's snapshot first.
+      if (baseRevision === null) {
+        if (r) throw this.conflict(r);
+      } else if (!r || r.revision !== baseRevision) {
+        throw this.conflict(r ?? null);
+      }
       const images = this.imageRows(scope);
       if (!text.trim() && !images.length) {
         if (!r) return { draft: null, deleted: null };

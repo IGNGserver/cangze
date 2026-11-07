@@ -422,6 +422,7 @@
     "default": "Default",
     "defaultModel": "Use default model",
     "approvalTitle": "Approval needed",
+    "approvalArguments": "Inspect actual operation arguments",
     "approvalExpires": "Cancelled automatically at {{time}}",
     "approve": "Approve",
     "deny": "Deny",

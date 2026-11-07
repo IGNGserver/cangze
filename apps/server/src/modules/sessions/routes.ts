@@ -9,6 +9,7 @@ import {
   RunAccepted,
   SendMessage,
   SessionDetail,
+  SessionListSnapshot,
   SessionSummary,
   UpdateSession,
 } from '@cangze/contracts';
@@ -33,8 +34,8 @@ export function sessionRoutes(sessions: SessionsService, tools: ToolRegistry): R
       summary: 'List sessions',
       tags: ['sessions'],
       query: z.object({ archived: QueryBool.default(false) }),
-      response: z.array(SessionSummary),
-      handler: ({ query }) => sessions.list(query.archived),
+      response: SessionListSnapshot,
+      handler: ({ query }) => sessions.listSnapshot(query.archived),
     }),
     defineRoute({
       method: 'POST',

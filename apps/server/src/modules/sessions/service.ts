@@ -125,6 +125,11 @@ export class SessionsService {
     return rows.map((r) => this.summary(r));
   }
 
+  listSnapshot(archived = false): { items: SessionSummary[]; streamSeq: number } {
+    const streamSeq = this.stream.seq('sessions');
+    return { items: this.list(archived), streamSeq };
+  }
+
   exists(id: string): boolean {
     return Boolean(this.db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(id));
   }

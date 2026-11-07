@@ -133,6 +133,12 @@ export const HaEntity = z.object({
 });
 export type HaEntity = z.infer<typeof HaEntity>;
 
+export const HaEntitySnapshot = z.object({
+  items: z.array(HaEntity),
+  streamSeq: z.number(),
+});
+export type HaEntitySnapshot = z.infer<typeof HaEntitySnapshot>;
+
 export const HaEntityQuery = z.object({
   q: z.string().max(200).optional(),
   domain: z.string().max(64).optional(),
@@ -141,7 +147,7 @@ export const HaEntityQuery = z.object({
   label: z.string().max(128).optional(),
   device: z.string().max(128).optional(),
   includeHidden: QueryBool.default(false),
-  limit: z.coerce.number().int().min(1).max(5000).default(2000),
+  limit: z.coerce.number().int().min(1).max(5000).optional(),
 });
 
 export const HaTarget = z.object({

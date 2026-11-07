@@ -123,23 +123,7 @@ export function backupRoutes(backup: BackupService, secrets: SecretsService): Ro
       body: UpdateBackupSchedule,
       response: BackupSchedule,
       handler: ({ body }) => {
-        const cur = backup.schedule.get();
-        let secretId = cur.passphraseSecretId;
-        if (body.passphrase)
-          secretId = secrets.put('backup_passphrase', body.passphrase, secretId ?? undefined);
-        if (body.encrypt && !secrets.has(secretId))
-          throw badRequest('Set a passphrase to encrypt scheduled backups');
-        if (body.includeCredentials && !body.encrypt)
-          throw badRequest('Including credentials requires encryption');
-        backup.schedule.set({
-          enabled: body.enabled,
-          cron: body.cron,
-          keep: body.keep,
-          encrypt: body.encrypt,
-          includeCredentials: body.includeCredentials,
-          passphraseSecretId: secretId,
-        });
-        backup.arm();
+        backup.updateSchedule(body);
         return scheduleView();
       },
     }),

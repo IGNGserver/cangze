@@ -28,6 +28,7 @@ interface RevisionRow {
   revision: number;
   definition: string;
   created_by: string;
+  authorized_by: string | null;
   note: string | null;
   created_at: number;
 }
@@ -65,6 +66,11 @@ const toNote = (r: MemoryRow): MemoryNote => ({
 });
 
 export type AgentChange = { kind: 'upsert' | 'delete'; agentId: string };
+
+export interface RevisionAuthorization {
+  /** Administrator approval id recorded on this immutable revision. */
+  authorizedBy?: string;
+}
 
 /**
  * Subagent definitions. Definitions are immutable revisions; edits must name the revision they
@@ -131,6 +137,19 @@ export class AgentsService {
     }));
   }
 
+  /** Unattended high-risk behavior requires an administrator-authorized immutable revision. */
+  highRiskFor(
+    agentId: string,
+    revision: number,
+    configured: AgentDefinition['highRisk'],
+  ): AgentDefinition['highRisk'] {
+    if (configured !== 'allow') return configured;
+    const row = this.db
+      .prepare('SELECT authorized_by FROM agent_revisions WHERE agent_id = ? AND revision = ?')
+      .get(agentId, revision) as { authorized_by: string | null } | undefined;
+    return row?.authorized_by ? 'allow' : 'approve';
+  }
+
   /** Names of tools a subagent may be granted. */
   grantableTools(): string[] {
     return [
@@ -175,8 +194,30 @@ export class AgentsService {
 
   // ---------------------------------------------------------------- writes
 
-  create(input: AgentDefinitionInput, createdBy: string, note?: string): AgentRow {
+  private revisionAuthorization(
+    def: AgentDefinition,
+    createdBy: string,
+    authorization?: RevisionAuthorization,
+  ): string | null {
+    const authorizedBy = authorization?.authorizedBy ?? (createdBy.startsWith('session:') ? null : createdBy);
+    if (createdBy.startsWith('session:') && def.highRisk === 'allow' && !authorizedBy) {
+      throw new AppError(
+        403,
+        'agent_authorization_required',
+        'A main session cannot grant unattended high-risk access without administrator approval',
+      );
+    }
+    return authorizedBy;
+  }
+
+  create(
+    input: AgentDefinitionInput,
+    createdBy: string,
+    note?: string,
+    authorization?: RevisionAuthorization,
+  ): AgentRow {
     const def = this.validate(input);
+    const authorizedBy = this.revisionAuthorization(def, createdBy, authorization);
     const id = newId('agt');
     let slug = slugify(def.name) || 'agent';
     for (let i = 2; this.db.prepare('SELECT 1 FROM agents WHERE slug = ?').get(slug); i++)
@@ -191,9 +232,9 @@ export class AgentsService {
         .run(id, slug, def.name, def.description, conv, now, now);
       this.db
         .prepare(
-          'INSERT INTO agent_revisions (agent_id, revision, definition, created_by, note, created_at) VALUES (?, 1, ?, ?, ?, ?)',
+          'INSERT INTO agent_revisions (agent_id, revision, definition, created_by, authorized_by, note, created_at) VALUES (?, 1, ?, ?, ?, ?, ?)',
         )
-        .run(id, json.stringify(def), createdBy, note ?? null, now);
+        .run(id, json.stringify(def), createdBy, authorizedBy, note ?? null, now);
     })();
     this.changed({ kind: 'upsert', agentId: id });
     return this.row(id);
@@ -205,6 +246,7 @@ export class AgentsService {
     input: AgentDefinitionInput,
     createdBy: string,
     note?: string,
+    authorization?: RevisionAuthorization,
   ): AgentRow {
     const r = this.row(agentId);
     if (baseRevision === undefined) throw badRequest('baseRevision is required when editing an agent');
@@ -219,14 +261,15 @@ export class AgentsService {
       );
     }
     const def = this.validate(input);
+    const authorizedBy = this.revisionAuthorization(def, createdBy, authorization);
     const next = r.current_revision + 1;
     const now = Date.now();
     this.db.transaction(() => {
       this.db
         .prepare(
-          'INSERT INTO agent_revisions (agent_id, revision, definition, created_by, note, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+          'INSERT INTO agent_revisions (agent_id, revision, definition, created_by, authorized_by, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
         )
-        .run(r.id, next, json.stringify(def), createdBy, note ?? null, now);
+        .run(r.id, next, json.stringify(def), createdBy, authorizedBy, note ?? null, now);
       this.db
         .prepare(
           'UPDATE agents SET name = ?, description = ?, current_revision = ?, updated_at = ? WHERE id = ? AND current_revision = ?',

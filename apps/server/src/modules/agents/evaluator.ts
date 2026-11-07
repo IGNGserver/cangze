@@ -22,31 +22,40 @@ export function createAgentEvaluator(
   };
   return async (req) => {
     const p = req.principal;
-    if (agents.row(p.agentId).halted) throw new AppError(403, 'policy_denied', 'Agent is emergency stopped');
-    const def = agents.definition(p.agentId, p.revision);
-    const indirect =
-      ['script', 'scene', 'automation'].includes(req.domain) ||
-      req.entityIds.some((id) => /^(script|scene|automation)\./.test(id));
-    if (indirect && !def.allowIndirectActions)
-      throw new AppError(403, 'policy_denied', 'Indirect actions require explicit permission');
-    const ruleIds = assertWrite(def.permissions, req, ha.registry, {
-      timeZone: ha.getStatus().timeZone,
-      callsInLastHour: (ruleId) => recent(`${p.agentId}:${ruleId}`).length,
-    });
+    const validate = () => {
+      if (agents.row(p.agentId).halted)
+        throw new AppError(403, 'policy_denied', 'Agent is emergency stopped');
+      const def = agents.definition(p.agentId, p.revision);
+      const indirect =
+        ['script', 'scene', 'automation'].includes(req.domain) ||
+        req.entityIds.some((id) => /^(script|scene|automation)\./.test(id));
+      if (indirect && !def.allowIndirectActions)
+        throw new AppError(403, 'policy_denied', 'Indirect actions require explicit permission');
+      const ruleIds = assertWrite(def.permissions, req, ha.registry, {
+        timeZone: ha.getStatus().timeZone,
+        callsInLastHour: (ruleId) => recent(`${p.agentId}:${ruleId}`).length,
+      });
+      return { def, ruleIds };
+    };
+
+    const { def } = validate();
     const risk = policy.classify(req);
+    const highRisk = agents.highRiskFor(p.agentId, p.revision, def.highRisk);
     if (risk.level === 'high') {
-      if (def.highRisk === 'deny') {
+      if (highRisk === 'deny') {
         throw new AppError(
           403,
           'policy_denied',
           `High-risk actions are not allowed for this agent (${risk.reason ?? req.summary})`,
         );
       }
-      if (def.highRisk === 'approve')
+      if (highRisk === 'approve')
         await policy.requireApproval(req, risk.reason, policy.riskPolicy.get().approvalTimeoutSeconds);
     }
-    if (agents.row(p.agentId).halted)
-      throw new AppError(403, 'policy_denied', 'Agent was stopped while awaiting approval');
+
+    // Approval is a snapshot in time. Revalidate every dynamic rule and reserve all rule quotas
+    // synchronously, so another approved call cannot consume the same final slot between check and write.
+    const { ruleIds } = validate();
     const now = Date.now();
     for (const id of ruleIds) recent(`${p.agentId}:${id}`).push(now);
   };

@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/core/config.ts';
 import { createLogger, LogRing } from '../src/core/logger.ts';
@@ -65,6 +66,18 @@ describe('backup archive', () => {
     expect((await unpackArchive(sealed, 'correct horse')).manifest.masterKey).toBe('k');
     await expect(packArchive({ ...manifest, masterKey: 'k' }, db)).rejects.toThrow(/passphrase/);
     await expect(unpackArchive(Buffer.from('nope'))).rejects.toThrow(/Not a Cangze backup/);
+    const damaged = gunzipSync(plain);
+    damaged.writeUInt32BE(65_535, 5);
+    await expect(unpackArchive(gzipSync(damaged))).rejects.toMatchObject({
+      status: 400,
+      code: 'invalid_backup',
+    });
+    const unsupported = Buffer.from(JSON.stringify({ ...manifest, format: 2 }));
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(unsupported.length);
+    await expect(
+      unpackArchive(gzipSync(Buffer.concat([Buffer.from('CZBK1'), length, unsupported, db]))),
+    ).rejects.toThrow(/Unsupported backup format 2/);
   });
 });
 
@@ -90,6 +103,31 @@ describe('backups and restore', () => {
     s.backup.schedule.set({ ...s.backup.schedule.get(), keep: 2 });
     for (let i = 0; i < 4; i++) await s.backup.create({ kind: 'scheduled' });
     expect(s.backup.list().filter((b) => b.kind === 'scheduled')).toHaveLength(2);
+  });
+
+  it('validates backup schedules before rotating their passphrase', async () => {
+    const { call, s } = await fileHub();
+    const base = {
+      enabled: false,
+      cron: '30 3 * * *',
+      keep: 7,
+      encrypt: true,
+      includeCredentials: false,
+    };
+    expect(
+      (await call('PUT', '/api/v1/settings/backup', { ...base, passphrase: 'first secret' })).statusCode,
+    ).toBe(200);
+    const id = s.backup.schedule.get().passphraseSecretId!;
+    const before = s.db.prepare('SELECT ciphertext FROM secrets WHERE id = ?').get(id);
+    const invalid = await call('PUT', '/api/v1/settings/backup', {
+      ...base,
+      cron: 'not a cron',
+      passphrase: 'second secret',
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(s.backup.schedule.get().cron).toBe(base.cron);
+    expect(s.secrets.reveal(id)).toBe('first secret');
+    expect(s.db.prepare('SELECT ciphertext FROM secrets WHERE id = ?').get(id)).toEqual(before);
   });
 
   it('restores on the next start and keeps a pre-restore copy', async () => {
@@ -161,6 +199,25 @@ describe('backups and restore', () => {
     const restored = createServices(loadConfig({ CANGZE_DATA_DIR: b.dataDir }), { logger: silent() });
     opened.push(restored);
     expect(restored.secrets.reveal('sec_test')).toBe('secret-token');
+  });
+
+  it('normalizes a structurally valid archive with a corrupt SQLite payload to 400', async () => {
+    const { call } = await fileHub();
+    const archive = await packArchive(
+      {
+        format: 1,
+        appVersion: '0.1.2',
+        schemaVersion: 1,
+        createdAt: 'now',
+        masterKeyFingerprint: 'x',
+      },
+      Buffer.concat([Buffer.from('SQLite format 3\u0000'), Buffer.alloc(100, 1)]),
+    );
+    const res = await call('POST', '/api/v1/backups/restore', archive, {
+      'content-type': 'application/octet-stream',
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('invalid_backup');
   });
 
   it('rejects files that are not backups', async () => {

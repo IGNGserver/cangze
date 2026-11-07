@@ -45,9 +45,6 @@ export interface RouteSpec<
   handler: (ctx: RouteContext<z.output<P>, z.output<Q>, z.output<B>>) => Promise<z.input<R>> | z.input<R>;
 }
 
-/** All registered specs, used for OpenAPI generation. */
-export const routeRegistry: RouteSpec[] = [];
-
 declare module 'fastify' {
   interface FastifyContextConfig {
     auth?: RouteAuth;
@@ -72,7 +69,6 @@ export function defineRoute<
 
 export function registerRoutes(app: FastifyInstance, specs: RouteSpec[]): void {
   for (const spec of specs) {
-    routeRegistry.push(spec);
     app.route({
       method: spec.method,
       url: spec.url,
