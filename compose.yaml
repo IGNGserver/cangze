@@ -10,7 +10,7 @@ name: cangze
 
 services:
   cangze:
-    image: ${CANGZE_IMAGE:-ghcr.io/igngserver/cangze}:${CANGZE_VERSION:-0.4.0}
+    image: ${CANGZE_IMAGE:-ghcr.io/igngserver/cangze}:${CANGZE_VERSION:-0.4.1}
     restart: unless-stopped
     init: true
     read_only: true
