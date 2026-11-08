@@ -25,7 +25,7 @@ import { api } from '../../api/client.ts';
 import { useFullPut } from '../../api/full-put.ts';
 import { sk, useModelDefaults } from '../../api/sessions.ts';
 import { errorText } from '../../lib/errors.ts';
-import { ModelPicker } from '../sessions/ModelPicker.tsx';
+import { ModelPicker, THINKING_LEVELS } from '../sessions/ModelPicker.tsx';
 import { Section } from './Section.tsx';
 
 interface CatalogItem {
@@ -111,7 +111,7 @@ export function ModelsSettings() {
                 value={defaults.data.thinkingLevel}
                 onChange={(v) => void setDefaults({ thinkingLevel: v })}
                 style={{ width: 200 }}
-                options={(['off', 'minimal', 'low', 'medium', 'high'] as const).map((l) => ({
+                options={THINKING_LEVELS.map((l) => ({
                   value: l,
                   label: t(`chat.levels.${l}`),
                 }))}

@@ -1,5 +1,15 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 import type { BackupInfo } from '@cangze/contracts';
 import Database from 'better-sqlite3';
 import { Cron } from 'croner';
@@ -47,6 +57,40 @@ const ScheduleSetting = z
   });
 
 export const PENDING_RESTORE = 'restore-pending.czbak';
+
+const SAFE_BACKUP_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,240}\.czbak$/;
+function decodeMasterKey(value: string): Buffer | null {
+  try {
+    const key = Buffer.from(value, 'base64');
+    return key.length === 32 && key.toString('base64') === value ? key : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeBackupFilename(file: unknown): string {
+  if (typeof file !== 'string' || basename(file) !== file || !SAFE_BACKUP_FILENAME.test(file))
+    throw new AppError(400, 'invalid_backup', 'Backup file name is invalid');
+  return file;
+}
+
+function backupPath(dir: string, file: unknown): string {
+  const name = safeBackupFilename(file);
+  const root = resolve(dir);
+  const full = resolve(root, name);
+  const rel = relative(root, full);
+  if (!rel || rel.startsWith('..') || isAbsolute(rel))
+    throw new AppError(400, 'invalid_backup', 'Backup file path is invalid');
+  return full;
+}
+
+function chmod0600(file: string): void {
+  try {
+    chmodSync(file, 0o600);
+  } catch {
+    // Best effort on filesystems without POSIX modes.
+  }
+}
 
 const toInfo = (r: Row): BackupInfo => ({
   id: r.id,
@@ -96,7 +140,7 @@ export class BackupService {
   adoptFiles(): number {
     let adopted = 0;
     for (const file of this.orphanFiles()) {
-      const full = join(this.dir, file);
+      const full = backupPath(this.dir, file);
       const data = readFileSync(full);
       const encrypted = isPassphraseSealed(data);
       let schemaVersion = 0;
@@ -201,17 +245,28 @@ export class BackupService {
   }
 
   list(): BackupInfo[] {
-    return (this.db.prepare('SELECT * FROM backups ORDER BY created_at DESC').all() as Row[]).map(toInfo);
+    return (this.db.prepare('SELECT * FROM backups ORDER BY created_at DESC').all() as Row[])
+      .map((r) => this.validRow(r))
+      .map(toInfo);
+  }
+
+  private validRow(r: Row): Row {
+    safeBackupFilename(r.file);
+    return r;
   }
 
   private row(id: string): Row {
     const r = this.db.prepare('SELECT * FROM backups WHERE id = ?').get(id) as Row | undefined;
     if (!r) throw notFound('Backup');
-    return r;
+    return this.validRow(r);
   }
 
   path(id: string): string {
-    return join(this.dir, this.row(id).file);
+    const file = this.row(id).file;
+    const full = backupPath(this.dir, file);
+    if (existsSync(full) && !lstatSync(full).isFile())
+      throw new AppError(400, 'invalid_backup', 'Backup file is not a regular file');
+    return full;
   }
 
   async create(
@@ -227,11 +282,14 @@ export class BackupService {
     }
     if (includeCredentials && !passphrase)
       throw new AppError(400, 'passphrase_required', 'Including credentials requires a passphrase');
-    mkdirSync(this.dir, { recursive: true });
+    mkdirSync(this.dir, { recursive: true, mode: 0o700 });
     const id = newId('bak');
     const tmp = join(this.dir, `.${id}.sqlite`);
     try {
+      writeFileSync(tmp, Buffer.alloc(0), { mode: 0o600, flag: 'wx' });
+      chmod0600(tmp);
       await this.db.backup(tmp);
+      chmod0600(tmp);
       const dbBytes = readFileSync(tmp);
       const manifest: BackupManifest = {
         format: 1,
@@ -269,7 +327,7 @@ export class BackupService {
 
   delete(id: string): void {
     const r = this.row(id);
-    rmSync(join(this.dir, r.file), { force: true });
+    rmSync(backupPath(this.dir, r.file), { force: true });
     this.db.prepare('DELETE FROM backups WHERE id = ?').run(id);
   }
 
@@ -277,9 +335,15 @@ export class BackupService {
   orphanFiles(): string[] {
     if (!existsSync(this.dir)) return [];
     const known = new Set(this.list().map((b) => b.file));
-    return readdirSync(this.dir).filter(
-      (f) => f.endsWith('.czbak') && !known.has(f) && statSync(join(this.dir, f)).isFile(),
-    );
+    return readdirSync(this.dir).filter((f) => {
+      if (!f.endsWith('.czbak') || known.has(f)) return false;
+      try {
+        safeBackupFilename(f);
+        return lstatSync(backupPath(this.dir, f)).isFile();
+      } catch {
+        return false;
+      }
+    });
   }
 
   /** Validate an uploaded archive and stage it for the next start. */
@@ -293,8 +357,9 @@ export class BackupService {
       );
     }
     // Check the database itself before touching anything.
-    const probe = join(this.dataDir, `.restore-check-${Date.now()}.sqlite`);
-    writeFileSync(probe, db);
+    const probe = join(this.dataDir, `.restore-check-${Date.now()}-${newId('tmp')}.sqlite`);
+    writeFileSync(probe, db, { mode: 0o600, flag: 'wx' });
+    chmod0600(probe);
     let check: InstanceType<typeof Database> | undefined;
     try {
       check = new Database(probe, { readonly: true });
@@ -312,8 +377,13 @@ export class BackupService {
     const { masterKey, ...rest } = manifest;
     const pending = join(this.dataDir, PENDING_RESTORE);
     writeFileSync(pending, await packArchive(rest, db), { mode: 0o600 });
-    if (masterKey) writeFileSync(`${pending}.key`, masterKey, { mode: 0o600 });
-    else rmSync(`${pending}.key`, { force: true });
+    chmod0600(pending);
+    if (masterKey) {
+      if (!decodeMasterKey(masterKey))
+        throw new AppError(400, 'invalid_backup', 'Backup master key is invalid');
+      writeFileSync(`${pending}.key`, masterKey + '\n', { mode: 0o600 });
+      chmod0600(`${pending}.key`);
+    } else rmSync(`${pending}.key`, { force: true });
     this.logger.warn({ module: 'backup', from: manifest.createdAt }, 'restore staged; restarting');
     setTimeout(() => this.requestRestart(), 300).unref();
     return {
@@ -346,15 +416,18 @@ export async function applyPendingRestore(
   mkdirSync(backups, { recursive: true });
   const keyPath = join(dataDir, 'master.key');
   const currentKey = process.env.CANGZE_MASTER_KEY
-    ? Buffer.from(process.env.CANGZE_MASTER_KEY, 'base64')
+    ? decodeMasterKey(process.env.CANGZE_MASTER_KEY)
     : existsSync(keyPath)
-      ? Buffer.from(readFileSync(keyPath, 'utf8').trim(), 'base64')
+      ? decodeMasterKey(readFileSync(keyPath, 'utf8').trim())
       : null;
   if (existsSync(dbFile)) {
     // Keep the replaced data as a regular backup so it can be restored from the UI.
     const current = new Database(dbFile);
     const tmp = join(backups, `.pre-restore-${Date.now()}.sqlite`);
+    writeFileSync(tmp, Buffer.alloc(0), { mode: 0o600, flag: 'wx' });
+    chmod0600(tmp);
     await current.backup(tmp);
+    chmod0600(tmp);
     const schemaVersion = currentSchemaVersion(current);
     current.close();
     const now = new Date().toISOString();
@@ -374,12 +447,18 @@ export async function applyPendingRestore(
     rmSync(tmp, { force: true });
   }
   for (const suffix of ['', '-wal', '-shm']) rmSync(`${dbFile}${suffix}`, { force: true });
-  writeFileSync(dbFile, db);
+  writeFileSync(dbFile, db, { mode: 0o600 });
+  chmod0600(dbFile);
 
   let wipeSecrets = false;
   const restoredKey = existsSync(keyFile) ? readFileSync(keyFile, 'utf8').trim() : '';
+  const restoredKeyBytes = restoredKey ? decodeMasterKey(restoredKey) : null;
+  if (restoredKey && (!restoredKeyBytes || sha256(restoredKeyBytes) !== manifest.masterKeyFingerprint)) {
+    throw new AppError(400, 'invalid_backup', 'Backup master key does not match its fingerprint');
+  }
   if (restoredKey && !process.env.CANGZE_MASTER_KEY) {
     writeFileSync(keyPath, restoredKey + '\n', { mode: 0o600 });
+    chmod0600(keyPath);
   } else {
     wipeSecrets = !currentKey || sha256(currentKey) !== manifest.masterKeyFingerprint;
   }

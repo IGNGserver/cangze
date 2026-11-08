@@ -1,6 +1,19 @@
 import type { HaEntity, HaService } from '@cangze/contracts';
 import { useQuery } from '@tanstack/react-query';
-import { App, Button, Descriptions, Drawer, Flex, Input, Select, Space, Tag, Typography } from 'antd';
+import {
+  Alert,
+  App,
+  Button,
+  Descriptions,
+  Drawer,
+  Flex,
+  Grid,
+  Input,
+  Select,
+  Space,
+  Tag,
+  Typography,
+} from 'antd';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -20,8 +33,16 @@ export function EntityDrawer({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const screens = Grid.useBreakpoint();
   return (
-    <Drawer open={Boolean(entity)} onClose={onClose} width={480} title={entity?.name} destroyOnHidden>
+    <Drawer
+      open={Boolean(entity)}
+      onClose={onClose}
+      width={screens.md ? 480 : '100%'}
+      title={entity?.name}
+      destroyOnHidden
+    >
+      {' '}
       {entity && (
         <Flex vertical gap={24}>
           <div>
@@ -109,12 +130,25 @@ function ServiceCaller({ entity }: { entity: HaEntity }) {
           value={service}
           onChange={setService}
           loading={services.isLoading}
+          disabled={Boolean(services.error)}
           style={{ width: '100%' }}
           options={(services.data ?? []).map((s) => ({
             value: s.service,
             label: `${s.domain}.${s.service}`,
           }))}
         />
+        {services.error && (
+          <Alert
+            type="error"
+            showIcon
+            message={errorText(t, services.error)}
+            action={
+              <Button size="small" onClick={() => void services.refetch()}>
+                {t('common.retry')}
+              </Button>
+            }
+          />
+        )}
         {selected && Object.keys(selected.fields).length > 0 && (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {t('devices.fields')}: {Object.keys(selected.fields).join(', ')}

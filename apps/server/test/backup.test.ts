@@ -56,15 +56,23 @@ describe('backup archive', () => {
       appVersion: '0.1.2',
       schemaVersion: 1,
       createdAt: 'now',
-      masterKeyFingerprint: 'x',
+      masterKeyFingerprint: '0'.repeat(64),
     };
     const plain = await packArchive(manifest, db);
     expect((await unpackArchive(plain)).db.equals(db)).toBe(true);
-    const sealed = await packArchive({ ...manifest, masterKey: 'k' }, db, 'correct horse');
+    const keyBase64 = Buffer.alloc(32, 7).toString('base64');
+    const fingerprint = '4bb06f8e4e3a7715d201d573d0aa423762e55dabd61a2c02278fa56cc6d294e0';
+    const sealed = await packArchive(
+      { ...manifest, masterKey: keyBase64, masterKeyFingerprint: fingerprint },
+      db,
+      'correct horse',
+    );
     await expect(unpackArchive(sealed)).rejects.toThrow(/passphrase/);
     await expect(unpackArchive(sealed, 'wrong pass')).rejects.toThrow(/wrong/);
-    expect((await unpackArchive(sealed, 'correct horse')).manifest.masterKey).toBe('k');
-    await expect(packArchive({ ...manifest, masterKey: 'k' }, db)).rejects.toThrow(/passphrase/);
+    expect((await unpackArchive(sealed, 'correct horse')).manifest.masterKey).toBe(keyBase64);
+    await expect(
+      packArchive({ ...manifest, masterKey: keyBase64, masterKeyFingerprint: fingerprint }, db),
+    ).rejects.toThrow(/passphrase/);
     await expect(unpackArchive(Buffer.from('nope'))).rejects.toThrow(/Not a Cangze backup/);
     const damaged = gunzipSync(plain);
     damaged.writeUInt32BE(65_535, 5);
@@ -209,7 +217,7 @@ describe('backups and restore', () => {
         appVersion: '0.1.2',
         schemaVersion: 1,
         createdAt: 'now',
-        masterKeyFingerprint: 'x',
+        masterKeyFingerprint: '0'.repeat(64),
       },
       Buffer.concat([Buffer.from('SQLite format 3\u0000'), Buffer.alloc(100, 1)]),
     );

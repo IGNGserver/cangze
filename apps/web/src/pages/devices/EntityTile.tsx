@@ -101,7 +101,13 @@ export function EntityTile({ entity, onOpen }: { entity: HaEntity; onOpen: () =>
       tabIndex={0}
       className="cz-entity-tile"
       onClick={onOpen}
-      onKeyDown={(e) => (e.key === 'Enter' ? onOpen() : undefined)}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       style={{
         cursor: 'pointer',
         padding: `${LAYOUT.paddingSM}px ${LAYOUT.paddingMD}px`,

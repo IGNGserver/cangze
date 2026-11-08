@@ -312,7 +312,14 @@ export class Scheduler {
           if (!subsetMatch(ev.data ?? {}, t.dataMatch)) return;
           const depth = this.chainDepthFor(ev.context, agentId);
           if (depth === null) return;
-          fire({ eventType: ev.event_type, data: ev.data, timeFired: ev.time_fired }, depth);
+          fire(
+            {
+              eventType: ev.event_type,
+              data: sanitize((ev.data ?? {}) as Record<string, unknown>),
+              timeFired: ev.time_fired,
+            },
+            depth,
+          );
         });
         return { agentId, revision, trigger: t, stop: unsub };
       }

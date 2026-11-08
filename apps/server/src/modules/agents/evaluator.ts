@@ -1,3 +1,4 @@
+import type { Db } from '../../db/index.ts';
 import { AppError } from '../../core/errors.ts';
 import type { HaGateway } from '../ha/gateway.ts';
 import type { AgentWriteEvaluator, PolicyEngine } from '../policy/engine.ts';
@@ -12,13 +13,17 @@ export function createAgentEvaluator(
   agents: AgentsService,
   policy: PolicyEngine,
   ha: HaGateway,
+  db: Db,
 ): AgentWriteEvaluator {
-  const calls = new Map<string, number[]>();
-  const recent = (k: string) => {
-    const now = Date.now();
-    const list = (calls.get(k) ?? []).filter((t) => now - t < 3_600_000);
-    calls.set(k, list);
-    return list;
+  const recent = (agentId: string, revision: number, ruleId: string) => {
+    const cutoff = Date.now() - 3_600_000;
+    return (
+      db
+        .prepare(
+          'SELECT COUNT(*) AS n FROM agent_rule_calls WHERE agent_id = ? AND revision = ? AND rule_id = ? AND called_at >= ?',
+        )
+        .get(agentId, revision, ruleId, cutoff) as { n: number }
+    ).n;
   };
   return async (req) => {
     const p = req.principal;
@@ -33,7 +38,7 @@ export function createAgentEvaluator(
         throw new AppError(403, 'policy_denied', 'Indirect actions require explicit permission');
       const ruleIds = assertWrite(def.permissions, req, ha.registry, {
         timeZone: ha.getStatus().timeZone,
-        callsInLastHour: (ruleId) => recent(`${p.agentId}:${ruleId}`).length,
+        callsInLastHour: (ruleId) => recent(p.agentId, p.revision, ruleId),
       });
       return { def, ruleIds };
     };
@@ -57,6 +62,9 @@ export function createAgentEvaluator(
     // synchronously, so another approved call cannot consume the same final slot between check and write.
     const { ruleIds } = validate();
     const now = Date.now();
-    for (const id of ruleIds) recent(`${p.agentId}:${id}`).push(now);
+    for (const id of ruleIds)
+      db.prepare(
+        'INSERT INTO agent_rule_calls (agent_id, revision, rule_id, called_at) VALUES (?, ?, ?, ?)',
+      ).run(p.agentId, p.revision, id, now);
   };
 }

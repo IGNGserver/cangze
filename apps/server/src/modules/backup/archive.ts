@@ -1,22 +1,34 @@
 import { promisify } from 'node:util';
 import { gunzip, gunzipSync, gzipSync } from 'node:zlib';
 import { z } from 'zod';
-import { isPassphraseSealed, openWithPassphrase, sealWithPassphrase } from '../../core/crypto.ts';
+import { isPassphraseSealed, openWithPassphrase, sealWithPassphrase, sha256 } from '../../core/crypto.ts';
 import { AppError } from '../../core/errors.ts';
 
 /**
  * `.czbak` archive: gzip( "CZBK1" | u32 manifest length | manifest JSON | SQLite database ),
  * optionally wrapped in passphrase encryption (`CZB1` header, scrypt + AES-256-GCM).
  */
-const ManifestSchema = z.object({
+const BaseManifestSchema = z.object({
   format: z.literal(1),
   appVersion: z.string().min(1).max(128),
   schemaVersion: z.number().int().nonnegative(),
   createdAt: z.string().min(1).max(128),
   /** sha256 of the master key the database's secrets are encrypted with. */
-  masterKeyFingerprint: z.string().min(1).max(128),
+  masterKeyFingerprint: z.string().regex(/^[a-f0-9]{64}$/i),
   /** Base64 master key, only in encrypted archives created with "include credentials". */
-  masterKey: z.string().max(4096).optional(),
+  masterKey: z
+    .string()
+    .refine((value) => {
+      const key = Buffer.from(value, 'base64');
+      return key.length === 32 && key.toString('base64') === value;
+    }, 'masterKey must encode exactly 32 bytes')
+    .optional(),
+});
+const ManifestSchema = BaseManifestSchema.superRefine((manifest, ctx) => {
+  if (!manifest.masterKey) return;
+  const key = Buffer.from(manifest.masterKey, 'base64');
+  if (sha256(key) !== manifest.masterKeyFingerprint)
+    ctx.addIssue({ code: 'custom', message: 'masterKeyFingerprint does not match masterKey' });
 });
 export type BackupManifest = z.infer<typeof ManifestSchema>;
 

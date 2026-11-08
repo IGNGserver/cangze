@@ -10,6 +10,7 @@ export function approvalRoutes(approvals: ApprovalsService): RouteSpec[] {
       url: '/api/v1/approvals',
       summary: 'List approvals',
       tags: ['approvals'],
+      auth: 'cookieAdmin',
       query: z.object({
         status: ApprovalStatus.optional(),
         sessionId: z.string().max(64).optional(),
@@ -24,6 +25,7 @@ export function approvalRoutes(approvals: ApprovalsService): RouteSpec[] {
       url: '/api/v1/approvals/:id/decide',
       summary: 'Approve or deny a pending action',
       tags: ['approvals'],
+      auth: 'cookieAdmin',
       params: IdParams,
       body: DecideApproval,
       response: Approval,

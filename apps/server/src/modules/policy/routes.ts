@@ -17,6 +17,7 @@ export function policyRoutes(policy: PolicyEngine): RouteSpec[] {
       url: '/api/v1/settings/risk',
       summary: 'Update the risk policy',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       body: RiskPolicy,
       response: RiskPolicy,
       handler: ({ body }) => {

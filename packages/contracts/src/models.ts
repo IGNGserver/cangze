@@ -1,5 +1,19 @@
 import { z } from 'zod';
 
+export const ProviderBaseUrl = z
+  .string()
+  .url()
+  .superRefine((value, ctx) => {
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:')
+      ctx.addIssue({ code: 'custom', message: 'Provider URL must use http or https' });
+    if (url.username || url.password)
+      ctx.addIssue({ code: 'custom', message: 'Provider URL must not contain userinfo' });
+    if (url.search || url.hash)
+      ctx.addIssue({ code: 'custom', message: 'Provider URL must not contain a query or fragment' });
+  });
+export type ProviderBaseUrl = z.infer<typeof ProviderBaseUrl>;
+
 export const ProviderApi = z.enum(['openai-completions', 'openai-responses', 'anthropic-messages']);
 export type ProviderApi = z.infer<typeof ProviderApi>;
 
@@ -58,7 +72,7 @@ export const CreateProvider = z.discriminatedUnion('kind', [
     kind: z.literal('custom'),
     name: z.string().min(1).max(80),
     api: ProviderApi,
-    baseUrl: z.string().url(),
+    baseUrl: ProviderBaseUrl,
     apiKey: z.string().max(4096).optional(),
     models: z.array(CustomModel).min(1).max(200),
   }),
@@ -66,7 +80,7 @@ export const CreateProvider = z.discriminatedUnion('kind', [
 
 export const UpdateProvider = z.object({
   name: z.string().min(1).max(80).optional(),
-  baseUrl: z.string().url().optional(),
+  baseUrl: ProviderBaseUrl.optional(),
   /** Empty string clears the stored key. */
   apiKey: z.string().max(4096).optional(),
   enabled: z.boolean().optional(),

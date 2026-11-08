@@ -1,5 +1,7 @@
 import {
   HaArea,
+  HaConfigDetail,
+  HaConfigDetailParams,
   HaDevice,
   HaEntity,
   HaEntityQuery,
@@ -24,6 +26,15 @@ import type { SecretsService } from '../secrets/service.ts';
 import type { HaGateway } from './gateway.ts';
 
 const EntityParams = z.object({ entityId: z.string().regex(/^[a-z0-9_]+\.[a-z0-9_]+$/) });
+const ConfigParams = HaConfigDetailParams.extend({
+  // Keep the route-level schema strict even if the shared contract changes: these values become URL path segments.
+  kind: z.enum(['automation', 'script', 'scene']),
+  configId: z
+    .string()
+    .min(1)
+    .max(128)
+    .regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/),
+});
 const ServiceParams = z.object({
   domain: z.string().regex(/^[a-z0-9_]+$/),
   service: z.string().regex(/^[a-z0-9_]+$/),
@@ -93,6 +104,7 @@ export function haRoutes(
       url: '/api/v1/settings/ha',
       summary: 'Home Assistant connection settings (token is never returned)',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       response: HaSettingsView,
       handler: view,
     }),
@@ -101,6 +113,7 @@ export function haRoutes(
       url: '/api/v1/settings/ha',
       summary: 'Configure the Home Assistant connection and reconnect',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       body: HaSettingsInput,
       response: HaStatus,
       handler: ({ body }) => ha.configure(body),
@@ -110,6 +123,7 @@ export function haRoutes(
       url: '/api/v1/settings/ha',
       summary: 'Disconnect and forget the Home Assistant connection',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       response: Ok,
       handler: async () => {
         await ha.clear();
@@ -121,6 +135,7 @@ export function haRoutes(
       url: '/api/v1/settings/ha/test',
       summary: 'Test Home Assistant connection parameters without saving them',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       body: HaSettingsInput,
       response: HaTestResult,
       handler: ({ body }) => ha.test(body),
@@ -145,6 +160,35 @@ export function haRoutes(
         const e = ha.registry.toEntity(params.entityId);
         if (!e) throw notFound('Entity');
         return e;
+      },
+    }),
+    defineRoute({
+      method: 'GET',
+      url: '/api/v1/ha/config/:kind/:configId',
+      summary: 'Read a Home Assistant automation, script or scene configuration',
+      tags: ['home-assistant'],
+      params: ConfigParams,
+      response: HaConfigDetail,
+      handler: async ({ params }) => {
+        const path = `/api/config/${params.kind}/config/${encodeURIComponent(params.configId)}`;
+        let res: Response;
+        try {
+          res = await ha.rest('GET', path);
+        } catch (err) {
+          if (err instanceof AppError) throw err;
+          throw new AppError(502, 'ha_error', 'Home Assistant configuration request failed');
+        }
+        if (res.status === 404) throw notFound('Home Assistant configuration');
+        if (!res.ok) throw new AppError(502, 'ha_error', `Home Assistant returned HTTP ${res.status}`);
+        let config: unknown;
+        try {
+          config = await res.json();
+        } catch {
+          throw new AppError(502, 'ha_error', 'Home Assistant returned invalid configuration JSON');
+        }
+        if (config === null || typeof config !== 'object' || Array.isArray(config))
+          throw new AppError(502, 'ha_error', 'Home Assistant returned an invalid configuration object');
+        return { kind: params.kind, configId: params.configId, config: config as Record<string, unknown> };
       },
     }),
     defineRoute({

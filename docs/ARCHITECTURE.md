@@ -66,11 +66,16 @@ Translate TTS), and `household` (person, todo and helper entities). Room views g
 not room devices. `HaDevice.entry_type` is preserved so a service device is never mistaken for a
 physical one.
 
+The compact `ha_overview` supplied to a subagent is filtered by that run's effective read access. It must
+not reveal counts, labels, areas or config categories derived from entities the agent cannot read. Main-session
+and administrator views may use the complete registry; subagent search/state/history/config reads apply the
+same per-entity or unrestricted-read checks described in `docs/PERMISSIONS.md`.
+
 ## Principals
 
 Every action is attributed to a principal:
 
-- `admin` — a human using the web UI or a device token directly (device page controls, settings).
+- `admin` — a human using the web UI or a device token directly (device page controls, settings). A device token currently authenticates as `admin` and has no per-token scope; scoped device tokens are a future decision, not a capability to assume in clients.
 - `session:<id>` — a main session. Main sessions are equal and have full rights; risky actions follow the
   confirmation policy.
 - `agent:<id>@<revision>/run:<runId>` — a subagent run. Bound by its permission rules.
@@ -87,6 +92,15 @@ the root, then applies the newest compaction on that path.
 
 Compaction runs automatically when the estimated context exceeds 80 % of the model's window (and on
 request): older entries are summarized by the session's model and recorded as a `compaction` entry.
+
+### Main-session model selection
+
+Creating a main session may provide an optional `modelRef` and `thinkingLevel`, either with the first message
+or before the first prompt. An omitted value inherits the configured model default. The model reference is
+resolved before a create/start transaction can consume a draft or write a conversation entry, and an invalid
+reference leaves no partial session behind. `thinkingLevel` is applied only to reasoning-capable models; it is
+`off` for models that do not expose reasoning. A model change is represented by a `model_change` entry so
+clients can reconstruct which model setting applied to each branch.
 
 ## Runs and streaming
 
@@ -141,8 +155,10 @@ at most once; interval cadence survives reconnects and unrelated definition edit
 are persisted, but downtime counts only when HA's state timestamp still matches on reconnect. Unreadable
 trigger payloads never enter model context. Emergency stop is distinct from pausing automatic triggers.
 
-Triggers enqueue rows in `runs`. A worker pool (global concurrency, default 2) claims queued runs with an
-atomic `UPDATE … WHERE status = 'queued'`; candidate selection excludes agents that already have a running
+Triggers enqueue rows in `runs`. Trigger payloads are untrusted external data: they are bounded and validated for
+storage, are presented to the model only as data, and never become instructions, permissions or a reason to
+bypass read/write policy. A malformed or unreadable payload is rejected or omitted rather than interpreted.
+A worker pool (global concurrency, default 2) claims queued runs with an atomic `UPDATE … WHERE status = 'queued'`; candidate selection excludes agents that already have a running
 or approval-waiting run, and report delivery similarly claims `reported_at IS NULL`. This prevents duplicate
 dispatch within the supported deployment. Active execution maps, startup recovery and entity leases are still
 process-local: **run exactly one hub writer against a database**, not multiple active replicas.
@@ -214,8 +230,20 @@ Run history uses stable `(queued_at, id)` keyset pagination, including equal-mil
   HTTPS. Model output is rendered as Markdown with raw HTML escaped and sanitized.
 - Tool arguments that end up in Home Assistant REST paths (entity ids) are checked against the canonical
   `domain.object_id` form. Secrets are encrypted at rest and never logged.
+- Audit records, approval cards, WebSocket events, system logs, and session exports use the same recursive
+  sensitive-value redaction policy. Credential fields, bearer values, URL userinfo and embedded secret-like
+  configuration text are replaced before persistence or publication; redaction must not remove the ordinary
+  action details needed for review. Export is therefore not an escape hatch for credentials.
+- Provider and Home Assistant URLs are validated as explicit `http`/`https` origins without credentials or
+  unsupported schemes. Provider discovery and request paths are derived from the validated base URL; URL errors
+  fail closed and secrets are never echoed in errors.
+- Backup manifests, key material and restore paths are validated before any file replacement. Backup filenames
+  are generated or accepted only as data-volume-relative names, key material must be an exact 32-byte value, and
+  temporary/restore files remain mode `0600`.
 - HA: Cangze detects whether its token belongs to an HA administrator; configuration tools are disabled
-  otherwise.
+  otherwise. The Automations page exposes native Home Assistant automation/script/scene configuration details and
+  controls, but Home Assistant remains the only deterministic automation engine; Cangze schedules only subagent
+  runs and does not execute a second automation language.
 
 ## Data model (summary)
 

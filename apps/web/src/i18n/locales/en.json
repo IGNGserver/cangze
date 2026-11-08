@@ -11,6 +11,7 @@
     "cancel": "Cancel",
     "edit": "Edit",
     "refresh": "Refresh",
+    "retry": "Retry",
     "loading": "Loading…",
     "none": "None",
     "back": "Back"
@@ -196,6 +197,7 @@
       "testOk": "Connected to {{location}} ({{version}})",
       "saveConnect": "Save and connect",
       "saved": "Saved, connecting",
+      "disconnected": "Disconnected and token cleared",
       "disconnect": "Disconnect and forget",
       "disconnectConfirm": "Disconnect Home Assistant and delete the stored token?"
     },
@@ -305,6 +307,9 @@
       "hint": "High-risk actions in sessions pause until you approve them in the UI. Subagent permissions are set in each agent's definition.",
       "confirm": "Ask before high-risk actions in sessions",
       "confirmHint": "When off, sessions perform these actions directly (not recommended).",
+      "disableConfirmTitle": "Disable high-risk confirmations?",
+      "disableConfirmText": "Main sessions will stop waiting for approval before locks, alarms, garage doors, and configuration changes. Do you want to continue?",
+      "disableConfirmOk": "Disable confirmations",
       "domains": "High-risk domains",
       "services": "High-risk services",
       "covers": "High-risk cover classes",
@@ -743,7 +748,14 @@
     },
     "trigger": "Trigger now",
     "run": "Run",
-    "activate": "Activate"
+    "activate": "Activate",
+    "detail": {
+      "title": "Configuration details",
+      "type": "Type",
+      "configId": "Config id",
+      "json": "JSON configuration",
+      "error": "Could not load configuration details"
+    }
   },
   "logs": {
     "subtitle": "Every action against the home, model usage and system logs",

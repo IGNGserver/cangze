@@ -23,6 +23,8 @@ afterAll(async () => {
 
 describe('OpenAI-compatible custom provider (end to end through pi)', () => {
   it('discovers models, streams, calls a tool and summarizes', async () => {
+    // This endpoint is intentionally browser-admin-only; the harness uses the setup cookie.
+
     const discovered = await h.call('POST', '/api/v1/providers/discover', { baseUrl: llm.url });
     expect(discovered.json().models).toEqual(['fake-1', 'fake-vision']);
     const p = await h.call('POST', '/api/v1/providers', {

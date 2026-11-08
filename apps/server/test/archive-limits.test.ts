@@ -18,7 +18,7 @@ it('maps the asynchronous gunzip output boundary to archive_too_large', async ()
       appVersion: '0.1.2',
       schemaVersion: 1,
       createdAt: 'now',
-      masterKeyFingerprint: 'x',
+      masterKeyFingerprint: '0'.repeat(64),
     },
     Buffer.concat([Buffer.from('SQLite format 3\u0000'), Buffer.alloc(100, 1)]),
   );

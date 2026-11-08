@@ -12,6 +12,7 @@ import { Logo } from '../../components/Logo.tsx';
 import { errorText } from '../../lib/errors.ts';
 import { LAYOUT } from '../../theme/fluent.ts';
 import { Composer, type ComposerSend } from './Composer.tsx';
+import { ModelPicker, ThinkingPicker, type ThinkingPickerValue } from './ModelPicker.tsx';
 
 /** The single unsent new chat: no session exists until the first message is sent. */
 export function NewChatView() {
@@ -25,16 +26,30 @@ export function NewChatView() {
   const { draft } = useDraft('new');
   const [liveText, setLiveText] = useState('');
   const [starting, setStarting] = useState(false);
+  // null and __default intentionally inherit the current defaults instead of persisting a copy.
+  const [modelRef, setModelRef] = useState<string | null>(null);
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingPickerValue>('__default');
 
-  const effectiveRef = defaults.data?.chat ?? null;
+  const effectiveRef = modelRef ?? defaults.data?.chat ?? null;
   const model = useMemo(() => models.data?.find((m) => m.ref === effectiveRef), [models.data, effectiveRef]);
   const noModel = !models.isLoading && !effectiveRef;
   const hasContent = Boolean(liveText.trim()) || Boolean(draft?.text.trim()) || Boolean(draft?.images.length);
 
   const handleText = useCallback((value: string) => setLiveText(value), []);
+  const handleModel = useCallback((ref: string | null) => {
+    setModelRef(ref);
+    // A level is model-specific. Avoid submitting a stale explicit level after switching models.
+    setThinkingLevel('__default');
+  }, []);
+
+  const sessionOptions = () => ({
+    ...(modelRef ? { modelRef } : {}),
+    ...(thinkingLevel !== '__default' && model?.reasoning ? { thinkingLevel } : {}),
+  });
 
   const send = async ({ text, draftRevision }: ComposerSend) => {
     const res = await api.post<CreateSessionResult>('/sessions', {
+      ...sessionOptions(),
       message: { text, images: [], whenBusy: 'steer' },
       draftRevision,
     });
@@ -46,6 +61,7 @@ export function NewChatView() {
     setStarting(true);
     try {
       const res = await api.post<CreateSessionResult>('/sessions', {
+        ...sessionOptions(),
         message: { text, images: [], whenBusy: 'steer' },
         draftRevision: draft?.revision ?? null,
       });
@@ -141,6 +157,17 @@ export function NewChatView() {
             }
           />
         )}
+        <Flex align="center" gap={8} wrap style={{ marginBottom: 8 }}>
+          <Typography.Text type="secondary">{t('chat.model')}</Typography.Text>
+          <ModelPicker value={modelRef} onChange={handleModel} size="small" style={{ minWidth: 180 }} />
+          <ThinkingPicker
+            model={model}
+            value={thinkingLevel}
+            onChange={setThinkingLevel}
+            size="small"
+            style={{ width: 144 }}
+          />
+        </Flex>
         <Composer
           scope="new"
           running={false}

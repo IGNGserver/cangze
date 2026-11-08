@@ -34,12 +34,7 @@ export const RiskPolicySetting = z
   .default(DEFAULT_RISK_POLICY);
 
 /** Services that make a high-risk domain safer rather than less safe. */
-const SAFE_SERVICES = new Set([
-  'lock.lock',
-  'cover.close_cover',
-  'alarm_control_panel.alarm_arm_away',
-  'alarm_control_panel.alarm_arm_home',
-]);
+const SAFE_SERVICES = new Set(['alarm_control_panel.alarm_arm_away', 'alarm_control_panel.alarm_arm_home']);
 
 /** Classify a write before it reaches Home Assistant. */
 export function classifyWrite(
@@ -63,11 +58,7 @@ export function classifyWrite(
     if (policy.highRiskDomains.includes(d)) return { level: 'high', reason: `affects ${id}` };
     if (d === 'cover') {
       const dc = registry.states.get(id)?.attributes.device_class;
-      if (
-        typeof dc === 'string' &&
-        policy.highRiskCoverClasses.includes(dc) &&
-        req.service !== 'close_cover'
-      ) {
+      if (typeof dc === 'string' && policy.highRiskCoverClasses.includes(dc)) {
         return { level: 'high', reason: `${id} is a ${dc}` };
       }
     }

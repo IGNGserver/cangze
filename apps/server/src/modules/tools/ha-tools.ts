@@ -21,9 +21,37 @@ const CONFIG_KINDS = ['automation', 'script', 'scene'] as const;
 
 const ENTITY_ID = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 
-/** Entity ids end up in REST paths; accept only the canonical form of the expected domain. */
 function assertEntity(id: string, domain: string): void {
   if (!ENTITY_ID.test(id) || domainOf(id) !== domain) throw badRequest(`Not a ${domain} entity id: ${id}`);
+}
+
+const MAX_CAMERA_BYTES = 5 * 1024 * 1024;
+
+async function readCameraBody(res: Response): Promise<Buffer> {
+  const declared = Number(res.headers.get('content-length') ?? 0);
+  if (declared > MAX_CAMERA_BYTES) {
+    await res.body?.cancel();
+    throw new AppError(413, 'image_too_large', 'Camera image is larger than 5 MB');
+  }
+  if (!res.body) throw new AppError(502, 'camera_empty', 'Camera returned an empty response');
+  const reader = res.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_CAMERA_BYTES) {
+        await reader.cancel();
+        throw new AppError(413, 'image_too_large', 'Camera image is larger than 5 MB');
+      }
+      chunks.push(Buffer.from(value.buffer, value.byteOffset, value.byteLength));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, total);
 }
 
 function fmtState(state: string, attrs: Record<string, unknown>): string {
@@ -80,9 +108,17 @@ export function haTools(ha: HaGateway): ToolDef[] {
       description:
         'Floors, areas (with ids) and their room-scoped entity counts, whole-home automation/scene/script counts, plus labels. Call this first when you do not know the layout of the home.',
       parameters: Type.Object({}),
-      execute: async () => {
-        const labels = [...reg.labels.values()].map((l) => `${l.name} (label_id: ${l.label_id})`).join(', ');
-        return { text: `${reg.overview()}\n\nLabels: ${labels || 'none'}` };
+      execute: async (env) => {
+        const labels = [...reg.labels.values()]
+          .filter((l) => {
+            if (!env.access || env.access.readAll) return true;
+            return [...reg.states.keys(), ...reg.entities.keys()].some(
+              (id) => env.access!.canRead(id) && reg.labelsOf(id).includes(l.label_id),
+            );
+          })
+          .map((l) => `${l.name} (label_id: ${l.label_id})`)
+          .join(', ');
+        return { text: `${reg.overview(env.access)}\n\nLabels: ${labels || 'none'}` };
       },
     }),
     defineTool({
@@ -380,9 +416,7 @@ export function haTools(ha: HaGateway): ToolDef[] {
         }
         const res = await ha.rest('GET', `/api/camera_proxy/${p.entity_id}`);
         if (!res.ok) throw new AppError(502, 'camera_failed', `Camera returned HTTP ${res.status}`);
-        const buf = Buffer.from(await res.arrayBuffer());
-        if (buf.length > 5 * 1024 * 1024)
-          throw new AppError(413, 'image_too_large', 'Camera image is larger than 5 MB');
+        const buf = await readCameraBody(res);
         const image: ImageContent = {
           type: 'image',
           data: buf.toString('base64'),
