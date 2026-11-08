@@ -1,11 +1,12 @@
 import type { HaEntity } from '@cangze/contracts';
-import { Empty, Segmented, Spin, theme } from 'antd';
+import { Alert, Button, Empty, Segmented, Spin, theme } from 'antd';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useHistory } from '../../api/ha.ts';
 import { isNumeric } from '../../lib/entities.tsx';
+import { errorText } from '../../lib/errors.ts';
 
 export function HistoryChart({ entity }: { entity: HaEntity }) {
   const { t } = useTranslation();
@@ -30,6 +31,17 @@ export function HistoryChart({ entity }: { entity: HaEntity }) {
       />
       {history.isLoading ? (
         <Spin />
+      ) : history.error ? (
+        <Alert
+          type="error"
+          showIcon
+          message={errorText(t, history.error)}
+          action={
+            <Button size="small" onClick={() => void history.refetch()}>
+              {t('common.retry')}
+            </Button>
+          }
+        />
       ) : points.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('devices.noHistory')} />
       ) : numeric ? (

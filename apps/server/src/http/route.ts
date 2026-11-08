@@ -5,9 +5,10 @@ import { badRequest } from '../core/errors.ts';
 /**
  * Who may call a route:
  * - `public`: anyone admitted by the network policy (health, setup status, login)
- * - `admin`: an authenticated admin (cookie session or device token)
+ * - `admin`: an authenticated administrator (cookie session or device token)
+ * - `cookieAdmin`: an authenticated web cookie session only; device tokens are denied
  */
-export type RouteAuth = 'public' | 'admin';
+export type RouteAuth = 'public' | 'admin' | 'cookieAdmin';
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 

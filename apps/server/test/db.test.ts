@@ -16,7 +16,7 @@ describe('migrations', () => {
     db.prepare(
       "INSERT INTO usage_ledger (day, principal_kind, principal_id, provider, model, requests, input, output, cache_read, cache_write, cost) VALUES ('2026-10-19', 'agent', 'a', 'p', 'm', 2, 10, 5, 0, 0, 0.2)",
     ).run();
-    expect(migrate(db)).toEqual([4, 5, 6, 7]);
+    expect(migrate(db)).toEqual([4, 5, 6, 7, 8]);
     expect(db.prepare('SELECT requests, cost, unknown_requests FROM usage_ledger').get()).toEqual({
       requests: 2,
       cost: 0.2,
@@ -45,7 +45,7 @@ describe('migrations', () => {
     );
     insert.run(1, 'admin');
     insert.run(2, 'session:s');
-    expect(migrate(db)).toEqual([6, 7]);
+    expect(migrate(db)).toEqual([6, 7, 8]);
     expect(db.prepare('SELECT revision, authorized_by FROM agent_revisions ORDER BY revision').all()).toEqual(
       [
         { revision: 1, authorized_by: 'admin' },

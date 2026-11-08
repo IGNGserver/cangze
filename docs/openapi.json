@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Cangze API",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "description": "REST API of the Cangze hub. Live updates are delivered over the /api/v1/stream WebSocket.",
     "license": {
       "name": "Apache-2.0",
@@ -20,9 +20,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -295,9 +292,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -360,9 +354,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -471,9 +462,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -530,9 +518,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -611,9 +596,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -716,9 +698,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -797,9 +776,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -1575,9 +1551,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -1778,9 +1751,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -1839,9 +1809,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -1906,9 +1873,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -1965,9 +1929,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -2986,9 +2947,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -4661,9 +4619,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -4938,9 +4893,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -5640,9 +5592,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -5900,9 +5849,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -7564,9 +7510,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -7725,9 +7668,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -7900,9 +7840,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -8126,9 +8063,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -8206,9 +8140,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -8267,9 +8198,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -8328,9 +8256,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -8415,9 +8340,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -8787,9 +8709,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -8848,9 +8767,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -8909,9 +8825,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -9055,9 +8968,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -9104,9 +9014,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -9210,9 +9117,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -9271,9 +9175,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -9350,9 +9251,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -9449,9 +9347,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -10370,6 +10265,100 @@
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ha/config/{kind}/{configId}": {
+      "get": {
+        "summary": "Read a Home Assistant automation, script or scene configuration",
+        "tags": [
+          "home-assistant"
+        ],
+        "operationId": "getApiV1HaConfigKindConfigId",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "automation",
+                "script",
+                "scene"
+              ]
+            }
+          },
+          {
+            "name": "configId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "automation",
+                        "script",
+                        "scene"
+                      ]
+                    },
+                    "configId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    },
+                    "config": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "configId",
+                    "config"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -11553,9 +11542,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -11679,9 +11665,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -11763,9 +11746,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -11904,9 +11884,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -12243,9 +12220,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -12346,9 +12320,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -12405,9 +12376,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -12710,9 +12678,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -12774,9 +12739,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -12849,9 +12811,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -13041,9 +13000,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -13379,9 +13335,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -13440,9 +13393,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -13677,9 +13627,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -13903,9 +13850,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -14133,9 +14077,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [
@@ -16181,9 +16122,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -16252,9 +16190,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -16368,9 +16303,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -16490,9 +16422,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -16538,9 +16467,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -16603,9 +16529,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -16773,9 +16696,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -16834,9 +16754,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -17007,9 +16924,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -17236,9 +17150,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [],
@@ -17578,9 +17489,6 @@
         "security": [
           {
             "cookieAuth": []
-          },
-          {
-            "bearerAuth": []
           }
         ],
         "parameters": [

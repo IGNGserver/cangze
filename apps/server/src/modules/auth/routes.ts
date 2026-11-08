@@ -82,6 +82,7 @@ export function authRoutes(auth: AuthService, publicOrigin: () => string | null)
       summary: 'Change the admin key (signs out other web sessions)',
       tags: ['auth'],
       body: ChangeAdminKeyRequest,
+      auth: 'cookieAdmin',
       response: Ok,
       handler: async ({ body, req }) => {
         const keep = req.caller?.kind === 'cookie' ? req.caller.sessionId : null;
@@ -94,12 +95,14 @@ export function authRoutes(auth: AuthService, publicOrigin: () => string | null)
       url: '/api/v1/auth/sessions',
       summary: 'List active web sessions',
       tags: ['auth'],
+      auth: 'cookieAdmin',
       response: z.array(WebSession),
       handler: ({ req }) => auth.listSessions(req.caller?.kind === 'cookie' ? req.caller.sessionId : null),
     }),
     defineRoute({
       method: 'DELETE',
       url: '/api/v1/auth/sessions/:id',
+      auth: 'cookieAdmin',
       summary: 'Sign out a web session',
       tags: ['auth'],
       params: IdParams,
@@ -114,6 +117,7 @@ export function authRoutes(auth: AuthService, publicOrigin: () => string | null)
       url: '/api/v1/auth/devices',
       summary: 'List device tokens',
       tags: ['auth'],
+      auth: 'cookieAdmin',
       response: z.array(DeviceToken),
       handler: () => auth.listDevices(),
     }),
@@ -122,6 +126,7 @@ export function authRoutes(auth: AuthService, publicOrigin: () => string | null)
       url: '/api/v1/auth/devices',
       summary: 'Create a device token (shown once)',
       tags: ['auth'],
+      auth: 'cookieAdmin',
       body: CreateDeviceTokenRequest,
       response: CreatedDeviceToken,
       status: 201,
@@ -136,6 +141,7 @@ export function authRoutes(auth: AuthService, publicOrigin: () => string | null)
       url: '/api/v1/auth/devices/:id/revoke',
       summary: 'Revoke a device token',
       tags: ['auth'],
+      auth: 'cookieAdmin',
       params: IdParams,
       response: Ok,
       handler: ({ params }) => {
@@ -148,6 +154,7 @@ export function authRoutes(auth: AuthService, publicOrigin: () => string | null)
       url: '/api/v1/auth/devices/:id',
       summary: 'Delete a device token',
       tags: ['auth'],
+      auth: 'cookieAdmin',
       params: IdParams,
       response: Ok,
       handler: ({ params }) => {
@@ -160,6 +167,7 @@ export function authRoutes(auth: AuthService, publicOrigin: () => string | null)
       url: '/api/v1/auth/pairing',
       summary: 'Create a short-lived pairing code for a new device',
       tags: ['auth'],
+      auth: 'cookieAdmin',
       response: PairingCode,
       handler: ({ req }) => {
         if (req.caller?.kind !== 'cookie')

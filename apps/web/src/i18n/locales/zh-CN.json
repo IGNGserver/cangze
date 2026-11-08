@@ -11,6 +11,7 @@
     "cancel": "取消",
     "edit": "编辑",
     "refresh": "刷新",
+    "retry": "重试",
     "loading": "加载中…",
     "none": "无",
     "back": "返回"
@@ -196,6 +197,7 @@
       "testOk": "连接成功：{{location}}（{{version}}）",
       "saveConnect": "保存并连接",
       "saved": "已保存，正在连接",
+      "disconnected": "已断开并清除令牌",
       "disconnect": "断开并清除",
       "disconnectConfirm": "断开 Home Assistant 并删除已保存的令牌？"
     },
@@ -300,6 +302,9 @@
       "hint": "会话中的高风险操作会先暂停，在界面上等你批准。子代理的权限在各自的定义里单独设置。",
       "confirm": "会话中的高风险操作需要确认",
       "confirmHint": "关闭后会话将直接执行这些操作（不推荐）。",
+      "disableConfirmTitle": "关闭高风险确认？",
+      "disableConfirmText": "关闭后，主会话将不再等待你批准门锁、安防、车库门和配置等高风险操作。确定要继续吗？",
+      "disableConfirmOk": "关闭确认并直接执行",
       "domains": "高风险设备类型（domain）",
       "services": "高风险服务",
       "covers": "高风险窗帘/门类（device_class）",
@@ -738,7 +743,14 @@
     },
     "trigger": "立即触发",
     "run": "运行",
-    "activate": "激活"
+    "activate": "激活",
+    "detail": {
+      "title": "配置详情",
+      "type": "类型",
+      "configId": "配置 ID",
+      "json": "JSON 配置",
+      "error": "无法加载配置详情"
+    }
   },
   "logs": {
     "subtitle": "对家庭的每一次操作、模型用量与系统日志",

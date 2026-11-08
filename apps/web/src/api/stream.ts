@@ -90,7 +90,20 @@ export class StreamClient {
     };
     ws.onmessage = (ev) => {
       if (this.ws !== ws) return;
-      this.onMessage(JSON.parse(String(ev.data)) as StreamServerMessage);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(String(ev.data)) as unknown;
+      } catch {
+        // A proxy/error page or truncated frame must not crash React. Close this
+        // socket so the normal reconnect + REST snapshot recovery can run.
+        ws.close(1002, 'invalid stream message');
+        return;
+      }
+      if (!parsed || typeof parsed !== 'object' || !('type' in parsed)) {
+        ws.close(1002, 'invalid stream message');
+        return;
+      }
+      this.onMessage(parsed as StreamServerMessage);
     };
     ws.onclose = () => {
       if (this.ws !== ws) return;

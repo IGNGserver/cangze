@@ -90,6 +90,32 @@ export const HaDevice = z.object({
 });
 export type HaDevice = z.infer<typeof HaDevice>;
 
+/** Home Assistant config entities that can be read from the native config API. */
+export const HaConfigKind = z.enum(['automation', 'script', 'scene']);
+export type HaConfigKind = z.infer<typeof HaConfigKind>;
+
+/** Canonical config ids accepted by Home Assistant's UI-managed config endpoints. */
+export const HaConfigId = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/);
+export type HaConfigId = z.infer<typeof HaConfigId>;
+
+export const HaConfigDetailParams = z.object({
+  kind: HaConfigKind,
+  configId: HaConfigId,
+});
+export type HaConfigDetailParams = z.infer<typeof HaConfigDetailParams>;
+
+/** A read-only snapshot of a UI-managed automation, script or scene configuration. */
+export const HaConfigDetail = z.object({
+  kind: HaConfigKind,
+  configId: HaConfigId,
+  config: z.record(z.string(), z.unknown()),
+});
+export type HaConfigDetail = z.infer<typeof HaConfigDetail>;
+
 /** Home Assistant config entities that are managed on the Automations page. */
 export const HA_CONFIG_DOMAINS = ['automation', 'script', 'scene'] as const;
 export const isHaConfigDomain = (domain: string): boolean =>

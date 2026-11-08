@@ -41,6 +41,7 @@ export function logRoutes(
       url: '/api/v1/logs/system',
       summary: 'Recent hub log records (in memory)',
       tags: ['logs'],
+      auth: 'cookieAdmin',
       query: SystemLogQuery,
       response: z.array(SystemLogEntry),
       handler: ({ query }) =>
@@ -65,6 +66,7 @@ export function logRoutes(
       url: '/api/v1/audit',
       summary: 'Audit log of actions against the home and policy decisions',
       tags: ['logs'],
+      auth: 'cookieAdmin',
       query: AuditQuery,
       response: z.array(AuditEntry),
       handler: ({ query }) => audit.query(query),
@@ -74,6 +76,7 @@ export function logRoutes(
       url: '/api/v1/usage',
       summary: 'Token and cost usage per day, principal and model',
       tags: ['logs'],
+      auth: 'cookieAdmin',
       query: z.object({ days: z.coerce.number().int().min(1).max(366).default(30) }),
       response: z.array(UsageRow),
       handler: ({ query }) => {
@@ -100,6 +103,7 @@ export function logRoutes(
       url: '/api/v1/settings/retention',
       summary: 'How long logs and history are kept',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       response: RetentionSettings,
       handler: () => maintenance.retention.get(),
     }),
@@ -108,6 +112,7 @@ export function logRoutes(
       url: '/api/v1/settings/retention',
       summary: 'Update retention',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       body: RetentionSettings,
       response: RetentionSettings,
       handler: ({ body }) => {

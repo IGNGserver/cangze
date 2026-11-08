@@ -1,7 +1,7 @@
 import { Prompts, Welcome } from '@ant-design/x';
 import { ArrowLeft20Regular, Settings20Regular } from '@fluentui/react-icons';
-import type { ModelInfo, ThinkingLevel } from '@cangze/contracts';
-import { Alert, App, Button, Flex, Grid, Progress, Select, Skeleton, theme, Tooltip, Typography } from 'antd';
+import type { ModelInfo } from '@cangze/contracts';
+import { Alert, App, Button, Flex, Grid, Progress, Skeleton, theme, Tooltip, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -13,7 +13,7 @@ import { errorText } from '../../lib/errors.ts';
 import { LAYOUT } from '../../theme/fluent.ts';
 import { Composer, type ComposerSend } from './Composer.tsx';
 import { MessageList } from './MessageList.tsx';
-import { ModelPicker } from './ModelPicker.tsx';
+import { ModelPicker, ThinkingPicker, type ThinkingPickerValue } from './ModelPicker.tsx';
 import { SessionDrawer } from './SessionDrawer.tsx';
 
 export function ChatView({ id }: { id: string }) {
@@ -60,6 +60,7 @@ export function ChatView({ id }: { id: string }) {
   const empty = state.entries.length === 0 && !state.running;
   const noModel = !models.isLoading && !effectiveRef;
   const hasDraft = Boolean(draft?.text.trim()) || Boolean(draft?.images.length) || Boolean(liveText.trim());
+  const thinkingValue: ThinkingPickerValue = d.thinkingLevel ?? '__default';
 
   const send = async ({ text, whenBusy, draftRevision }: ComposerSend) => {
     await api.post(`/sessions/${id}/messages`, {
@@ -111,15 +112,11 @@ export function ChatView({ id }: { id: string }) {
           {d.title || t('chat.untitled')}
         </Typography.Title>
         {screens.md && <ModelPicker value={d.modelRef} onChange={(v) => void patch({ modelRef: v })} />}
-        {screens.md && model?.reasoning && (
-          <Select<ThinkingLevel | '__default'>
-            value={d.thinkingLevel ?? '__default'}
+        {screens.md && (
+          <ThinkingPicker
+            model={model}
+            value={thinkingValue}
             onChange={(v) => void patch({ thinkingLevel: v === '__default' ? null : v })}
-            style={{ width: 128 }}
-            options={[
-              { value: '__default', label: t('chat.thinkingDefault') },
-              ...model.thinkingLevels.map((l) => ({ value: l, label: t(`chat.levels.${l}`) })),
-            ]}
           />
         )}
         <Tooltip title={t('chat.context', { used: d.contextTokens ?? 0, total: d.contextWindow ?? '?' })}>

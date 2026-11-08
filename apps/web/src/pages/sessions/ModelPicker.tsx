@@ -1,8 +1,13 @@
-import type { ModelInfo } from '@cangze/contracts';
+import type { ModelInfo, ThinkingLevel } from '@cangze/contracts';
 import { Select, Space, Tag } from 'antd';
+import type { CSSProperties, ReactNode } from 'react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useModels } from '../../api/sessions.ts';
+
+/** Keep this list in sync with the contract so default model settings never hide valid levels. */
+export const THINKING_LEVELS: ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+export type ThinkingPickerValue = ThinkingLevel | '__default';
 
 export function ModelPicker({
   value,
@@ -14,7 +19,7 @@ export function ModelPicker({
   value: string | null;
   onChange: (ref: string | null) => void;
   allowDefault?: boolean;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
   size?: 'small' | 'middle';
 }) {
   const { t } = useTranslation();
@@ -24,7 +29,7 @@ export function ModelPicker({
     for (const m of models.data ?? []) groups.set(m.providerName, [...(groups.get(m.providerName) ?? []), m]);
     const out: Array<{
       label: string;
-      options: Array<{ value: string; label: React.ReactNode; search: string }>;
+      options: Array<{ value: string; label: ReactNode; search: string }>;
     }> = [];
     if (allowDefault)
       out.push({
@@ -65,6 +70,49 @@ export function ModelPicker({
       style={{ minWidth: 200, ...style }}
       placeholder={t('chat.chooseModel')}
       notFoundContent={t('chat.noModels')}
+    />
+  );
+}
+
+/**
+ * Select a per-session thinking override. `__default` means the configured model default and is
+ * deliberately distinct from `off`, which is an explicit request to disable reasoning.
+ */
+export function ThinkingPicker({
+  model,
+  value,
+  onChange,
+  allowDefault = true,
+  style,
+  size,
+}: {
+  model: ModelInfo | undefined;
+  value: ThinkingPickerValue;
+  onChange: (level: ThinkingPickerValue) => void;
+  allowDefault?: boolean;
+  style?: CSSProperties;
+  size?: 'small' | 'middle';
+}) {
+  const { t } = useTranslation();
+  const options = useMemo(() => {
+    if (!model?.reasoning) return [];
+    const available = model.thinkingLevels.length ? model.thinkingLevels : THINKING_LEVELS;
+    const levels = [...new Set(available)];
+    return [
+      ...(allowDefault ? [{ value: '__default' as const, label: t('chat.thinkingDefault') }] : []),
+      ...levels.map((level) => ({ value: level, label: t(`chat.levels.${level}`) })),
+    ];
+  }, [allowDefault, model, t]);
+
+  if (!model?.reasoning) return null;
+  return (
+    <Select<ThinkingPickerValue>
+      size={size}
+      value={value}
+      onChange={onChange}
+      options={options}
+      style={{ width: 144, ...style }}
+      aria-label={t('settings.models.thinking')}
     />
   );
 }

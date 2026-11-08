@@ -11,6 +11,11 @@ import {
 } from '@cangze/contracts';
 import { badRequest } from '../../core/errors.ts';
 
+export interface OverviewReadAccess {
+  readAll: boolean;
+  canRead(entityId: string): boolean;
+}
+
 /** Entity registry entry as returned by `config/entity_registry/list`. */
 export interface EntityRegistryEntry {
   entity_id: string;
@@ -309,11 +314,13 @@ export class HaRegistry {
   }
 
   /** Compact household overview for system prompts: rooms, then whole-home categories. */
-  overview(): string {
+  overview(access?: OverviewReadAccess): string {
+    const readable = (id: string) => !access || access.readAll || access.canRead(id);
     const byArea = new Map<string, Map<string, number>>();
     const config = new Map<string, number>();
     const household = new Map<string, number>();
     for (const id of this.implicitCandidates()) {
+      if (!readable(id)) continue;
       const domain = domainOf(id);
       const placement = this.placementOf(id);
       if (placement === 'room' || placement === 'unassigned') {
@@ -331,7 +338,7 @@ export class HaRegistry {
     const floors = [...this.floors.values()].sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
     const areaLine = (a: HaArea) => {
       const counts = byArea.get(a.area_id);
-      return `  - ${a.name} (area_id: ${a.area_id}): ${counts ? countsText(counts) : 'no entities'}`;
+      return `  - ${a.name} (area_id: ${a.area_id}): ${counts ? countsText(counts) : 'no readable entities'}`;
     };
     for (const f of floors) {
       lines.push(`- Floor ${f.name} (floor_id: ${f.floor_id})`);

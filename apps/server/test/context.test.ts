@@ -160,9 +160,9 @@ describe('risk classification', () => {
 
   it.each([
     [req('lock', 'unlock', ['lock.door']), 'high'],
-    [req('lock', 'lock', ['lock.door']), 'normal'],
+    [req('lock', 'lock', ['lock.door']), 'high'],
     [req('cover', 'open_cover', ['cover.garage']), 'high'],
-    [req('cover', 'close_cover', ['cover.garage']), 'normal'],
+    [req('cover', 'close_cover', ['cover.garage']), 'high'],
     [req('cover', 'open_cover', ['cover.blinds']), 'normal'],
     [req('homeassistant', 'turn_off', ['lock.door']), 'high'],
     [req('homeassistant', 'restart', []), 'high'],

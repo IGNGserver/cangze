@@ -1,5 +1,6 @@
 import type { AuditDecision, AuditEntry } from '@cangze/contracts';
 import { principalId, type Principal } from '../../core/principal.ts';
+import { redactSensitive } from '../../core/redact.ts';
 import { json, type Db } from '../../db/index.ts';
 import type { StreamHub } from '../stream/hub.ts';
 
@@ -33,10 +34,15 @@ interface Row {
 }
 
 const MAX_JSON = 8000;
-const clip = (v: unknown) => {
+type ClipMode = 'json' | 'text';
+const clip = (v: unknown, mode: ClipMode = 'json') => {
   if (v === undefined || v === null) return null;
-  const s = JSON.stringify(v);
-  return s.length > MAX_JSON ? JSON.stringify({ truncated: true, preview: s.slice(0, MAX_JSON) }) : s;
+  const redacted = redactSensitive(v);
+  const s = mode === 'text' && typeof redacted === 'string' ? redacted : JSON.stringify(redacted);
+  if (s.length <= MAX_JSON) return s;
+  return mode === 'text'
+    ? `${s.slice(0, MAX_JSON)}…`
+    : JSON.stringify({ truncated: true, preview: s.slice(0, MAX_JSON) });
 };
 
 /** Append-only record of every action against the home and every policy decision. */
@@ -66,7 +72,7 @@ export class AuditService {
         input.target ?? null,
         clip(input.args),
         input.decision,
-        input.reason ?? null,
+        clip(input.reason, 'text'),
         clip(input.result),
         input.haContextId ?? null,
         input.durationMs ?? null,

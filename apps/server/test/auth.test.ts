@@ -186,8 +186,8 @@ describe('device tokens and pairing', () => {
       headers: bearer,
       payload: { allowedHosts: ['hub.home'] },
     });
-    expect(sec.statusCode).toBe(200);
-    // devices cannot mint more devices
+    expect(sec.statusCode).toBe(403);
+    expect(sec.json().error.code).toBe('cookie_admin_required');
     const mint = await h.app.inject({
       method: 'POST',
       url: '/api/v1/auth/devices',

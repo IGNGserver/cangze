@@ -16,8 +16,9 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { api } from '../../api/client.ts';
+import { useModelDefaults } from '../../api/sessions.ts';
 import { errorText } from '../../lib/errors.ts';
-import { ModelPicker } from './ModelPicker.tsx';
+import { ModelPicker, ThinkingPicker, type ThinkingPickerValue } from './ModelPicker.tsx';
 
 export function SessionDrawer({
   open,
@@ -35,6 +36,7 @@ export function SessionDrawer({
   const { t } = useTranslation();
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const defaults = useModelDefaults();
   const [instructions, setInstructions] = useState(detail.instructions);
   const [compacting, setCompacting] = useState(false);
   useEffect(() => setInstructions(detail.instructions), [detail.instructions]);
@@ -67,6 +69,12 @@ export function SessionDrawer({
     navigate('/sessions');
   };
 
+  const effectiveModelRef = detail.modelRef ?? defaults.data?.chat ?? null;
+  const effectiveModel = model?.ref === effectiveModelRef ? model : model;
+  const thinkingValue: ThinkingPickerValue = detail.thinkingLevel ?? '__default';
+  const effectiveThinking =
+    detail.thinkingLevel ?? defaults.data?.thinkingLevel ?? (effectiveModel?.reasoning ? 'medium' : 'off');
+
   return (
     <Drawer open={open} onClose={onClose} title={t('chat.sessionSettings')} width={420}>
       <Form layout="vertical">
@@ -76,7 +84,25 @@ export function SessionDrawer({
             onChange={(v) => void patch({ modelRef: v })}
             style={{ width: '100%' }}
           />
+          <Typography.Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
+            {t('chat.currentModel', {
+              model: effectiveModel?.name ?? effectiveModelRef ?? t('chat.defaultModel'),
+            })}
+          </Typography.Text>
         </Form.Item>
+        {effectiveModel?.reasoning && (
+          <Form.Item label={t('settings.models.thinking')}>
+            <ThinkingPicker
+              model={effectiveModel}
+              value={thinkingValue}
+              onChange={(v) => void patch({ thinkingLevel: v === '__default' ? null : v })}
+              style={{ width: '100%' }}
+            />
+            <Typography.Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
+              {t('chat.currentThinking', { level: t(`chat.levels.${effectiveThinking}`) })}
+            </Typography.Text>
+          </Form.Item>
+        )}
         <Form.Item label={t('chat.instructions')} extra={t('chat.instructionsHint')}>
           <Input.TextArea
             autoSize={{ minRows: 4, maxRows: 14 }}

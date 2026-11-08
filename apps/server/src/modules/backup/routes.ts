@@ -32,6 +32,7 @@ export function backupRoutes(backup: BackupService, secrets: SecretsService): Ro
       url: '/api/v1/backups',
       summary: 'Backups in the data volume',
       tags: ['backup'],
+      auth: 'cookieAdmin',
       response: z.object({ items: z.array(BackupInfo), nextScheduled: z.string().nullable() }),
       handler: () => ({ items: backup.list(), nextScheduled: backup.nextRun() }),
     }),
@@ -40,6 +41,7 @@ export function backupRoutes(backup: BackupService, secrets: SecretsService): Ro
       url: '/api/v1/backups',
       summary: 'Create a backup now',
       tags: ['backup'],
+      auth: 'cookieAdmin',
       body: CreateBackup,
       response: BackupInfo,
       status: 201,
@@ -55,6 +57,7 @@ export function backupRoutes(backup: BackupService, secrets: SecretsService): Ro
       url: '/api/v1/backups/:id/download',
       summary: 'Download a backup file',
       tags: ['backup'],
+      auth: 'cookieAdmin',
       params: IdParams,
       response: z.unknown(),
       raw: true,
@@ -72,6 +75,7 @@ export function backupRoutes(backup: BackupService, secrets: SecretsService): Ro
       url: '/api/v1/backups/:id',
       summary: 'Delete a backup',
       tags: ['backup'],
+      auth: 'cookieAdmin',
       params: IdParams,
       response: Ok,
       handler: ({ params }) => {
@@ -84,6 +88,7 @@ export function backupRoutes(backup: BackupService, secrets: SecretsService): Ro
       url: '/api/v1/backups/:id/restore',
       summary: 'Restore a stored backup (the hub restarts)',
       tags: ['backup'],
+      auth: 'cookieAdmin',
       params: IdParams,
       body: z.object({ passphrase: z.string().max(256).optional() }),
       response: RestoreResult,
@@ -98,6 +103,7 @@ export function backupRoutes(backup: BackupService, secrets: SecretsService): Ro
       summary:
         'Upload a backup file (application/octet-stream) and restore it; passphrase in X-Backup-Passphrase',
       tags: ['backup'],
+      auth: 'cookieAdmin',
       response: RestoreResult,
       bodyLimit: 1024 * 1024 * 1024,
       handler: async ({ req }) => {
@@ -112,6 +118,7 @@ export function backupRoutes(backup: BackupService, secrets: SecretsService): Ro
       url: '/api/v1/settings/backup',
       summary: 'Scheduled backup settings',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       response: BackupSchedule,
       handler: scheduleView,
     }),
@@ -120,6 +127,7 @@ export function backupRoutes(backup: BackupService, secrets: SecretsService): Ro
       url: '/api/v1/settings/backup',
       summary: 'Update scheduled backups',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       body: UpdateBackupSchedule,
       response: BackupSchedule,
       handler: ({ body }) => {

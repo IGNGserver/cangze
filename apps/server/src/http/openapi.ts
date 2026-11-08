@@ -40,7 +40,12 @@ export function buildOpenApi(specs: RouteSpec[], version: string): Record<string
       summary: spec.summary,
       tags: spec.tags,
       operationId: `${spec.method.toLowerCase()}${path.replace(/[^A-Za-z0-9]+(.)?/g, (_m, c: string) => (c ? c.toUpperCase() : ''))}`,
-      security: (spec.auth ?? 'admin') === 'public' ? [] : [{ cookieAuth: [] }, { bearerAuth: [] }],
+      security:
+        (spec.auth ?? 'admin') === 'public'
+          ? []
+          : (spec.auth ?? 'admin') === 'cookieAdmin'
+            ? [{ cookieAuth: [] }]
+            : [{ cookieAuth: [] }, { bearerAuth: [] }],
       parameters: parameters(spec),
       responses: {
         [String(spec.status ?? 200)]:

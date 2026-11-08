@@ -9,7 +9,7 @@ import { Section } from './Section.tsx';
 
 export function RiskSettings() {
   const { t } = useTranslation();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const policy = useQuery({
     queryKey: ['settings', 'risk'],
     queryFn: () => api.get<RiskPolicy>('/settings/risk'),
@@ -22,13 +22,27 @@ export function RiskSettings() {
     onError: (e) => void message.error(errorText(t, e)),
   });
 
+  const confirmInSessions = (enabled: boolean) => {
+    if (enabled) {
+      void save({ confirmInSessions: true });
+      return;
+    }
+    modal.confirm({
+      title: t('settings.risk.disableConfirmTitle'),
+      content: t('settings.risk.disableConfirmText'),
+      okText: t('settings.risk.disableConfirmOk'),
+      okButtonProps: { danger: true },
+      onOk: () => save({ confirmInSessions: false }),
+    });
+  };
+
   const p = policy.data;
   return (
     <Section title={t('settings.risk.title')} description={t('settings.risk.hint')}>
       {p && (
         <Form layout="vertical">
           <Form.Item label={t('settings.risk.confirm')} extra={t('settings.risk.confirmHint')}>
-            <Switch checked={p.confirmInSessions} onChange={(v) => void save({ confirmInSessions: v })} />
+            <Switch checked={p.confirmInSessions} onChange={confirmInSessions} />
           </Form.Item>
           <Form.Item label={t('settings.risk.domains')}>
             <Select

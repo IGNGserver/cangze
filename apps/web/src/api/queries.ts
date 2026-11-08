@@ -21,6 +21,7 @@ export const qk = {
   labels: ['ha', 'labels'] as const,
   devices: ['ha', 'devices'] as const,
   history: (id: string, hours: number) => ['ha', 'history', id, hours] as const,
+  haConfig: (kind: string, configId: string) => ['ha', 'config', kind, configId] as const,
   security: ['settings', 'security'] as const,
   deviceTokens: ['auth', 'devices'] as const,
   webSessions: ['auth', 'sessions'] as const,

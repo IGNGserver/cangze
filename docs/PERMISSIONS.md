@@ -3,7 +3,12 @@
 Subagents run unattended, so everything they may do is spelled out in their definition and **enforced by the hub**,
 not by the model. Main sessions are trusted (they act for the person chatting) but still ask before high-risk actions.
 
-## Where enforcement happens
+## Authentication boundary
+
+A device token currently authenticates as the `admin` principal, equivalent to a direct administrator API
+request. There is no implemented per-device or per-token scope, so clients and permission rules must not claim
+that a token is limited to selected entities or services. Scoped device tokens are explicitly deferred for a
+future design and are not part of this contract.
 
 1. **Reads** — HA tools filter what a subagent can see: searches only return readable entities; state, history,
    logbook, camera, calendar and to-do tools refuse unreadable entities; templates and the full logbook require read
@@ -24,6 +29,17 @@ not by the model. Main sessions are trusted (they act for the person chatting) b
 Every decision lands in the audit log with the principal `agent:<id>@<revision>` and the run id.
 
 ## Rules
+
+The compact `ha_overview` is also a read operation. For a subagent, its room/entity counts, labels and
+configuration categories are computed only from entities allowed by that run's effective read rules; it must
+not disclose an unreadable entity through an aggregate count or name. A main session and the administrator may
+use the complete overview. Searches, states, history, logbook, camera, calendar, statistics, to-do and config
+reads continue to enforce the corresponding entity or unrestricted-read checks.
+
+Trigger data is untrusted input, not a permission grant or an instruction. State-trigger payloads are admitted
+only after the triggering entity is readable. Opaque HA event/native-trigger payloads require unrestricted read
+access, are bounded and validated before storage, and are marked as data when shown to a model. Malformed or
+unreadable payloads are rejected or omitted; they never expand the agent's permissions.
 
 Trigger data is also a read: state triggers require readable entities; opaque HA event/native-trigger
 payloads require unrestricted read access. External statistics require unrestricted read access too.
@@ -65,8 +81,11 @@ disables triggers, cancels every queued task and aborts the active run. Already 
 
 ## High-risk actions
 
-Locks, alarm panels, covers with device class `garage`/`gate`/`door`, Home Assistant restarts and configuration changes
-are high risk (configurable in _Settings → Risk & approvals_). Even when rules allow them:
+Locks and alarm panels are high risk. `lock.lock` remains high risk even though it is a securing action;
+its presence in the configured high-risk service set takes precedence over any generic "safe" action list.
+Covers whose Home Assistant device class is `garage`, `gate` or `door` remain high risk for **every** cover
+service, including `close_cover`. Home Assistant restarts and configuration changes are high risk too
+(configurable in _Settings → Risk & approvals_). Even when rules allow them:
 
 | Principal                                 | Behaviour                                                |
 | ----------------------------------------- | -------------------------------------------------------- |

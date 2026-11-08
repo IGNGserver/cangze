@@ -77,8 +77,18 @@ export function HaSettings() {
   };
 
   const disconnect = async () => {
-    await api.del('/settings/ha');
-    await qc.invalidateQueries({ queryKey: ['ha'] });
+    try {
+      await api.del('/settings/ha');
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: qk.haSettings }),
+        qc.invalidateQueries({ queryKey: qk.haStatus }),
+        qc.invalidateQueries({ queryKey: ['ha'] }),
+      ]);
+      form.resetFields();
+      void message.success(t('settings.ha.disconnected'));
+    } catch (e) {
+      void message.error(errorText(t, e));
+    }
   };
 
   const s = status.data;

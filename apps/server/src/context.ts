@@ -182,7 +182,7 @@ export function createServices(config: AppConfig, opts: CreateServicesOptions = 
   );
   runs.setExtraTools((agentId) => memoryTools(agents, agentId));
   tools.register(agentManagementTools(agents, runs, () => tools, approvals));
-  policy.setAgentEvaluator(createAgentEvaluator(agents, policy, ha));
+  policy.setAgentEvaluator(createAgentEvaluator(agents, policy, ha, db));
   coordination.setAgentInfo((p) => {
     try {
       const def = agents.definition(p.agentId, p.revision);

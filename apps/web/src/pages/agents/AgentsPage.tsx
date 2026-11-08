@@ -15,8 +15,8 @@ import { RunStatusTag } from './RunStatusTag.tsx';
 export function AgentsPage() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const { id } = useParams();
   const navigate = useNavigate();
+  const { id } = useParams();
   const screens = Grid.useBreakpoint();
   const agents = useAgents();
   const [creating, setCreating] = useState(false);

@@ -40,6 +40,7 @@ export function networkRoutes(
       url: '/api/v1/settings/security',
       summary: 'Update network security settings',
       tags: ['settings'],
+      auth: 'cookieAdmin',
       body: UpdateSecuritySettings,
       response: SecuritySettings,
       handler: ({ body, req }) => {

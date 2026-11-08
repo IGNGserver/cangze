@@ -55,6 +55,8 @@ export interface LiveTool {
   toolCallId: string;
   name: string;
   args: unknown;
+  /** Latest incremental result emitted while the tool is running. */
+  partial?: unknown;
   done: boolean;
   isError: boolean;
 }
@@ -104,6 +106,7 @@ function reducer(state: ChatState, action: Action): ChatState {
         toolCallId: t.toolCallId,
         name: t.name,
         args: t.args,
+        partial: t.partial,
         done: false,
         isError: false,
       };
@@ -152,11 +155,18 @@ function reducer(state: ChatState, action: Action): ChatState {
             toolCallId: ev.toolCallId,
             name: ev.name,
             args: ev.args,
+            partial: undefined,
             done: false,
             isError: false,
           },
         },
       };
+    case 'tool_update': {
+      const t = state.tools[ev.toolCallId];
+      return t
+        ? { ...state, tools: { ...state.tools, [ev.toolCallId]: { ...t, partial: ev.partial } } }
+        : state;
+    }
     case 'tool_end': {
       const t = state.tools[ev.toolCallId];
       return t

@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { AppError, unauthorized } from '../../core/errors.ts';
+import { AppError, forbidden, unauthorized } from '../../core/errors.ts';
 import type { Principal } from '../../core/principal.ts';
 import type { NetworkPolicy } from '../network/policy.ts';
 import { SESSION_COOKIE, type AuthService, type Caller } from './service.ts';
@@ -34,6 +34,9 @@ export function installAuth(app: FastifyInstance, auth: AuthService, network: Ne
     req.caller = resolveCaller(auth, req);
     if (mode === 'public') return;
     if (!req.caller) throw unauthorized();
+    if (mode === 'cookieAdmin' && req.caller.kind === 'device') {
+      throw forbidden('This operation requires a web cookie session', 'cookie_admin_required');
+    }
     // Cookie sessions are ambient credentials: require a same-origin Origin on state changes.
     if (req.caller.kind === 'cookie' && !SAFE_METHODS.has(req.method)) {
       const origin = req.headers.origin;

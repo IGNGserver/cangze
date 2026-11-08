@@ -41,7 +41,19 @@ export async function request<T>(method: string, path: string, body?: unknown, q
   onReachable?.();
   if (res.status === 204) return undefined as T;
   const text = await res.text();
-  const data = text ? (JSON.parse(text) as unknown) : undefined;
+  let data: unknown;
+  if (text) {
+    try {
+      data = JSON.parse(text) as unknown;
+    } catch {
+      if (res.ok) {
+        throw new ApiError(res.status, 'invalid_response', 'The hub returned an invalid response');
+      }
+      // Proxies and load balancers sometimes replace API errors with HTML. Keep the
+      // stable HTTP error instead of leaking a JSON.parse SyntaxError to the UI.
+      data = undefined;
+    }
+  }
   if (!res.ok) {
     const err = (data as { error?: { code?: string; message?: string; details?: unknown } } | undefined)
       ?.error;

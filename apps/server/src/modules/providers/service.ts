@@ -66,6 +66,27 @@ const slug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 40) || 'custom';
 
+function parseProviderUrl(value: string): URL {
+  const url = new URL(value);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:')
+    throw badRequest('Provider URL must use http or https');
+  if (url.username || url.password) throw badRequest('Provider URL must not contain userinfo');
+  if (url.search || url.hash) throw badRequest('Provider URL must not contain a query or fragment');
+  return url;
+}
+function normalizeStoredBaseUrl(value: string): string {
+  const url = parseProviderUrl(value);
+  url.pathname = url.pathname.replace(/\/+$/, '');
+  return url.toString();
+}
+function discoveryUrl(value: string): string {
+  const url = parseProviderUrl(value);
+  const host = url.hostname.toLowerCase();
+  if (host === 'metadata.google.internal' || host === 'metadata.google.com' || host === '169.254.169.254')
+    throw badRequest('Provider discovery is not allowed for metadata hosts');
+  url.pathname = `${url.pathname.replace(/\/+$/, '')}/models`;
+  return url.toString();
+}
 function supportedLevels(m: Model<Api>): ThinkingLevel[] {
   if (!m.reasoning) return ['off'];
   try {
@@ -247,7 +268,7 @@ export class ProvidersService {
         id,
         'custom',
         input.name,
-        input.baseUrl.replace(/\/+$/, ''),
+        normalizeStoredBaseUrl(input.baseUrl),
         secretId,
         json.stringify({ api: input.api, models: input.models }),
         now,
@@ -279,7 +300,11 @@ export class ProvidersService {
       )
       .run(
         r.kind === 'custom' ? (patch.name ?? r.name) : r.name,
-        r.kind === 'custom' ? (patch.baseUrl?.replace(/\/+$/, '') ?? r.base_url) : r.base_url,
+        r.kind === 'custom'
+          ? patch.baseUrl !== undefined
+            ? normalizeStoredBaseUrl(patch.baseUrl)
+            : r.base_url
+          : r.base_url,
         secretId,
         patch.enabled === undefined ? r.enabled : patch.enabled ? 1 : 0,
         json.stringify(cfg),
@@ -433,18 +458,14 @@ export class ProvidersService {
 
   /** List model ids from an OpenAI-compatible `/models` endpoint. */
   async discover(baseUrl: string, apiKey?: string): Promise<string[]> {
-    const url = `${baseUrl.replace(/\/+$/, '')}/models`;
+    const url = discoveryUrl(baseUrl);
     const res = await fetch(url, {
       headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {},
       signal: AbortSignal.timeout(15_000),
-    }).catch((err: unknown) => {
-      throw new AppError(
-        502,
-        'discover_failed',
-        `Cannot reach ${url}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    }).catch(() => {
+      throw new AppError(502, 'discover_failed', 'Cannot reach provider endpoint');
     });
-    if (!res.ok) throw new AppError(502, 'discover_failed', `${url} returned HTTP ${res.status}`);
+    if (!res.ok) throw new AppError(502, 'discover_failed', `Provider endpoint returned HTTP ${res.status}`);
     const body = (await res.json()) as {
       data?: Array<{ id?: string }>;
       models?: Array<{ name?: string; model?: string }>;
