@@ -124,6 +124,16 @@ export class ResidenceSceneController {
     courtyardZone: 2.2,
   };
 
+  private targetEmitIntensities: Record<string, number> = {
+    Emit_LivingCeiling: 1.18,
+    Emit_LivingLamp: 1.05,
+    Emit_KitchenPendant: 1.12,
+    Emit_BedroomLight: 0.0,
+    Emit_CourtyardPath: 0.9,
+  };
+  private currentEmitIntensities: Record<string, number> = { ...this.targetEmitIntensities };
+  private emitMaterials = new Map<string, THREE.MeshStandardMaterial>();
+
   private bedroomLightColorTarget = new THREE.Color('#ffca85');
   private livingLampTargetOpacity = 0.85;
   private nightStripTargetOpacity = 0;
@@ -136,13 +146,16 @@ export class ResidenceSceneController {
   private livingCurtainRight!: THREE.Mesh;
   private bedroomCurtainLeft!: THREE.Mesh;
   private bedroomCurtainRight!: THREE.Mesh;
-  private garageSlats: THREE.Mesh[] = [];
+  private garageInstancedMesh!: THREE.InstancedMesh;
+  private garageDummy = new THREE.Object3D();
+  private lastGarageShadowVal = -1;
   private lockRingMesh!: THREE.Mesh;
   private lockHaloSprite!: THREE.Sprite;
   private hubHaloSprite!: THREE.Sprite;
   private livingLampSprite!: THREE.Sprite;
   private nightCoveStrip!: THREE.Mesh;
   private hvacParticles!: THREE.Points;
+  private hvacUniforms = { uHvacTime: { value: 0 } };
 
   private livingCurtainTarget = 1; // 1 = open, 0 = closed
   private livingCurtainCurrent = 1;
@@ -163,8 +176,12 @@ export class ResidenceSceneController {
   private roamEnabled = false;
   private userDragging = false;
 
-  // Signal arcs & projected pins
+  // Signal arcs & projected pins (pooled geometries + scratch projection vector)
   private activeArcs: ActiveArc[] = [];
+  private sharedArcOrbGeo = new THREE.SphereGeometry(0.11, 12, 12);
+  private sharedArcRingGeo = new THREE.RingGeometry(0.14, 0.24, 24);
+  private scratchProjVec = new THREE.Vector3();
+  private scratchArcPoint = new THREE.Vector3();
   private entitiesSnapshot: HomeEntity[] = [];
   private activeRoom: RoomId = 'overview';
   private timeOfDay: TimeOfDay = 'dusk';
@@ -172,6 +189,14 @@ export class ResidenceSceneController {
   private rafId = 0;
   private disposed = false;
   private isVisible = true;
+  private veilOpacity = 0;
+  private shadowDirty = true;
+  private baseDpr = 1;
+  private currentDpr = 1;
+  private frameTimeEma = 16.6;
+  private lastPerfStamp = 0;
+  private lastDprAdjustAt = 0;
+  private lastThrottledRenderAt = 0;
   private width = 1;
   private height = 1;
   private frameCounter = 0;
@@ -195,13 +220,14 @@ export class ResidenceSceneController {
     const isSoftwareWebGL = /swiftshader|llvmpipe|software/i.test(unmaskedRenderer);
     this.isSoftwareWebGL = isSoftwareWebGL;
 
-    this.renderer.setPixelRatio(
-      isSoftwareWebGL ? 0.55 : Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2),
-    );
+    this.baseDpr = isSoftwareWebGL ? 0.55 : Math.min(window.devicePixelRatio || 1, isMobile ? 1.35 : 1.75);
+    this.currentDpr = this.baseDpr;
+    this.renderer.setPixelRatio(this.currentDpr);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.18;
     this.renderer.shadowMap.enabled = !isSoftwareWebGL;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#090d16');
@@ -239,14 +265,14 @@ export class ResidenceSceneController {
     this.dirLight.castShadow = !isSoftwareWebGL;
     if (!isSoftwareWebGL) {
       this.dirLight.shadow.mapSize.set(isMobile ? 1024 : 2048, isMobile ? 1024 : 2048);
-      this.dirLight.shadow.camera.near = 2;
-      this.dirLight.shadow.camera.far = 52;
-      const d = 16;
-      this.dirLight.shadow.camera.left = -d;
-      this.dirLight.shadow.camera.right = d;
-      this.dirLight.shadow.camera.top = d;
-      this.dirLight.shadow.camera.bottom = -d;
-      this.dirLight.shadow.bias = -0.0005;
+      this.dirLight.shadow.camera.near = 4;
+      this.dirLight.shadow.camera.far = 48;
+      this.dirLight.shadow.camera.left = -14.5;
+      this.dirLight.shadow.camera.right = 14.5;
+      this.dirLight.shadow.camera.top = 12.5;
+      this.dirLight.shadow.camera.bottom = -12.5;
+      this.dirLight.shadow.bias = -0.0004;
+      this.shadowDirty = true;
     }
     this.scene.add(this.dirLight);
 
@@ -307,15 +333,13 @@ export class ResidenceSceneController {
 
   private setupDynamicAssemblies(): void {
     // 1. Reflecting Courtyard Water Pool ("泽")
-    const waterMat = new THREE.MeshPhysicalMaterial({
+    const waterMat = new THREE.MeshStandardMaterial({
       color: '#102338',
       roughness: 0.08,
-      metalness: 0.12,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.06,
-      bumpMap: this.textures.waterNormal,
+      metalness: 0.16,
+      bumpMap: this.isSoftwareWebGL ? null : this.textures.waterNormal,
       bumpScale: 0.025,
-      envMapIntensity: 2.1,
+      envMapIntensity: 2.0,
       transparent: true,
       opacity: 0.92,
     });
@@ -330,7 +354,7 @@ export class ResidenceSceneController {
       color: '#dfd8cc',
       roughness: 0.88,
       metalness: 0.0,
-      bumpMap: this.textures.linenBump,
+      bumpMap: this.isSoftwareWebGL ? null : this.textures.linenBump,
       bumpScale: 0.015,
       transparent: true,
       opacity: 0.88,
@@ -367,22 +391,19 @@ export class ResidenceSceneController {
     this.bedroomCurtainRight.position.set(2.72, 4.86, 2.72);
     this.scene.add(this.bedroomCurtainLeft, this.bedroomCurtainRight);
 
-    // 3. Motorized Slatted Cedar Garage Gate (X = 9.5, Y = 0.08..2.54, Z = 2.36)
+    // 3. Motorized Slatted Cedar Garage Gate (X = 9.5, Y = 0.08..2.54, Z = 2.36; single InstancedMesh)
     const slatMat = new THREE.MeshStandardMaterial({
-      color: '#7c5335',
+      color: '#825738',
       map: this.textures.walnutColor,
-      roughnessMap: this.textures.walnutRoughness,
+      roughnessMap: this.isSoftwareWebGL ? null : this.textures.walnutRoughness,
       roughness: 0.56,
       metalness: 0.08,
     });
-    for (let i = 0; i < 6; i++) {
-      const slat = new THREE.Mesh(new THREE.BoxGeometry(3.16, 0.39, 0.08), slatMat);
-      slat.position.set(9.5, 0.24 + i * 0.41, 2.36);
-      slat.castShadow = true;
-      slat.receiveShadow = true;
-      this.garageSlats.push(slat);
-      this.scene.add(slat);
-    }
+    this.garageInstancedMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(3.16, 0.39, 0.08), slatMat, 6);
+    this.garageInstancedMesh.castShadow = true;
+    this.garageInstancedMesh.receiveShadow = true;
+    this.updateGarageSlatsTransform(0);
+    this.scene.add(this.garageInstancedMesh);
 
     // 4. Smart Front Door Lock Security Halo & Beacon (lock.front_door)
     const lockRingMat = new THREE.MeshBasicMaterial({
@@ -405,7 +426,7 @@ export class ResidenceSceneController {
         depthWrite: false,
       }),
     );
-    this.lockHaloSprite.position.set(1.18, 1.24, 3.34);
+    this.lockHaloSprite.position.set(1.18, 1.24, 3.48);
     this.lockHaloSprite.scale.set(0.65, 0.65, 1);
     this.scene.add(this.lockHaloSprite);
 
@@ -449,7 +470,7 @@ export class ResidenceSceneController {
     this.nightCoveStrip.position.set(-3.4, 3.47, -2.02);
     this.scene.add(this.nightCoveStrip);
 
-    // 6. Subtle Laminar Climate Airflow Micro-Motes
+    // 6. Subtle Laminar Climate Airflow Micro-Motes (GPU vertex shader drift, zero CPU buffer uploads)
     const pCount = 36;
     const pPos = new Float32Array(pCount * 3);
     for (let i = 0; i < pCount; i++) {
@@ -460,18 +481,40 @@ export class ResidenceSceneController {
     }
     const pGeo = new THREE.BufferGeometry();
     pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-    this.hvacParticles = new THREE.Points(
-      pGeo,
-      new THREE.PointsMaterial({
-        color: '#8ecaff',
-        size: 0.06,
-        transparent: true,
-        opacity: 0.42,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
+    const hvacMat = new THREE.PointsMaterial({
+      color: '#8ecaff',
+      size: 0.06,
+      transparent: true,
+      opacity: 0.42,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    hvacMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uHvacTime = this.hvacUniforms.uHvacTime;
+      shader.vertexShader = `uniform float uHvacTime;\n${shader.vertexShader}`.replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\n  transformed.z = mod(position.z + 3.6 + uHvacTime * 0.42, 2.3) - 3.6;',
+      );
+    };
+    hvacMat.customProgramCacheKey = () => 'cangze-hvac-drift-v1';
+    this.hvacParticles = new THREE.Points(pGeo, hvacMat);
     this.scene.add(this.hvacParticles);
+  }
+
+  private updateGarageSlatsTransform(openFactor: number): void {
+    for (let i = 0; i < 6; i++) {
+      const closedY = 0.24 + i * 0.41;
+      const openY = 2.62;
+      this.garageDummy.position.set(
+        9.5,
+        THREE.MathUtils.lerp(closedY, openY, openFactor),
+        THREE.MathUtils.lerp(2.36, 1.35 - i * 0.35, openFactor),
+      );
+      this.garageDummy.rotation.set(openFactor * (Math.PI * 0.48), 0, 0);
+      this.garageDummy.updateMatrix();
+      this.garageInstancedMesh.setMatrixAt(i, this.garageDummy.matrix);
+    }
+    this.garageInstancedMesh.instanceMatrix.needsUpdate = true;
   }
 
   private loadArchitecturalGlb(): void {
@@ -487,16 +530,13 @@ export class ResidenceSceneController {
           const mName = mat?.name ?? '';
 
           if (mName === 'ArchitecturalGlass') {
-            obj.material = new THREE.MeshPhysicalMaterial({
-              color: '#cbe5fb',
+            obj.material = new THREE.MeshStandardMaterial({
+              color: '#cce6fc',
               transparent: true,
-              opacity: 0.22,
+              opacity: 0.2,
               roughness: 0.05,
-              metalness: 0.08,
-              ior: 1.5,
-              reflectivity: 0.88,
-              clearcoat: 1.0,
-              envMapIntensity: 1.85,
+              metalness: 0.12,
+              envMapIntensity: 1.9,
               side: THREE.DoubleSide,
               depthWrite: false,
             });
@@ -505,31 +545,75 @@ export class ResidenceSceneController {
             return;
           }
 
-          if (mat && mName === 'TravertineStone') {
+          if (mat && mName in this.targetEmitIntensities) {
+            const initialEmit = this.targetEmitIntensities[mName] ?? 0;
+            this.currentEmitIntensities[mName] = initialEmit;
+            mat.emissiveIntensity = initialEmit;
+            this.emitMaterials.set(mName, mat);
+            obj.castShadow = false;
+            obj.receiveShadow = false;
+            return;
+          }
+
+          if (mat && (mName === 'Emit_WarmAccent' || mName === 'Emit_SapphireAccent')) {
+            mat.emissiveIntensity = 1.15;
+            obj.castShadow = false;
+            obj.receiveShadow = false;
+            return;
+          }
+
+          if (mat && mName === 'ShellStone') {
             mat.map = this.textures.travertineColor;
-            mat.bumpMap = this.textures.travertineBump;
-            mat.bumpScale = 0.016;
+            if (!this.isSoftwareWebGL) {
+              mat.bumpMap = this.textures.travertineBump;
+              mat.bumpScale = 0.015;
+            }
             mat.envMapIntensity = 0.65;
             mat.needsUpdate = true;
-          } else if (mat && (mName === 'OiledWalnut' || mName === 'WarmCedar')) {
+          } else if (mat && (mName === 'ShellWood' || mName === 'InteriorWood')) {
             mat.map = this.textures.walnutColor;
-            mat.roughnessMap = this.textures.walnutRoughness;
-            mat.envMapIntensity = 0.85;
+            if (!this.isSoftwareWebGL) {
+              mat.roughnessMap = this.textures.walnutRoughness;
+            }
+            mat.envMapIntensity = mName === 'ShellWood' ? 0.85 : 0.8;
             mat.needsUpdate = true;
-          } else if (mat && mName === 'BoucleLinen') {
-            mat.bumpMap = this.textures.linenBump;
-            mat.bumpScale = 0.018;
+          } else if (mat && mName === 'InteriorSoft') {
+            if (!this.isSoftwareWebGL) {
+              mat.bumpMap = this.textures.linenBump;
+              mat.bumpScale = 0.018;
+            }
+            mat.envMapIntensity = 0.45;
             mat.needsUpdate = true;
-          } else if (mat && mName === 'BrushedBronze') {
+          } else if (mat && (mName === 'ShellMetal' || mName === 'InteriorMetal')) {
             mat.envMapIntensity = 1.45;
+            mat.needsUpdate = true;
+          } else if (mat && mName === 'InteriorSurface') {
+            mat.envMapIntensity = 1.05;
+            mat.needsUpdate = true;
+          } else if (mat && mName === 'Foliage') {
+            mat.envMapIntensity = 0.55;
             mat.needsUpdate = true;
           }
 
-          obj.castShadow = true;
+          const castsShadow =
+            mName === 'ShellStone' || mName === 'ShellWood' || mName === 'ShellMetal' || mName === 'Foliage';
+          obj.castShadow = castsShadow;
           obj.receiveShadow = true;
         });
 
         this.scene.add(root);
+        this.renderer.compile(this.scene, this.camera);
+        if (this.shadowDirty && !this.isSoftwareWebGL) {
+          this.renderer.shadowMap.needsUpdate = true;
+          this.shadowDirty = false;
+        }
+        this.renderer.render(this.scene, this.camera);
+        this.renderer.domElement.dataset.drawCalls = String(this.renderer.info.render.calls);
+        this.renderer.domElement.dataset.renderTriangles = String(this.renderer.info.render.triangles);
+        if (this.isSoftwareWebGL) {
+          this.lastSoftwareRenderAt = performance.now();
+        }
+        this.lastThrottledRenderAt = 0;
         this.callbacks.onModelLoaded?.();
       },
       undefined,
@@ -541,6 +625,8 @@ export class ResidenceSceneController {
 
   public applyTimeOfDay(tod: TimeOfDay): void {
     this.timeOfDay = tod;
+    this.shadowDirty = true;
+    this.lastThrottledRenderAt = 0;
     if (!this.isSoftwareWebGL) {
       if (!this.envCache[tod]) {
         this.envCache[tod] = buildTwilightEnvironment(this.renderer, tod);
@@ -588,6 +674,7 @@ export class ResidenceSceneController {
   public syncEntities(entities: HomeEntity[], waitingLockApproval = false): void {
     this.entitiesSnapshot = entities;
     this.forcePinSync = true;
+    this.lastThrottledRenderAt = 0;
     const byId = new Map(entities.map((e) => [e.id, e]));
 
     const livCeil = byId.get('light.living_ceiling');
@@ -596,12 +683,18 @@ export class ResidenceSceneController {
     const lampVal = livLamp?.state === 'on' ? ((livLamp.brightnessPct ?? 70) / 100) * 2.2 : 0;
     this.targetLightIntensities.livingZone = ceilVal + lampVal;
     this.livingLampTargetOpacity = livLamp?.state === 'on' ? 0.88 : 0;
+    this.targetEmitIntensities.Emit_LivingCeiling =
+      livCeil?.state === 'on' ? 0.45 + ((livCeil.brightnessPct ?? 80) / 100) * 0.9 : 0;
+    this.targetEmitIntensities.Emit_LivingLamp =
+      livLamp?.state === 'on' ? 0.45 + ((livLamp.brightnessPct ?? 70) / 100) * 0.95 : 0;
 
     const kitPend = byId.get('light.kitchen_pendant');
     const coffee = byId.get('switch.coffee_machine');
     const kitVal = kitPend?.state === 'on' ? ((kitPend.brightnessPct ?? 80) / 100) * 3.5 : 0;
     const coffeeVal = coffee?.state === 'on' ? 0.85 : 0;
     this.targetLightIntensities.kitchenHallZone = 0.75 + kitVal + coffeeVal;
+    this.targetEmitIntensities.Emit_KitchenPendant =
+      kitPend?.state === 'on' ? 0.45 + ((kitPend.brightnessPct ?? 80) / 100) * 0.9 : 0;
 
     const bedLight = byId.get('light.bedroom_light');
     const bedNight = byId.get('light.bedroom_nightlight');
@@ -611,10 +704,14 @@ export class ResidenceSceneController {
     this.targetLightIntensities.bedroomZone = bedMainVal + bedNightVal;
     this.bedroomLightColorTarget.set(bedMainVal > 0.1 ? '#ffca85' : '#ffa74f');
     this.nightStripTargetOpacity = bedNight?.state === 'on' ? 0.88 : 0;
+    this.targetEmitIntensities.Emit_BedroomLight =
+      bedLight?.state === 'on' ? 0.45 + ((bedLight.brightnessPct ?? 65) / 100) * 0.95 : 0;
 
     const pathLight = byId.get('light.courtyard_path');
     this.targetLightIntensities.courtyardZone =
       pathLight?.state === 'on' ? ((pathLight.brightnessPct ?? 60) / 100) * 2.6 : 0;
+    this.targetEmitIntensities.Emit_CourtyardPath =
+      pathLight?.state === 'on' ? 0.4 + ((pathLight.brightnessPct ?? 60) / 100) * 0.85 : 0;
 
     const livCurtain = byId.get('cover.living_curtain');
     this.livingCurtainTarget = livCurtain?.state === 'closed' ? 0 : (livCurtain?.positionPct ?? 100) / 100;
@@ -642,6 +739,7 @@ export class ResidenceSceneController {
   public setCameraPose(pose: CameraPose, room: RoomId = 'overview', offsetRatioX = 0): void {
     this.activeRoom = room;
     this.forcePinSync = true;
+    this.lastThrottledRenderAt = 0;
     this.desiredCamPos.set(...pose.position);
     this.desiredCamTarget.set(...pose.target);
     this.desiredOffsetRatioX = offsetRatioX;
@@ -654,13 +752,23 @@ export class ResidenceSceneController {
   public setRoamMode(enabled: boolean): void {
     this.roamEnabled = enabled;
     this.forcePinSync = true;
+    this.lastThrottledRenderAt = 0;
     this.controls.enabled = enabled;
     if (enabled) {
       this.desiredOffsetRatioX = 0;
     }
   }
 
+  public setVeilOpacity(opacity: number): void {
+    const prevHeavy = this.veilOpacity >= 0.75;
+    this.veilOpacity = opacity;
+    if (prevHeavy && opacity < 0.75) {
+      this.lastThrottledRenderAt = 0;
+    }
+  }
+
   public emitSignalArc(event: SignalArcEvent): void {
+    this.lastThrottledRenderAt = 0;
     const start = new THREE.Vector3(...event.from);
     const end = new THREE.Vector3(...event.to);
     const mid = start.clone().lerp(end, 0.5);
@@ -668,7 +776,7 @@ export class ResidenceSceneController {
     mid.y += Math.max(1.4, dist * 0.28);
 
     const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-    const points = curve.getPoints(36);
+    const points = curve.getPoints(32);
     const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
 
     const hex =
@@ -688,15 +796,12 @@ export class ResidenceSceneController {
     const line = new THREE.Line(lineGeo, lineMat);
     this.scene.add(line);
 
-    const orb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.11, 12, 12),
-      new THREE.MeshBasicMaterial({ color: hex }),
-    );
+    const orb = new THREE.Mesh(this.sharedArcOrbGeo, new THREE.MeshBasicMaterial({ color: hex }));
     orb.position.copy(start);
     this.scene.add(orb);
 
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.14, 0.24, 24),
+      this.sharedArcRingGeo,
       new THREE.MeshBasicMaterial({
         color: hex,
         transparent: true,
@@ -721,6 +826,10 @@ export class ResidenceSceneController {
 
   public setVisibility(visible: boolean): void {
     this.isVisible = visible;
+    if (visible) {
+      this.lastPerfStamp = 0;
+      this.lastThrottledRenderAt = 0;
+    }
   }
 
   public resize(width: number, height: number): void {
@@ -746,8 +855,42 @@ export class ResidenceSceneController {
     this.rafId = requestAnimationFrame(this.animate);
     if (!this.isVisible) return;
 
-    if (this.isSoftwareWebGL && performance.now() - this.lastSoftwareRenderAt < 240) {
+    const now = performance.now();
+    if (this.isSoftwareWebGL && now - this.lastSoftwareRenderAt < 240) {
       return;
+    }
+
+    // Throttle GPU work when hero veil nearly hides the background scene under scrolled sections
+    if (!this.isSoftwareWebGL && this.veilOpacity >= 0.75 && !this.roamEnabled) {
+      if (now - this.lastThrottledRenderAt < 66) {
+        return;
+      }
+      this.lastThrottledRenderAt = now;
+    }
+
+    // Adaptive DPR on real hardware based on smoothed frame cadence
+    if (!this.isSoftwareWebGL && this.veilOpacity < 0.75) {
+      if (this.lastPerfStamp > 0) {
+        const frameDeltaMs = now - this.lastPerfStamp;
+        if (frameDeltaMs > 1 && frameDeltaMs < 120) {
+          this.frameTimeEma = this.frameTimeEma * 0.9 + frameDeltaMs * 0.1;
+          if (now - this.lastDprAdjustAt > 950) {
+            let nextDpr = this.currentDpr;
+            if (this.frameTimeEma > 23 && this.currentDpr > 1.0) {
+              nextDpr = Math.max(1.0, Number((this.currentDpr - 0.25).toFixed(2)));
+            } else if (this.frameTimeEma < 17.5 && this.currentDpr < this.baseDpr) {
+              nextDpr = Math.min(this.baseDpr, Number((this.currentDpr + 0.25).toFixed(2)));
+            }
+            if (Math.abs(nextDpr - this.currentDpr) > 0.05) {
+              this.currentDpr = nextDpr;
+              this.renderer.setPixelRatio(this.currentDpr);
+              this.renderer.setSize(this.width, this.height, false);
+            }
+            this.lastDprAdjustAt = now;
+          }
+        }
+      }
+      this.lastPerfStamp = now;
     }
 
     const dt = Math.min(this.clock.getDelta(), 0.25);
@@ -780,7 +923,7 @@ export class ResidenceSceneController {
       this.applyViewOffset();
     }
 
-    // 2. Smooth interior light transitions
+    // 2. Smooth interior light & GLB emissive fixture transitions
     const lightLerp = 1 - Math.exp(-5.5 * dt);
     (Object.keys(this.roomLights) as Array<keyof typeof this.roomLights>).forEach((key) => {
       const light = this.roomLights[key];
@@ -788,6 +931,19 @@ export class ResidenceSceneController {
       light.intensity += (target - light.intensity) * lightLerp;
     });
     this.roomLights.bedroomZone.color.lerp(this.bedroomLightColorTarget, lightLerp);
+
+    for (const [key, mat] of this.emitMaterials) {
+      const target = this.targetEmitIntensities[key] ?? 0;
+      const cur = this.currentEmitIntensities[key] ?? 0;
+      if (Math.abs(target - cur) > 0.004) {
+        const next = cur + (target - cur) * lightLerp;
+        this.currentEmitIntensities[key] = next;
+        mat.emissiveIntensity = next;
+      } else if (cur !== target) {
+        this.currentEmitIntensities[key] = target;
+        mat.emissiveIntensity = target;
+      }
+    }
 
     // Sync emissive fixture sprites
     const lampMat = this.livingLampSprite.material as THREE.SpriteMaterial;
@@ -810,15 +966,19 @@ export class ResidenceSceneController {
     this.bedroomCurtainLeft.scale.x = bedScale;
     this.bedroomCurtainRight.scale.x = bedScale;
 
-    // 4. Smooth slatted garage door retraction
-    this.garageOpenCurrent += (this.garageOpenTarget - this.garageOpenCurrent) * lightLerp;
-    for (let i = 0; i < this.garageSlats.length; i++) {
-      const slat = this.garageSlats[i];
-      const closedY = 0.24 + i * 0.41;
-      const openY = 2.62;
-      slat.position.y = THREE.MathUtils.lerp(closedY, openY, this.garageOpenCurrent);
-      slat.position.z = THREE.MathUtils.lerp(2.36, 1.35 - i * 0.35, this.garageOpenCurrent);
-      slat.rotation.x = this.garageOpenCurrent * (Math.PI * 0.48);
+    // 4. Smooth slatted garage door retraction (InstancedMesh) & on-demand shadow refresh
+    if (Math.abs(this.garageOpenTarget - this.garageOpenCurrent) > 0.001) {
+      this.garageOpenCurrent += (this.garageOpenTarget - this.garageOpenCurrent) * lightLerp;
+      this.updateGarageSlatsTransform(this.garageOpenCurrent);
+      if (Math.abs(this.garageOpenCurrent - this.lastGarageShadowVal) > 0.018) {
+        this.lastGarageShadowVal = this.garageOpenCurrent;
+        this.shadowDirty = true;
+      }
+    } else if (this.garageOpenCurrent !== this.garageOpenTarget) {
+      this.garageOpenCurrent = this.garageOpenTarget;
+      this.updateGarageSlatsTransform(this.garageOpenCurrent);
+      this.lastGarageShadowVal = this.garageOpenCurrent;
+      this.shadowDirty = true;
     }
 
     // 5. Smart Front Door Lock Security Halo
@@ -842,23 +1002,16 @@ export class ResidenceSceneController {
       lockSpriteMat.opacity = 0.48;
     }
 
-    // 6. Reflecting Pool Water Ripple Drift & Climate Airflow Motes
+    // 6. Reflecting Pool Water Ripple Drift & GPU Climate Airflow Motes
     this.textures.waterNormal.offset.x = (elapsed * 0.018) % 1;
     this.textures.waterNormal.offset.y = (elapsed * 0.012) % 1;
 
     this.hvacParticles.visible = this.hvacActive;
     if (this.hvacActive) {
-      const posAttr = this.hvacParticles.geometry.attributes.position as THREE.BufferAttribute;
-      for (let i = 0; i < posAttr.count; i++) {
-        let z = posAttr.getZ(i) + dt * 0.42;
-        if (z > -1.3) z = -3.6;
-        posAttr.setZ(i, z);
-      }
-      posAttr.needsUpdate = true;
+      this.hvacUniforms.uHvacTime.value = elapsed;
     }
 
     // 7. Update 3D Signal Arcs
-    const now = performance.now();
     for (let i = this.activeArcs.length - 1; i >= 0; i--) {
       const arc = this.activeArcs[i];
       const t = (now - arc.born) / arc.duration;
@@ -866,14 +1019,13 @@ export class ResidenceSceneController {
         this.scene.remove(arc.line, arc.orb, arc.ring);
         arc.line.geometry.dispose();
         (arc.line.material as THREE.Material).dispose();
-        arc.orb.geometry.dispose();
         (arc.orb.material as THREE.Material).dispose();
-        arc.ring.geometry.dispose();
         (arc.ring.material as THREE.Material).dispose();
         this.activeArcs.splice(i, 1);
       } else {
         const travel = Math.min(1, t * 1.35);
-        arc.orb.position.copy(arc.curve.getPoint(travel));
+        arc.curve.getPoint(travel, this.scratchArcPoint);
+        arc.orb.position.copy(this.scratchArcPoint);
         const fade = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
         (arc.line.material as THREE.LineBasicMaterial).opacity = 0.78 * fade;
         arc.ring.lookAt(this.camera.position);
@@ -882,7 +1034,16 @@ export class ResidenceSceneController {
       }
     }
 
+    if (this.shadowDirty && !this.isSoftwareWebGL) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.shadowDirty = false;
+    }
+
     this.renderer.render(this.scene, this.camera);
+    if (this.frameCounter % 30 === 0) {
+      this.renderer.domElement.dataset.drawCalls = String(this.renderer.info.render.calls);
+      this.renderer.domElement.dataset.renderTriangles = String(this.renderer.info.render.triangles);
+    }
     if (this.isSoftwareWebGL) {
       this.lastSoftwareRenderAt = performance.now();
     }
@@ -891,7 +1052,7 @@ export class ResidenceSceneController {
     this.frameCounter++;
     if (this.frameCounter % 3 === 0 && this.callbacks.onPinsProjected && this.entitiesSnapshot.length > 0) {
       const candidates: Array<ProjectedPin & { priority: number }> = [];
-      const v = new THREE.Vector3();
+      const v = this.scratchProjVec;
       for (const ent of this.entitiesSnapshot) {
         if (!ent.pinRooms.includes(this.activeRoom)) continue;
         v.set(...ent.anchor3d);
@@ -988,6 +1149,28 @@ export class ResidenceSceneController {
     this.disposed = true;
     cancelAnimationFrame(this.rafId);
     this.controls.dispose();
+    this.sharedArcOrbGeo.dispose();
+    this.sharedArcRingGeo.dispose();
+    for (const arc of this.activeArcs) {
+      arc.line.geometry.dispose();
+      (arc.line.material as THREE.Material).dispose();
+      (arc.orb.material as THREE.Material).dispose();
+      (arc.ring.material as THREE.Material).dispose();
+    }
+    this.activeArcs = [];
+    this.emitMaterials.clear();
+    this.scene.traverse((obj) => {
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Points || obj instanceof THREE.Line) {
+        obj.geometry?.dispose();
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach((m) => m.dispose());
+        } else {
+          obj.material?.dispose();
+        }
+      } else if (obj instanceof THREE.Sprite) {
+        obj.material?.dispose();
+      }
+    });
     this.textures.dispose();
     Object.values(this.envCache).forEach((tex) => tex?.dispose());
     this.renderer.dispose();

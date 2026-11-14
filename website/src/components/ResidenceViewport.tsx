@@ -121,13 +121,27 @@ export function ResidenceViewport({
     });
     ro.observe(container);
 
+    let inViewport = true;
+    const syncVisible = () => {
+      ctrl?.setVisibility(!document.hidden && inViewport);
+    };
+    const io = new IntersectionObserver(
+      (entries) => {
+        inViewport = entries[0]?.isIntersecting ?? true;
+        syncVisible();
+      },
+      { threshold: 0 },
+    );
+    io.observe(container);
+
     const onVis = () => {
-      ctrl?.setVisibility(!document.hidden);
+      syncVisible();
     };
     document.addEventListener('visibilitychange', onVis);
 
     return () => {
       document.removeEventListener('visibilitychange', onVis);
+      io.disconnect();
       ro.disconnect();
       ctrl?.dispose();
       controllerRef.current = null;
@@ -149,6 +163,10 @@ export function ResidenceViewport({
   useEffect(() => {
     controllerRef.current?.setRoamMode(roamMode);
   }, [roamMode]);
+
+  useEffect(() => {
+    controllerRef.current?.setVeilOpacity(roamMode ? 0 : veilOpacity);
+  }, [veilOpacity, roamMode]);
 
   useEffect(() => {
     if (latestSignal) {
