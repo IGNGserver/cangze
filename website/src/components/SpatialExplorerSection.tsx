@@ -3,14 +3,14 @@ import {
   ArrowUp,
   Blinds,
   Coffee,
-  GitBranch,
   Lightbulb,
   Lock,
   LockOpen,
+  MessageCircleHeart,
   Minus,
   Pause,
   Plus,
-  ShieldAlert,
+  ShieldCheck,
   Thermometer,
   Warehouse,
 } from 'lucide-react';
@@ -49,8 +49,74 @@ function entityLeadIcon(e: HomeEntity) {
     case 'switch':
       return <Coffee size={16} />;
     default:
-      return <ShieldAlert size={16} />;
+      return <ShieldCheck size={16} />;
   }
+}
+
+function formatFriendlyStatus(e: HomeEntity, lang: Lang): string {
+  if (e.domain === 'light') {
+    if (e.state === 'on') {
+      return lang === 'zh' ? `亮着 · 亮度 ${e.brightnessPct ?? 100}%` : `On · ${e.brightnessPct ?? 100}%`;
+    }
+    return lang === 'zh' ? '已关灯' : 'Off';
+  }
+  if (e.domain === 'cover') {
+    if (e.deviceClass === 'garage') {
+      return e.state === 'open'
+        ? lang === 'zh'
+          ? '车库门开着'
+          : 'Gate open'
+        : lang === 'zh'
+          ? '车库门已关严'
+          : 'Gate closed';
+    }
+    return e.state === 'open' ? (lang === 'zh' ? '已拉开' : 'Open') : lang === 'zh' ? '已拉合' : 'Closed';
+  }
+  if (e.domain === 'climate') {
+    const modeText =
+      lang === 'zh' ? (e.state === 'cool' ? '制冷' : '舒适恒温') : e.state === 'cool' ? 'Cooling' : 'Comfort';
+    return `${modeText} · ${e.temperature?.toFixed(1) ?? '23.0'}°C (${lang === 'zh' ? '室内' : 'now'} ${e.currentTemperature?.toFixed(1) ?? '23.0'}°C)`;
+  }
+  if (e.domain === 'lock') {
+    return e.state === 'locked'
+      ? lang === 'zh'
+        ? '已锁好 · 放心'
+        : 'Locked safely'
+      : lang === 'zh'
+        ? '未上锁'
+        : 'Unlocked';
+  }
+  if (e.domain === 'switch') {
+    return e.state === 'on'
+      ? lang === 'zh'
+        ? '通电待机中'
+        : 'Powered on'
+      : lang === 'zh'
+        ? '已关闭电源'
+        : 'Powered off';
+  }
+  if (e.domain === 'binary_sensor') {
+    return e.state === 'on'
+      ? lang === 'zh'
+        ? '门口有人经过'
+        : 'Motion sensed'
+      : lang === 'zh'
+        ? '门口很安静'
+        : 'All quiet';
+  }
+  if (e.domain === 'alarm_control_panel') {
+    return e.state === 'armed_away'
+      ? lang === 'zh'
+        ? '离家守护中'
+        : 'Armed'
+      : lang === 'zh'
+        ? '在家模式（未设防）'
+        : 'Home mode (disarmed)';
+  }
+  if (e.domain === 'sensor') {
+    return `${e.state} ${e.unit ?? ''}`.trim();
+  }
+  return e.state;
 }
 
 export function SpatialExplorerSection({
@@ -64,18 +130,16 @@ export function SpatialExplorerSection({
   onCoverCommand,
 }: SpatialExplorerSectionProps) {
   const effectiveRoom: Exclude<RoomId, 'overview'> = activeRoom === 'overview' ? 'living_room' : activeRoom;
-
   const roomEntities = entities.filter((e) => e.room === effectiveRoom && e.placement === 'room');
-  const expandedIds = roomEntities.map((e) => e.id);
 
   return (
-    <section id="explore" data-section="explore" className="cz-section cz-split-section is-right">
-      <div className="cz-narrative-column cz-glass-panel">
+    <section id="explore" data-section="explore" className="cz-story-section">
+      <div className="cz-warm-card cz-section-card">
         <div className="cz-section-tag">{tr(COPY.explore.tag, lang)}</div>
         <h2 className="cz-section-title">{tr(COPY.explore.title, lang)}</h2>
         <p className="cz-section-desc">{tr(COPY.explore.desc, lang)}</p>
 
-        {/* Architectural Room Selector Tabs */}
+        {/* Room Selector Grid */}
         <div className="cz-room-grid" role="tablist" aria-label="Explore Rooms">
           {EXPLORE_ROOMS.map((roomId) => {
             const selected = effectiveRoom === roomId && activeRoom !== 'overview';
@@ -96,20 +160,22 @@ export function SpatialExplorerSection({
           })}
         </div>
 
-        {/* Authentic Fluent 2 Cangze Devices Surface */}
-        <div className="cz-fluent-surface">
-          <div className="cz-fluent-header">
+        {/* Clean Warm Home Device Surface */}
+        <div className="cz-home-room-panel">
+          <div className="cz-home-room-header">
             <div>
-              <span className="cz-fluent-title">
-                {lang === 'zh' ? '设备 · ' : 'Devices · '}
+              <span className="cz-home-room-title">
                 {tr(ROOM_LABELS[effectiveRoom], lang)}
+                {lang === 'zh' ? '里的常用设备' : ' Devices'}
               </span>
-              <span className="cz-fluent-meta cz-mono">
-                placement=&quot;room&quot; · {roomEntities.length} {lang === 'zh' ? '个实体' : 'entities'}
+              <span className="cz-home-room-meta">
+                {lang === 'zh'
+                  ? `已自动归整 ${roomEntities.length} 项常用控制`
+                  : `${roomEntities.length} everyday controls`}
               </span>
             </div>
             <button type="button" className="cz-mini-link" onClick={() => onSelectRoom('overview')}>
-              {lang === 'zh' ? '拉回全景鸟瞰' : 'Reset Bird’s-Eye'}
+              {lang === 'zh' ? '看看全屋' : 'Whole Home'}
             </button>
           </div>
 
@@ -125,31 +191,22 @@ export function SpatialExplorerSection({
                 <div
                   key={ent.id}
                   data-testid={`tile-${ent.id}`}
-                  className={`cz-fluent-tile ${isOn ? 'is-active' : ''}`}
+                  className={`cz-device-tile ${isOn ? 'is-active' : ''}`}
                 >
-                  <div className="cz-fluent-tile-main">
+                  <div className="cz-device-tile-main">
                     <span className={`cz-tile-icon ${isOn ? 'is-active' : ''}`}>{entityLeadIcon(ent)}</span>
                     <div className="cz-tile-info">
                       <div className="cz-tile-name-row">
                         <strong>{tr(ent.name, lang)}</strong>
                         {ent.highRisk && (
-                          <span className="cz-risk-tag">{lang === 'zh' ? '高风险' : 'High Risk'}</span>
+                          <span className="cz-risk-tag">{lang === 'zh' ? '需确认' : 'Asks First'}</span>
                         )}
                       </div>
-                      <span className="cz-tile-sub cz-mono">
-                        {ent.id} ·{' '}
-                        {ent.domain === 'light' && ent.state === 'on'
-                          ? `${lang === 'zh' ? '开' : 'On'} · ${ent.brightnessPct ?? 100}%`
-                          : ent.domain === 'climate'
-                            ? `${ent.state} → ${ent.temperature}°C (${ent.currentTemperature}°C)`
-                            : ent.domain === 'sensor'
-                              ? `${ent.state} ${ent.unit ?? ''}`
-                              : ent.state}
-                      </span>
+                      <span className="cz-tile-sub">{formatFriendlyStatus(ent, lang)}</span>
                     </div>
                   </div>
 
-                  {/* Authentic Domain-Specific Fluent Quick Controls */}
+                  {/* Quick Controls */}
                   <div className="cz-tile-controls">
                     {(ent.domain === 'light' || ent.domain === 'switch') && (
                       <div className="cz-light-controls">
@@ -172,11 +229,11 @@ export function SpatialExplorerSection({
                           role="switch"
                           aria-checked={ent.state === 'on'}
                           data-testid={`toggle-${ent.id}`}
-                          className={`cz-fluent-switch ${ent.state === 'on' ? 'is-checked' : ''}`}
+                          className={`cz-warm-switch ${ent.state === 'on' ? 'is-checked' : ''}`}
                           onClick={() => onToggleEntity(ent.id)}
                           aria-label={`Toggle ${tr(ent.name, lang)}`}
                         >
-                          <span className="cz-fluent-switch-thumb" />
+                          <span className="cz-warm-switch-thumb" />
                         </button>
                       </div>
                     )}
@@ -195,7 +252,7 @@ export function SpatialExplorerSection({
                         <button
                           type="button"
                           onClick={() => onCoverCommand(ent.id, 'stop')}
-                          title={lang === 'zh' ? '停止' : 'Stop'}
+                          title={lang === 'zh' ? '暂停' : 'Stop'}
                           aria-label="Stop cover"
                         >
                           <Pause size={13} />
@@ -204,7 +261,7 @@ export function SpatialExplorerSection({
                           type="button"
                           data-testid={`cover-close-${ent.id}`}
                           onClick={() => onCoverCommand(ent.id, 'close')}
-                          title={lang === 'zh' ? '关闭' : 'Close'}
+                          title={lang === 'zh' ? '拉合' : 'Close'}
                           aria-label="Close cover"
                         >
                           <ArrowDown size={13} />
@@ -222,7 +279,7 @@ export function SpatialExplorerSection({
                         >
                           <Minus size={13} />
                         </button>
-                        <span className="cz-climate-readout cz-mono">{ent.temperature?.toFixed(1)}°</span>
+                        <span className="cz-climate-readout">{ent.temperature?.toFixed(1)}°</span>
                         <button
                           type="button"
                           data-testid={`climate-inc-${ent.id}`}
@@ -238,15 +295,15 @@ export function SpatialExplorerSection({
                       <button
                         type="button"
                         data-testid={`lock-btn-${ent.id}`}
-                        className="cz-fluent-action-btn"
+                        className="cz-tile-action-btn"
                         onClick={() => onToggleEntity(ent.id)}
                       >
                         {ent.state === 'locked'
                           ? lang === 'zh'
-                            ? '解锁'
+                            ? '去解锁'
                             : 'Unlock'
                           : lang === 'zh'
-                            ? '上锁'
+                            ? '去上锁'
                             : 'Lock'}
                       </button>
                     )}
@@ -256,22 +313,13 @@ export function SpatialExplorerSection({
             })}
           </div>
 
-          {/* Target Expansion Architectural Invariant Callout */}
-          <div className="cz-invariant-box">
-            <div className="cz-invariant-head">
-              <GitBranch size={14} className="cz-accent-icon" />
-              <span className="cz-mono">
-                target: &#123; area_id: &quot;{effectiveRoom}&quot; &#125; → HaGateway.expandTargets()
-              </span>
+          {/* Everyday Spoken Interaction Tip */}
+          <div className="cz-spoken-tip-box">
+            <div className="cz-spoken-tip-head">
+              <MessageCircleHeart size={15} className="cz-hearth-icon" />
+              <strong>{tr(COPY.explore.conversationTipTitle, lang)}</strong>
             </div>
-            <p className="cz-invariant-note">{tr(COPY.explore.expansionNote, lang)}</p>
-            <div className="cz-expanded-chips">
-              {expandedIds.map((id) => (
-                <span key={id} className="cz-code-chip cz-mono">
-                  {id}
-                </span>
-              ))}
-            </div>
+            <p className="cz-spoken-tip-note">{tr(COPY.explore.conversationTipBody, lang)}</p>
           </div>
         </div>
       </div>

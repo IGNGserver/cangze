@@ -1,14 +1,4 @@
-import {
-  Blinds,
-  Coffee,
-  Lightbulb,
-  Lock,
-  LockOpen,
-  Radio,
-  ShieldAlert,
-  Thermometer,
-  Warehouse,
-} from 'lucide-react';
+import { Blinds, Coffee, Lightbulb, Lock, LockOpen, ShieldAlert, Thermometer, Warehouse } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ROOM_LABELS, tr } from '../i18n/copy.ts';
 import { ResidenceSceneController } from '../three/residenceScene.ts';
@@ -19,7 +9,6 @@ import type {
   ProjectedPin,
   RoomId,
   SignalArcEvent,
-  StreamEventItem,
   TimeOfDay,
 } from '../types/home.ts';
 
@@ -34,7 +23,6 @@ interface ResidenceViewportProps {
   veilOpacity: number;
   waitingLockApproval: boolean;
   latestSignal: SignalArcEvent | null;
-  latestStreamEvent: StreamEventItem;
   onSelectRoom: (room: RoomId) => void;
   onPinAction: (entityId: string) => void;
 }
@@ -60,15 +48,15 @@ function pinIcon(entity: HomeEntity) {
 
 function formatPinState(entity: HomeEntity, lang: Lang, waitingLock: boolean): string {
   if (entity.id === 'lock.front_door' && waitingLock) {
-    return lang === 'zh' ? '待批准…' : 'Pending…';
+    return lang === 'zh' ? '等你确认…' : 'Ask first…';
   }
   if (entity.domain === 'light') {
     if (entity.state === 'off') return lang === 'zh' ? '已关' : 'Off';
     return `${entity.brightnessPct ?? 100}%`;
   }
   if (entity.domain === 'cover') {
-    if (entity.state === 'closed') return lang === 'zh' ? '已关闭' : 'Closed';
-    return lang === 'zh' ? '已开启' : 'Open';
+    if (entity.state === 'closed') return lang === 'zh' ? '已关好' : 'Closed';
+    return lang === 'zh' ? '已拉开' : 'Open';
   }
   if (entity.domain === 'climate') {
     return `${entity.temperature ?? 23}°C`;
@@ -82,7 +70,7 @@ function formatPinState(entity: HomeEntity, lang: Lang, waitingLock: boolean): s
         ? '未上锁'
         : 'Unlocked';
   }
-  return entity.state === 'on' ? (lang === 'zh' ? '运行中' : 'On') : lang === 'zh' ? '待机' : 'Off';
+  return entity.state === 'on' ? (lang === 'zh' ? '开着' : 'On') : lang === 'zh' ? '待机' : 'Off';
 }
 
 export function ResidenceViewport({
@@ -96,7 +84,6 @@ export function ResidenceViewport({
   veilOpacity,
   waitingLockApproval,
   latestSignal,
-  latestStreamEvent,
   onSelectRoom,
   onPinAction,
 }: ResidenceViewportProps) {
@@ -121,7 +108,7 @@ export function ResidenceViewport({
       });
       controllerRef.current = ctrl;
     } catch (err) {
-      console.warn('WebGL unavailable, using architectural vector stage fallback', err);
+      console.warn('WebGL unavailable, using warm residence fallback', err);
       setWebglFallback(true);
       return;
     }
@@ -184,15 +171,13 @@ export function ResidenceViewport({
       ) : (
         <div className="cz-stage-fallback" data-testid="residence-fallback">
           <img src="./brand/cangze-ridge.svg" alt="" width={72} height={72} />
-          <p>
-            {lang === 'zh' ? '藏泽现代主义智能住宅 · 空间视图' : 'Cangze Smart Residence · Spatial Stage'}
-          </p>
+          <p>{lang === 'zh' ? '藏泽暖居 · 空间小景' : 'Cangze Residence View'}</p>
         </div>
       )}
 
       {/* Projected 3D Spatial Device Hotspot Pins */}
       {showInteractivePins && !webglFallback && (
-        <div className="cz-pin-layer" aria-label="3D Smart Device Anchors">
+        <div className="cz-pin-layer" aria-label="Home Device Shortcuts">
           {pins
             .filter((p) => p.visible)
             .map((pin) => {
@@ -214,7 +199,7 @@ export function ResidenceViewport({
                     transform: `translate3d(${pin.x.toFixed(1)}px, ${pin.y.toFixed(1)}px, 0) translate(-50%, -50%)`,
                   }}
                   onClick={() => onPinAction(ent.id)}
-                  title={`${tr(ent.name, lang)} (${ent.id})`}
+                  title={tr(ent.name, lang)}
                 >
                   <span className="cz-pin-icon">{pinIcon(ent)}</span>
                   <span className="cz-pin-name">{tr(ent.name, lang)}</span>
@@ -225,17 +210,8 @@ export function ResidenceViewport({
         </div>
       )}
 
-      {/* Atmospheric narrative readability veil for deep scroll chapters */}
-      <div
-        className="cz-stage-veil"
-        style={{
-          opacity: roamMode ? 0 : veilOpacity,
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* Bottom Spatial HUD Bar: Room Switcher + Live /api/v1/stream Sequence Feed */}
-      <div className={`cz-stage-hud ${veilOpacity > 0.65 && !roamMode ? 'is-muted' : ''}`}>
+      {/* Clean Room Switcher Bar */}
+      <div className="cz-stage-hud">
         <div className="cz-room-pills" role="tablist" aria-label="Residence Rooms">
           {ROOM_ORDER.map((roomId) => (
             <button
@@ -251,21 +227,13 @@ export function ResidenceViewport({
             </button>
           ))}
         </div>
-
-        <div className="cz-stream-pill" aria-live="polite">
-          <Radio size={13} className="cz-stream-dot" />
-          <span className="cz-mono">seq #{latestStreamEvent.seq}</span>
-          <span className="cz-stream-sep">·</span>
-          <span className="cz-stream-topic cz-mono">{latestStreamEvent.topic}</span>
-          <span className="cz-stream-summary">{latestStreamEvent.summary}</span>
-        </div>
       </div>
 
       {roamMode && (
         <div className="cz-roam-hint">
           {lang === 'zh'
-            ? '自由漫游已开启：拖拽旋转视角 · 滚轮缩放 · 点击房间或设备锚点直接控制'
-            : '3D Roam Active: Drag to orbit · Scroll to zoom · Click room pills or 3D device pins'}
+            ? '自由逛逛已开启：按住拖动旋转房子 · 滚轮拉近看看 · 点房间标签切换角落'
+            : 'Free Explore Active: Drag to turn · Scroll to zoom · Tap rooms or pins to interact'}
         </div>
       )}
     </div>

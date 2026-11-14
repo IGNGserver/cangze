@@ -20,12 +20,13 @@ type WorkbenchTab = 'sessions' | 'devices' | 'agents' | 'automations' | 'audit' 
 
 export function ProductShowcaseSection({ lang }: ProductShowcaseSectionProps) {
   const [activeTab, setActiveTab] = useState<WorkbenchTab>('sessions');
-  const [uiTheme, setUiTheme] = useState<'dark' | 'light'>('dark');
+  const [uiTheme, setUiTheme] = useState<'dark' | 'light'>('light');
 
   const tabs: Array<{
     id: WorkbenchTab;
     icon: typeof MessageSquareText;
     label: { zh: string; en: string };
+    panelTitle: { zh: string; en: string };
     headline: { zh: string; en: string };
     points: Array<{ zh: string; en: string }>;
     screenshot?: { dark: string; light: string; alt: { zh: string; en: string } };
@@ -33,138 +34,144 @@ export function ProductShowcaseSection({ lang }: ProductShowcaseSectionProps) {
     {
       id: 'sessions',
       icon: MessageSquareText,
-      label: { zh: '平等主会话', en: 'Sessions' },
+      label: { zh: '自然对话', en: 'Everyday Chat' },
+      panelTitle: { zh: '藏泽 · 对话', en: 'Cangze · Chat' },
       headline: {
-        zh: '任意多个平等会话：独立模型、思考强度、消息分支与工具流',
-        en: 'Multiple Equal Primary Sessions with Branching & Live Tool Chains',
+        zh: '像跟家人发微信一样说话，开了哪盏灯、停在哪一步清清楚楚',
+        en: 'Chat naturally about your home—every action stays transparent',
       },
       points: [
         {
-          zh: '每个会话独立绑定模型与推理强度（off ～ max），编辑历史提问自动生成 ‹ 2/3 › 对话树分支，原回复完整保留。',
-          en: 'Per-session modelRef & thinkingLevel; editing any user prompt forks a sibling ‹ 2/3 › tree branch non-destructively.',
+          zh: '想单独聊“客厅怎么调灯光”、或者顺口查“今天冷不冷”，都可以各自开一段对话，互不干扰。',
+          en: 'Keep separate chats for routines, quick checks, or room tuning—each with its own clear history.',
         },
         {
-          zh: '上下文接近模型窗口 80% 时自动生成追加式摘要条目（compaction）；支持多端草稿乐观同步与导出脱敏 Markdown/JSONL。',
-          en: 'Automatic context compaction at 80% window, multi-device draft sync, and redacted Markdown/JSONL export.',
+          zh: '改一下刚才的说法还能直接对照前后结果；电脑上打到一半的话，切到手机打开也能接着写。',
+          en: 'Try an alternative phrasing without losing previous replies, and pick up drafts smoothly across devices.',
         },
       ],
       screenshot: {
         dark: './screenshots/session-dark.png',
         light: './screenshots/session-light.png',
         alt: {
-          zh: '藏泽真实会话界面：查询灯光并在门锁操作前展示审批卡片',
-          en: 'Real Cangze Sessions UI showing entity lookup and high-risk lock approval',
+          zh: '藏泽产品界面：自然对话查询灯光，在开锁前展示确认卡片',
+          en: 'Cangze chat UI checking lights and asking confirmation before unlocking',
         },
       },
     },
     {
       id: 'devices',
       icon: Home,
-      label: { zh: '房间与设备', en: 'Devices' },
+      label: { zh: '房间与设备', en: 'Rooms & Devices' },
+      panelTitle: { zh: '藏泽 · 全屋设备', en: 'Cangze · Rooms' },
       headline: {
-        zh: '按楼层与区域精准聚合，彻底告别诊断实体噪音',
-        en: 'Floor & Area Grouping Free of Diagnostic Service Noise',
+        zh: '按房间摆好全屋设备，不把杂乱的后台参数塞到你眼前',
+        en: 'Clean room-by-room controls without noisy background clutter',
       },
       points: [
         {
-          zh: 'HaRegistry 自动将实体归类为 room、unassigned、config、integration 与 household，服务设备绝不混入房间磁贴。',
-          en: 'HaRegistry classifies placement into room, config, integration, and household so diagnostic sensors stay out of rooms.',
+          zh: '把信号强度、固件诊断这些平时用不到的条目默默收在后台，房间里只留灯、空调、窗帘和门锁。',
+          en: 'Diagnostic and technical sensors stay tucked away so every room shows only the controls you actually use.',
         },
         {
-          zh: '支持按楼层/域快速筛选、直接开关/调温/控帘、6h/24h/7d 历史曲线抽屉，以及带 JSON Schema 提示的原语服务调用。',
-          en: 'Instant floor/domain filters, inline tile controls, 6h/24h/7d history drawers, and schema-guided service calls.',
+          zh: '点开一盏灯或一台空调，就能随手调亮度温度，也能翻看最近几小时或几天的变化趋势。',
+          en: 'Adjust brightness or temperature right from the card, or open a gentle history chart for recent hours or days.',
         },
       ],
       screenshot: {
         dark: './screenshots/devices-dark.png',
         light: './screenshots/devices-light.png',
         alt: {
-          zh: '藏泽真实设备页：楼层切换、房间磁贴与实时状态控制',
-          en: 'Real Cangze Devices page with floor tabs and live room entity tiles',
+          zh: '藏泽设备页面：按楼层和房间排列的开关与温控卡片',
+          en: 'Cangze devices view organized cleanly by floor and room',
         },
       },
     },
     {
       id: 'agents',
       icon: Bot,
-      label: { zh: '持久化子代理', en: 'Sub-Agents' },
+      label: { zh: '家庭小帮手', en: 'Home Helpers' },
+      panelTitle: { zh: '藏泽 · 家庭帮手', en: 'Cangze · Helpers' },
       headline: {
-        zh: '七合一子代理工作台：概览、设定、权限、触发器、记忆、运行与修订',
-        en: 'Seven-Tab Sub-Agent Studio: Definition, Permissions, Triggers, Memory & Revisions',
+        zh: '点一点模板就能请来一位小帮手，能碰哪些设备写得明明白白',
+        en: 'Create helpers from simple templates with crystal-clear boundaries',
       },
       points: [
         {
-          zh: '内置「夜间安全巡检」「每日能耗日报」「离家检查」模板，实时预览当前权限规则可控制/仅可读/被禁止的实体数量。',
-          en: 'Built-in Night Watch, Energy Report, and Away Check templates with live readable/controllable entity count previews.',
+          zh: '自带「睡前巡查」「离家关灯」「每天用电小结」模板，设置时直接告诉你它能看哪些房间、能动哪些灯。',
+          en: 'Start with Night Check, Away Saver, or Energy Note templates and preview exactly which devices they may touch.',
         },
         {
-          zh: '支持三方冲突审阅合并（避免静默拼接权限数组）、一键紧急停止（关闭触发器 + 取消队列 + 中止当前运行）与每日预算软上限。',
-          en: 'Includes 3-way conflict merge review, one-click Emergency Stop, and daily USD token cost soft caps.',
+          zh: '出门旅游或临时不需要时，点一下“一键暂停”就能让所有后台帮手立刻歇着，绝不打扰家里人。',
+          en: 'Going away or hosting guests? Pause every background helper in a single tap whenever you want.',
         },
       ],
       screenshot: {
         dark: './screenshots/agent-dark.png',
         light: './screenshots/agent-light.png',
         alt: {
-          zh: '藏泽真实子代理工作台：统计面板、高风险策略与运行记录',
-          en: 'Real Cangze Sub-Agents workbench showing run stats, risk policy, and revisions',
+          zh: '藏泽帮手设置界面：权限边界、定时任务与运行历史',
+          en: 'Cangze helper settings showing permissions, triggers, and run history',
         },
       },
     },
     {
       id: 'automations',
       icon: CalendarClock,
-      label: { zh: '自动化与待审批', en: 'Automations' },
+      label: { zh: '配合原有自动化', en: 'Automations' },
+      panelTitle: { zh: '藏泽 · 联动与日程', en: 'Cangze · Routines' },
       headline: {
-        zh: '尊重 Home Assistant 确定性引擎，不发明第二套规则脚本语言',
-        en: 'Respecting Home Assistant as the Single Deterministic Automation Engine',
+        zh: '尊重你在 Home Assistant 里配好的老规则，不让你重头折腾一遍',
+        en: 'Works hand in hand with your existing Home Assistant routines',
       },
       points: [
         {
-          zh: '统一汇集子代理定时计划（按 HA 时区计算）、持久运行队列、全局待审批队列，以及原生 HA 自动化 / 脚本 / 场景开关与只读配置抽屉。',
-          en: 'Unifies sub-agent schedules (in HA time zone), durable run queues, pending approvals, and native HA automation/script/scene inspection.',
+          zh: '门窗传感器一响秒开走廊灯这类准时精准的联动，继续由你原来的 Home Assistant 负责，稳稳当当。',
+          en: 'Fast, exact triggers like hallway motion lights stay right where they belong inside Home Assistant.',
         },
         {
-          zh: '确定性联动继续由 Home Assistant 原生自动化承担；需要上下文判断、跨日记忆对比与自然语言汇报的任务交给子代理。',
-          en: 'Deterministic rules stay native in Home Assistant; nuanced reasoning, memory comparison, and summaries belong to subagents.',
+          zh: '把需要结合上下文、拿捏分寸、还得写几句人话提醒的事交给藏泽，两者各管各的、互不拆台。',
+          en: 'Let Cangze handle nuanced requests, daily check-ins, and plain-language summaries alongside them.',
         },
       ],
     },
     {
       id: 'audit',
       icon: FileSearch,
-      label: { zh: '审计与用量账本', en: 'Audit & Usage' },
+      label: { zh: '家务记录与花费', en: 'History & Cost' },
+      panelTitle: { zh: '藏泽 · 操作与花费记录', en: 'Cangze · Activity' },
       headline: {
-        zh: '每一次读写决策、每一次冲突拦截与每一笔 Token 成本皆可追溯',
-        en: 'Full Traceability Across Principals, Gateway Decisions & Model Costs',
+        zh: '谁在几点动过哪盏灯、今天大模型花了多少钱，翻开账本一目了然',
+        en: 'See every action taken at home and keep daily AI spending clear',
       },
       points: [
         {
-          zh: '精确记录 admin、session:<id>、agent:<id>@<rev>/run:<id> 的每次动作与原因（allowed / approved / rejected / denied / conflict）。',
-          en: 'Logs every action by principal with exact outcome (allowed, approved, rejected, denied, conflict) and recursive secret redaction.',
+          zh: '每一笔操作都写明是家人手动点的、对话里吩咐的，还是后台帮手做的，门锁和重要提醒全部留痕。',
+          en: 'Every change records whether it came from you, a chat, or a helper—especially helpful for doors and locks.',
         },
         {
-          zh: '按模型统计输入、输出、缓存读写 Token 与每日费用，显式区分免费本地模型（$0）与单价未知模型。',
-          en: 'Tracks input/output/cache tokens per model and separates explicit $0 local endpoints from unknown-price providers.',
+          zh: '每天用云端模型花了几分钱都算得清清楚楚；接上家里的免费本地模型后，花销直接显示为零。',
+          en: 'Track everyday cloud model costs clearly, or connect a local model at home for $0 running cost.',
         },
       ],
     },
     {
       id: 'security',
       icon: ShieldCheck,
-      label: { zh: '安全与加密备份', en: 'Security & Backup' },
+      label: { zh: '隐私与加密备份', en: 'Privacy & Backup' },
+      panelTitle: { zh: '藏泽 · 隐私与备份', en: 'Cangze · Safety' },
       headline: {
-        zh: '默认局域网准入、主密钥加密存储与一键口令化在线备份恢复',
-        en: 'LAN-By-Default Admission, Master-Key Secret Box & Encrypted Online Backups',
+        zh: '密码和令牌全在家里加密保存，手机扫码就能连，随时一键打包备份',
+        en: 'Private inside your home network with one-click encrypted backups',
       },
       points: [
         {
-          zh: '公网明文 HTTP 默认拒绝（支持内置 Caddy 自动 HTTPS 证书），严格校验 Host 与 Origin 防范 DNS 重绑定攻击。',
-          en: 'Refuses public plain HTTP by default (optional bundled Caddy HTTPS), with Host allowlist and Origin checks against DNS rebinding.',
+          zh: '默认只允许家里局域网打开访问；连接密码和钥匙都会上锁保存，日志和导出内容也会自动打码。',
+          en: 'Restricted to your home network by default, with keys locked safely and sensitive tokens masked everywhere.',
         },
         {
-          zh: '在线备份单个 SQLite 数据库（可选口令加密并安全打包主密钥以支持跨机迁移），恢复前自动留存 pre-restore 保护副本。',
-          en: 'Online SQLite backups with optional passphrase encryption and automatic pre-restore safety snapshots.',
+          zh: '每天定时替你做一份加密备份。以后就算换了新 NAS 或电脑，把备份文件导进去就能原样恢复。',
+          en: 'Scheduled encrypted backups keep your chats, helpers, and memories safe if you ever move to new hardware.',
         },
       ],
     },
@@ -173,7 +180,7 @@ export function ProductShowcaseSection({ lang }: ProductShowcaseSectionProps) {
   const current = tabs.find((t) => t.id === activeTab) ?? tabs[0];
 
   return (
-    <section id="product" data-section="product" className="cz-section cz-wide-section">
+    <section id="product" data-section="product" className="cz-editorial-section cz-editorial-linen">
       <div className="cz-wide-container">
         <div className="cz-wide-header">
           <div>
@@ -182,17 +189,7 @@ export function ProductShowcaseSection({ lang }: ProductShowcaseSectionProps) {
             <p className="cz-section-desc">{tr(COPY.product.desc, lang)}</p>
           </div>
 
-          {/* Authentic Light / Dark Mode Preview Switcher */}
           <div className="cz-theme-switch-pill" role="group" aria-label="Screenshot Theme">
-            <button
-              type="button"
-              data-testid="ui-theme-dark"
-              className={`cz-theme-opt ${uiTheme === 'dark' ? 'is-active' : ''}`}
-              onClick={() => setUiTheme('dark')}
-            >
-              <Moon size={14} />
-              <span>{lang === 'zh' ? '深色界面' : 'Dark UI'}</span>
-            </button>
             <button
               type="button"
               data-testid="ui-theme-light"
@@ -200,13 +197,21 @@ export function ProductShowcaseSection({ lang }: ProductShowcaseSectionProps) {
               onClick={() => setUiTheme('light')}
             >
               <Sun size={14} />
-              <span>{lang === 'zh' ? '浅色界面' : 'Light UI'}</span>
+              <span>{lang === 'zh' ? '浅色日常' : 'Light Mode'}</span>
+            </button>
+            <button
+              type="button"
+              data-testid="ui-theme-dark"
+              className={`cz-theme-opt ${uiTheme === 'dark' ? 'is-active' : ''}`}
+              onClick={() => setUiTheme('dark')}
+            >
+              <Moon size={14} />
+              <span>{lang === 'zh' ? '深色护眼' : 'Dark Mode'}</span>
             </button>
           </div>
         </div>
 
-        {/* 6-Module Navigation Tabs mirroring Cangze AppShell Rail */}
-        <div className="cz-workbench-tabs" role="tablist" aria-label="Cangze Console Modules">
+        <div className="cz-workbench-tabs" role="tablist" aria-label="Cangze Interface Pages">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const selected = tab.id === activeTab;
@@ -227,29 +232,40 @@ export function ProductShowcaseSection({ lang }: ProductShowcaseSectionProps) {
           })}
         </div>
 
-        {/* Showcase Frame */}
         <div className="cz-showcase-grid">
-          <div className="cz-showcase-copy cz-glass-panel">
-            <h3>{tr(current.headline, lang)}</h3>
-            <ul className="cz-feature-bullets">
-              {current.points.map((pt, i) => (
-                <li key={i}>{tr(pt, lang)}</li>
-              ))}
-            </ul>
-            <div className="cz-contract-badge cz-mono">
-              REST /api/v1 + WS /api/v1/stream (epoch snapshot + seq replay)
+          <div className="cz-showcase-copy cz-warm-card">
+            <div>
+              <h3>{tr(current.headline, lang)}</h3>
+              <ul className="cz-feature-bullets">
+                {current.points.map((pt, i) => (
+                  <li key={i}>{tr(pt, lang)}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="cz-gentle-badge">
+              {lang === 'zh'
+                ? '电脑、平板与手机浏览器打开就能用'
+                : 'Works smoothly across desktop, tablet, and phone'}
             </div>
           </div>
 
           <div className={`cz-browser-frame is-${uiTheme}`} data-testid="product-preview-frame">
-            <div className="cz-browser-bar">
+            <div className={`cz-browser-bar is-${uiTheme}`}>
               <div className="cz-window-dots">
                 <span />
                 <span />
                 <span />
               </div>
-              <div className="cz-browser-url cz-mono">http://127.0.0.1:38417/{activeTab}</div>
-              <span className="cz-browser-tag cz-mono">Fluent 2 · {uiTheme}</span>
+              <div className="cz-browser-url">{tr(current.panelTitle, lang)}</div>
+              <span className="cz-browser-tag">
+                {uiTheme === 'light'
+                  ? lang === 'zh'
+                    ? '清爽浅色'
+                    : 'Daylight'
+                  : lang === 'zh'
+                    ? '夜间深色'
+                    : 'Evening'}
+              </span>
             </div>
 
             {current.screenshot ? (
@@ -262,41 +278,44 @@ export function ProductShowcaseSection({ lang }: ProductShowcaseSectionProps) {
                 />
               </div>
             ) : (
-              /* Faithful Fluent 2 Interactive Preview Surface for Automations / Audit / Security */
               <div className={`cz-synthetic-console is-${uiTheme}`}>
                 {activeTab === 'automations' && (
                   <div className="cz-syn-pane">
                     <div className="cz-syn-tabs">
                       <span className="is-on">
-                        {lang === 'zh' ? 'HA 自动化、脚本与场景' : 'HA Automations & Scenes'}
+                        {lang === 'zh' ? '家里原有的自动化与场景' : 'Home Assistant Routines & Scenes'}
                       </span>
-                      <span>{lang === 'zh' ? '子代理计划 (2)' : 'Subagent Schedule (2)'}</span>
-                      <span>{lang === 'zh' ? '待审批 (0)' : 'Pending Approvals (0)'}</span>
+                      <span>{lang === 'zh' ? '帮手日程 (2)' : 'Helper Schedule (2)'}</span>
+                      <span>{lang === 'zh' ? '待确认事项 (0)' : 'Waiting for You (0)'}</span>
                     </div>
                     <div className="cz-syn-table">
                       <div className="cz-syn-row is-head">
-                        <span>{lang === 'zh' ? '类型' : 'Kind'}</span>
-                        <span>{lang === 'zh' ? '名称 / 实体 ID' : 'Name / Entity'}</span>
-                        <span>{lang === 'zh' ? '启用' : 'Enabled'}</span>
-                        <span>{lang === 'zh' ? '只读配置检查' : 'Config Drawer'}</span>
+                        <span>{lang === 'zh' ? '类型' : 'Type'}</span>
+                        <span>{lang === 'zh' ? '名称' : 'Routine Name'}</span>
+                        <span>{lang === 'zh' ? '状态' : 'Status'}</span>
+                        <span>{lang === 'zh' ? '操作' : 'Action'}</span>
                       </div>
                       <div className="cz-syn-row">
-                        <span className="cz-syn-tag">automation</span>
-                        <span>日落自动开启泽畔汀步灯 · automation.sunset_courtyard</span>
-                        <span className="text-emerald">ON</span>
-                        <span className="cz-mono">JSON Verified</span>
+                        <span className="cz-syn-tag">{lang === 'zh' ? '定时联动' : 'Automation'}</span>
+                        <span>
+                          {lang === 'zh' ? '日落自动点亮庭院步道灯' : 'Turn on garden path lights at sunset'}
+                        </span>
+                        <span className="text-sage">{lang === 'zh' ? '开启中' : 'On'}</span>
+                        <span>{lang === 'zh' ? '查看详情' : 'View'}</span>
                       </div>
                       <div className="cz-syn-row">
-                        <span className="cz-syn-tag">scene</span>
-                        <span>会客茶叙暖光场景 · scene.tea_gathering</span>
+                        <span className="cz-syn-tag">{lang === 'zh' ? '生活场景' : 'Scene'}</span>
+                        <span>
+                          {lang === 'zh' ? '亲友来访 · 客厅暖光茶叙' : 'Tea & Guests · Warm Living Room'}
+                        </span>
                         <span>—</span>
-                        <span className="cz-mono">Activate</span>
+                        <span>{lang === 'zh' ? '一键开启' : 'Activate'}</span>
                       </div>
                       <div className="cz-syn-row">
-                        <span className="cz-syn-tag">script</span>
-                        <span>全屋新风换气循环 · script.fresh_air_purge</span>
+                        <span className="cz-syn-tag">{lang === 'zh' ? '快捷脚本' : 'Script'}</span>
+                        <span>{lang === 'zh' ? '全屋换气新风十五分钟' : '15-Min Fresh Air Refresh'}</span>
                         <span>—</span>
-                        <span className="cz-mono">Run</span>
+                        <span>{lang === 'zh' ? '立即运行' : 'Run'}</span>
                       </div>
                     </div>
                   </div>
@@ -305,34 +324,34 @@ export function ProductShowcaseSection({ lang }: ProductShowcaseSectionProps) {
                 {activeTab === 'audit' && (
                   <div className="cz-syn-pane">
                     <div className="cz-syn-tabs">
-                      <span className="is-on">{lang === 'zh' ? '审计记录 (audit_log)' : 'Audit Log'}</span>
-                      <span>{lang === 'zh' ? '模型用量 (usage_ledger)' : 'Model Usage'}</span>
-                      <span>{lang === 'zh' ? '系统环形日志' : 'System Ring Buffer'}</span>
+                      <span className="is-on">{lang === 'zh' ? '家里发生了什么' : 'Activity Log'}</span>
+                      <span>{lang === 'zh' ? '每日模型花费' : 'Model Spending'}</span>
+                      <span>{lang === 'zh' ? '运行日记' : 'Daily Notes'}</span>
                     </div>
-                    <div className="cz-syn-table cz-mono">
+                    <div className="cz-syn-table">
                       <div className="cz-syn-row is-head">
-                        <span>Principal</span>
-                        <span>Action → Target</span>
-                        <span>Decision</span>
-                        <span>Redaction</span>
+                        <span>{lang === 'zh' ? '谁操作的' : 'Who'}</span>
+                        <span>{lang === 'zh' ? '做了什么事' : 'Action'}</span>
+                        <span>{lang === 'zh' ? '结果' : 'Result'}</span>
+                        <span>{lang === 'zh' ? '说明' : 'Note'}</span>
                       </div>
                       <div className="cz-syn-row">
-                        <span>session:01k9bed</span>
-                        <span>lock.lock → lock.front_door</span>
-                        <span className="text-emerald">approved</span>
-                        <span>apr_01k9lock</span>
+                        <span>{lang === 'zh' ? '晚安对话' : 'Goodnight Chat'}</span>
+                        <span>{lang === 'zh' ? '锁好玄关大门' : 'Lock front door'}</span>
+                        <span className="text-sage">{lang === 'zh' ? '已确认执行' : 'Confirmed'}</span>
+                        <span>{lang === 'zh' ? '经你亲手点头' : 'Approved by you'}</span>
                       </div>
                       <div className="cz-syn-row">
-                        <span>agent:away-check@r7</span>
-                        <span>light.turn_off → light.living_lamp</span>
-                        <span className="text-amber">conflict</span>
-                        <span>manual_hold (30m)</span>
+                        <span>{lang === 'zh' ? '离家电器收尾' : 'Away Saver'}</span>
+                        <span>{lang === 'zh' ? '尝试关掉客厅落地灯' : 'Close living floor lamp'}</span>
+                        <span className="text-hearth">{lang === 'zh' ? '已主动退让' : 'Stepped back'}</span>
+                        <span>{lang === 'zh' ? '家人刚按过开关' : 'Person used switch'}</span>
                       </div>
                       <div className="cz-syn-row">
-                        <span>agent:night-watch@r4</span>
-                        <span>ha_get_states → 3 entities</span>
-                        <span className="text-emerald">allowed</span>
-                        <span>read-security</span>
+                        <span>{lang === 'zh' ? '睡前门窗巡查' : 'Night Check'}</span>
+                        <span>{lang === 'zh' ? '核对大门与车库门状态' : 'Check door & garage'}</span>
+                        <span className="text-sage">{lang === 'zh' ? '已放行查看' : 'Allowed read'}</span>
+                        <span>{lang === 'zh' ? '仅查看不改动' : 'Read-only check'}</span>
                       </div>
                     </div>
                   </div>
@@ -341,25 +360,27 @@ export function ProductShowcaseSection({ lang }: ProductShowcaseSectionProps) {
                 {activeTab === 'security' && (
                   <div className="cz-syn-pane">
                     <div className="cz-syn-tabs">
-                      <span className="is-on">{lang === 'zh' ? '安全与网络准入' : 'Network & Auth'}</span>
-                      <span>{lang === 'zh' ? '数据与在线加密备份' : 'Encrypted Backups'}</span>
-                      <span>{lang === 'zh' ? '扫码设备配对' : 'QR Client Pairing'}</span>
+                      <span className="is-on">{lang === 'zh' ? '家庭网络保护' : 'Home Network'}</span>
+                      <span>{lang === 'zh' ? '加密备份与搬家' : 'Encrypted Backup'}</span>
+                      <span>{lang === 'zh' ? '手机扫码配对' : 'Phone Pairing'}</span>
                     </div>
                     <div className="cz-syn-cards">
                       <div className="cz-syn-card">
-                        <strong>AES-256-GCM Secret Box</strong>
+                        <strong>{lang === 'zh' ? '钥匙和密钥全都上锁保管' : 'Locked Keys & Secrets'}</strong>
                         <p>
                           {lang === 'zh'
-                            ? 'HA 长期令牌与各模型 API Key 均经 /data/master.key 加密落盘；日志、审批、导出与异常堆栈统一执行递归敏感脱敏。'
-                            : 'HA tokens and LLM API keys encrypted at rest via /data/master.key with recursive redaction across logs & exports.'}
+                            ? '连 Home Assistant 的令牌和你的大模型密钥都加密存在家里主机上，平时查看记录也会自动打码隐藏。'
+                            : 'Your Home Assistant token and model API keys stay encrypted on your own drive and hidden in logs.'}
                         </p>
                       </div>
                       <div className="cz-syn-card">
-                        <strong>Online Encrypted Backup · Cron 0 3 * * *</strong>
+                        <strong>
+                          {lang === 'zh' ? '每天半夜自动存好加密备份' : 'Nightly Encrypted Backup'}
+                        </strong>
                         <p>
                           {lang === 'zh'
-                            ? '单文件热备份全部会话、子代理修订、记忆与审计账本；校验备份清单与 32 字节密钥指纹，文件权限严格保持 0600。'
-                            : 'Hot SQLite backup of sessions, revisions, memory, and audits with manifest validation and 0600 file mode.'}
+                            ? '聊天记录、家庭习惯和帮手配置每天凌晨自动打成一个加密包。以后换新设备，点一下恢复就能原样继续用。'
+                            : 'All chats, helpers, and preferences back up automatically with optional passphrase encryption for easy migration.'}
                         </p>
                       </div>
                     </div>

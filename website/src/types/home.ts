@@ -57,56 +57,27 @@ export interface SignalArcEvent {
   createdAt: number;
 }
 
-export interface AuditEntry {
-  id: string;
-  time: string;
-  principal: string;
-  action: string;
-  target: string;
-  decision: 'allowed' | 'approved' | 'rejected' | 'denied' | 'conflict';
-  reason: { zh: string; en: string };
-}
-
-export interface StreamEventItem {
-  seq: number;
-  topic: string;
-  summary: string;
-  time: string;
-}
-
 export type ScenarioStatus = 'idle' | 'running' | 'waiting_approval' | 'completed' | 'denied_completed';
 
 export interface SubAgentSpec {
   id: string;
   slug: string;
-  revision: number;
-  priority: number;
-  respectManualMinutes: number;
-  contextMode: 'isolated' | 'continuous';
-  highRisk: 'deny' | 'approve' | 'allow';
-  dailyBudgetUsd: string;
-  costTodayUsd: string;
-  runsCount: number;
-  triggerKind: 'cron' | 'ha_state' | 'manual';
-  triggerExpr: string;
+  scheduleText: { zh: string; en: string };
   name: { zh: string; en: string };
   role: { zh: string; en: string };
   summary: { zh: string; en: string };
-  tools: string[];
-  targetEntities: string[];
+  canDo: { zh: string; en: string };
+  cannotDo: { zh: string; en: string };
   memoryNote: { title: { zh: string; en: string }; body: { zh: string; en: string } };
-  ruleSnippet: string;
+  targetEntities: string[];
 }
 
 export interface ArbitrationCase {
   id: 'manual_hold' | 'policy_cap' | 'loop_guard' | 'session_delegate';
   title: { zh: string; en: string };
-  badge: string;
-  httpCode: string;
-  principal: string;
-  targetEntity: string;
-  signalKind: SignalArcEvent['kind'];
+  badge: { zh: string; en: string };
+  verdictTag: { zh: string; en: string };
+  scenarioLabel: { zh: string; en: string };
   description: { zh: string; en: string };
   gatewayVerdict: { zh: string; en: string };
-  auditDecision: AuditEntry['decision'];
 }

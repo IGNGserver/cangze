@@ -16,10 +16,12 @@ interface NavbarProps {
 }
 
 const TIME_ICONS: Record<TimeOfDay, typeof Sunset> = {
-  dusk: Sunset,
   day: Sun,
+  dusk: Sunset,
   night: Moon,
 };
+
+const TIME_ORDER: TimeOfDay[] = ['day', 'dusk', 'night'];
 
 export function Navbar({
   lang,
@@ -62,7 +64,6 @@ export function Navbar({
             <span className="cz-brand-cn">藏泽</span>
             <span className="cz-brand-en">CANGZE</span>
           </span>
-          <span className="cz-version-pill">v0.4.2</span>
         </button>
 
         <nav className="cz-nav-links" aria-label="Primary">
@@ -75,7 +76,7 @@ export function Navbar({
             >
               <span>{item.label}</span>
               {item.badge !== undefined && item.badge > 0 && (
-                <span className="cz-nav-badge" aria-label="Pending approvals">
+                <span className="cz-nav-badge" aria-label="Pending confirmation">
                   {item.badge}
                 </span>
               )}
@@ -85,7 +86,7 @@ export function Navbar({
 
         <div className="cz-nav-actions">
           <div className="cz-tod-group" role="group" aria-label="Lighting Atmosphere">
-            {(['dusk', 'day', 'night'] as TimeOfDay[]).map((tod) => {
+            {TIME_ORDER.map((tod) => {
               const Icon = TIME_ICONS[tod];
               return (
                 <button
@@ -164,7 +165,7 @@ export function Navbar({
             ))}
           </div>
           <div className="cz-mobile-tod-row">
-            {(['dusk', 'day', 'night'] as TimeOfDay[]).map((tod) => {
+            {TIME_ORDER.map((tod) => {
               const Icon = TIME_ICONS[tod];
               return (
                 <button
