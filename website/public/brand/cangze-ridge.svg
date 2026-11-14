@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="ridge" x1="16" y1="34" x2="112" y2="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#76BCFF" />
+      <stop offset="52%" stop-color="#479EF5" />
+      <stop offset="100%" stop-color="#0F6CBD" />
+    </linearGradient>
+    <radialGradient id="hearth" cx="50%" cy="45%" r="58%">
+      <stop offset="0%" stop-color="#FFF2D6" />
+      <stop offset="65%" stop-color="#FFD58E" />
+      <stop offset="100%" stop-color="#E5A246" />
+    </radialGradient>
+    <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="#0E1422" />
+  <path
+    d="M18 76H29.5C33.4 76 37.1 74.3 39.7 71.4L56.8 52.2C60.6 47.9 67.4 47.9 71.2 52.2L88.3 71.4C90.9 74.3 94.6 76 98.5 76H110"
+    stroke="url(#ridge)"
+    stroke-width="14"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <rect x="54" y="68" width="20" height="20" rx="5.5" fill="url(#hearth)" filter="url(#glow)" />
+</svg>

@@ -1,0 +1,33 @@
+{
+  "name": "@cangze/website",
+  "version": "0.4.2",
+  "private": true,
+  "type": "module",
+  "description": "Official interactive 3D architectural website for Cangze (藏泽) — open-source AI hub for Home Assistant.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "generate:model": "node scripts/generate-residence-glb.mjs",
+    "dev": "vite --port 4173",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "verify:visual": "node scripts/verify-website.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.511.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.176.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.176.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "playwright": "1.64.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.4"
+  }
+}
