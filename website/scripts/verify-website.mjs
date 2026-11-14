@@ -1,6 +1,6 @@
 /* global document, requestAnimationFrame, HTMLImageElement */
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
@@ -27,15 +27,71 @@ function resolveCachedChromiumExecutable() {
 }
 
 /**
- * Automated End-to-End Visual, Interactive, Mobile & Performance Verification
+ * Automated End-to-End Static Hosting, SEO, Visual, Interactive, Mobile & Performance Verification
  * for the Cangze Official Website (website/).
  */
 
 const PORT = 4289;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+const DIST_DIR = join(process.cwd(), 'dist');
+const IS_CI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 const OUT_DIR = process.env.WEBSITE_SCREENSHOT_DIR || join(process.cwd(), 'test-results', 'visual-audit');
 
 mkdirSync(OUT_DIR, { recursive: true });
+
+async function snap(targetPage, filename) {
+  if (IS_CI && process.env.FORCE_SCREENSHOTS !== 'true') {
+    return;
+  }
+  await targetPage.screenshot({
+    path: join(OUT_DIR, filename),
+    animations: 'disabled',
+    timeout: 45000,
+  });
+}
+
+function verifyStaticBundle() {
+  const requiredFiles = [
+    'index.html',
+    '404.html',
+    '_headers',
+    'robots.txt',
+    'sitemap.xml',
+    'og/og.png',
+    'models/cangze-residence.glb',
+    'brand/favicon.png',
+    'brand/logo.png',
+  ];
+
+  for (const rel of requiredFiles) {
+    const full = join(DIST_DIR, rel);
+    if (!existsSync(full)) {
+      throw new Error(`Missing required static bundle artifact: dist/${rel}`);
+    }
+    if (statSync(full).size === 0) {
+      throw new Error(`Empty static bundle artifact: dist/${rel}`);
+    }
+  }
+
+  const headersText = readFileSync(join(DIST_DIR, '_headers'), 'utf8');
+  if (!headersText.includes('immutable') || !headersText.includes('X-Content-Type-Options: nosniff')) {
+    throw new Error('dist/_headers is missing immutable caching or security headers');
+  }
+
+  const robotsText = readFileSync(join(DIST_DIR, 'robots.txt'), 'utf8');
+  if (!robotsText.includes('https://cangze.igng.net/sitemap.xml')) {
+    throw new Error('dist/robots.txt does not reference https://cangze.igng.net/sitemap.xml');
+  }
+
+  const sitemapText = readFileSync(join(DIST_DIR, 'sitemap.xml'), 'utf8');
+  if (!sitemapText.includes('<loc>https://cangze.igng.net/</loc>')) {
+    throw new Error('dist/sitemap.xml does not contain canonical https://cangze.igng.net/ entry');
+  }
+
+  process.stdout.write(
+    '[verify] Static bundle, _headers, 404.html, robots.txt, sitemap.xml, and OG card verified.\n',
+  );
+}
 
 function waitForServer(url, timeoutMs = 15000) {
   const start = Date.now();
@@ -61,11 +117,15 @@ function waitForServer(url, timeoutMs = 15000) {
 }
 
 async function runVerification() {
+  verifyStaticBundle();
+
+  const viteBin = join(process.cwd(), 'node_modules', 'vite', 'bin', 'vite.js');
   const server = spawn(
-    'npx',
-    ['vite', 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
+    process.execPath,
+    [viteBin, 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
     {
-      stdio: 'pipe',
+      stdio: 'ignore',
+      detached: process.platform !== 'win32',
     },
   );
 
@@ -95,11 +155,11 @@ async function runVerification() {
     };
 
     // =========================================================================
-    // 1. DESKTOP FULL VISUAL & INTERACTIVE AUDIT (1440 x 900)
+    // 1. DESKTOP FULL VISUAL, SEO & INTERACTIVE AUDIT (1440 x 900)
     // =========================================================================
     const desktopCtx = await browser.newContext({
       viewport: { width: 1440, height: 900 },
-      deviceScaleFactor: 1.5,
+      deviceScaleFactor: IS_CI ? 1 : 1.5,
     });
     const page = await desktopCtx.newPage();
 
@@ -119,9 +179,27 @@ async function runVerification() {
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
     const loadMs = Date.now() - t0;
 
+    // Verify SEO, OpenGraph, Bing verification & JSON-LD metadata in DOM
+    const seoMeta = await page.evaluate(() => ({
+      canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+      ogUrl: document.querySelector('meta[property="og:url"]')?.getAttribute('content'),
+      ogImage: document.querySelector('meta[property="og:image"]')?.getAttribute('content'),
+      bing: document.querySelector('meta[name="msvalidate.01"]')?.getAttribute('content'),
+      hasJsonLd: Boolean(document.querySelector('script[type="application/ld+json"]')?.textContent),
+    }));
+    if (
+      seoMeta.canonical !== 'https://cangze.igng.net/' ||
+      seoMeta.ogUrl !== 'https://cangze.igng.net/' ||
+      seoMeta.ogImage !== 'https://cangze.igng.net/og/og.png' ||
+      !seoMeta.bing ||
+      !seoMeta.hasJsonLd
+    ) {
+      throw new Error(`Invalid SEO/OpenGraph metadata: ${JSON.stringify(seoMeta)}`);
+    }
+
     // Wait for cangze-residence.glb to finish loading into Three.js
     await page.waitForSelector('[data-testid="residence-stage"][data-model-loaded="true"]', {
-      timeout: 10000,
+      timeout: 15000,
     });
     await page.waitForTimeout(700);
 
@@ -151,16 +229,16 @@ async function runVerification() {
         }),
     );
 
-    await page.screenshot({ path: join(OUT_DIR, '01-hero-dusk.png') });
+    await snap(page, '01-hero-dusk.png');
 
     // 2. Test 3D Roam Mode & Time-of-Day Lighting Presets
     await page.getByTestId('toggle-roam-btn').click();
     await page.waitForTimeout(650);
-    await page.screenshot({ path: join(OUT_DIR, '02-roam-3d-dusk.png') });
+    await snap(page, '02-roam-3d-dusk.png');
 
     await page.getByTestId('tod-day').click();
     await page.waitForTimeout(450);
-    await page.screenshot({ path: join(OUT_DIR, '03-roam-3d-daylight.png') });
+    await snap(page, '03-roam-3d-daylight.png');
 
     await page.getByTestId('tod-dusk').click();
     await page.getByTestId('toggle-roam-btn').click();
@@ -173,12 +251,12 @@ async function runVerification() {
     await page.waitForTimeout(650);
     await page.getByTestId('toggle-light.living_lamp').click();
     await page.waitForTimeout(350);
-    await page.screenshot({ path: join(OUT_DIR, '04-explore-living-room.png') });
+    await snap(page, '04-explore-living-room.png');
 
     await page.getByTestId('explore-room-bedroom').click();
     await page.waitForTimeout(700);
     await page.getByTestId('climate-dec-climate.bedroom_ac').click();
-    await page.screenshot({ path: join(OUT_DIR, '05-explore-master-suite.png') });
+    await snap(page, '05-explore-master-suite.png');
 
     // 4. Test AI Bedtime Routine ("帮我准备睡觉") -> Pause at Lock Approval -> Approve!
     await scrollToStart(page, '#bedtime');
@@ -189,13 +267,13 @@ async function runVerification() {
     await page.waitForSelector('[data-testid="approval-card"]', { timeout: 8000 });
     await page.waitForSelector('[data-testid="approval-bell-badge"]', { timeout: 3000 });
     await page.waitForTimeout(500);
-    await page.screenshot({ path: join(OUT_DIR, '06-bedtime-approval-pause.png') });
+    await snap(page, '06-bedtime-approval-pause.png');
 
     // Approve high-risk lock.lock
     await page.getByTestId('approve-lock-btn').click();
     await page.waitForSelector('[data-testid="bedtime-final-reply"]', { timeout: 4000 });
     await page.waitForTimeout(500);
-    await page.screenshot({ path: join(OUT_DIR, '07-bedtime-approved-complete.png') });
+    await snap(page, '07-bedtime-approved-complete.png');
 
     // Also test Reset -> Deny flow quickly to verify both branches work cleanly
     await page.getByTestId('reset-bedtime-btn').click();
@@ -214,7 +292,7 @@ async function runVerification() {
     await page.getByTestId('agent-tab-away-check').click();
     await page.getByTestId('arb-policy_cap').click();
     await page.waitForTimeout(450);
-    await page.screenshot({ path: join(OUT_DIR, '08-subagents-arbitration.png') });
+    await snap(page, '08-subagents-arbitration.png');
 
     // 6. Test Authentic Product Workbench (Real Screenshots + Light/Dark + 6 Tabs)
     await scrollToStart(page, '#product');
@@ -226,18 +304,18 @@ async function runVerification() {
     if (!imgLoaded) {
       throw new Error('Product screenshot failed to load natural dimensions');
     }
-    await page.screenshot({ path: join(OUT_DIR, '09-product-workbench-dark.png') });
+    await snap(page, '09-product-workbench-dark.png');
 
     await page.getByTestId('ui-theme-light').click();
     await page.getByTestId('product-tab-devices').click();
     await page.waitForTimeout(350);
-    await page.screenshot({ path: join(OUT_DIR, '10-product-devices-light.png') });
+    await snap(page, '10-product-devices-light.png');
 
     // 7. Test Bilingual Switch (EN) & Deploy Quickstart Section
     await page.getByTestId('toggle-lang-btn').click();
     await scrollToStart(page, '#deploy');
     await page.waitForTimeout(450);
-    await page.screenshot({ path: join(OUT_DIR, '11-deploy-english.png') });
+    await snap(page, '11-deploy-english.png');
 
     await desktopCtx.close();
 
@@ -246,7 +324,7 @@ async function runVerification() {
     // =========================================================================
     const mobileCtx = await browser.newContext({
       viewport: { width: 390, height: 844 },
-      deviceScaleFactor: 1.5,
+      deviceScaleFactor: IS_CI ? 1 : 1.5,
       isMobile: true,
       hasTouch: true,
     });
@@ -260,9 +338,9 @@ async function runVerification() {
 
     await mPage.goto(BASE_URL, { waitUntil: 'networkidle' });
     await mPage.waitForSelector('[data-testid="residence-stage"][data-model-loaded="true"]', {
-      timeout: 10000,
+      timeout: 15000,
     });
-    await mPage.waitForTimeout(600);
+    await page_waitForMobileReady(mPage);
 
     const mobileOverflow = await mPage.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -275,10 +353,10 @@ async function runVerification() {
       throw new Error(`Mobile horizontal overflow detected: ${JSON.stringify(dims)}`);
     }
 
-    await mPage.screenshot({ path: join(OUT_DIR, '12-mobile-hero.png') });
+    await snap(mPage, '12-mobile-hero.png');
     await scrollToStart(mPage, '#bedtime');
     await mPage.waitForTimeout(450);
-    await mPage.screenshot({ path: join(OUT_DIR, '13-mobile-bedtime.png') });
+    await snap(mPage, '13-mobile-bedtime.png');
 
     await mobileCtx.close();
 
@@ -291,11 +369,27 @@ async function runVerification() {
     );
   } finally {
     if (browser) await browser.close();
-    server.kill('SIGTERM');
+    try {
+      if (server.pid && process.platform !== 'win32') {
+        process.kill(-server.pid, 'SIGTERM');
+      } else {
+        server.kill('SIGTERM');
+      }
+    } catch {
+      // server already exited
+    }
   }
 }
 
-runVerification().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+async function page_waitForMobileReady(mPage) {
+  await mPage.waitForTimeout(600);
+}
+
+runVerification()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

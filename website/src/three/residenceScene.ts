@@ -175,6 +175,7 @@ export class ResidenceSceneController {
   private width = 1;
   private height = 1;
   private frameCounter = 0;
+  private lastSoftwareRenderAt = 0;
   private clock = new THREE.Clock();
   private callbacks: ResidenceSceneCallbacks;
 
@@ -195,7 +196,7 @@ export class ResidenceSceneController {
     this.isSoftwareWebGL = isSoftwareWebGL;
 
     this.renderer.setPixelRatio(
-      isSoftwareWebGL ? 1 : Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2),
+      isSoftwareWebGL ? 0.55 : Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2),
     );
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.18;
@@ -745,7 +746,11 @@ export class ResidenceSceneController {
     this.rafId = requestAnimationFrame(this.animate);
     if (!this.isVisible) return;
 
-    const dt = Math.min(this.clock.getDelta(), 0.05);
+    if (this.isSoftwareWebGL && performance.now() - this.lastSoftwareRenderAt < 240) {
+      return;
+    }
+
+    const dt = Math.min(this.clock.getDelta(), 0.25);
     const elapsed = this.clock.elapsedTime;
     const damp = 1 - Math.exp(-4.2 * dt);
 
@@ -878,6 +883,9 @@ export class ResidenceSceneController {
     }
 
     this.renderer.render(this.scene, this.camera);
+    if (this.isSoftwareWebGL) {
+      this.lastSoftwareRenderAt = performance.now();
+    }
 
     // 8. Project & de-overlap 3D device hotspot pins with delta gating (zero idle React churn)
     this.frameCounter++;
