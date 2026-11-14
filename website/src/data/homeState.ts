@@ -1,8 +1,11 @@
-import type { ArbitrationCase, CameraPose, HomeEntity, RoomId, SubAgentSpec } from '../types/home.ts';
+import type { ArbitrationCase, CameraPose, HomeEntity, SubAgentSpec } from '../types/home.ts';
 
 export const HUB_CORE_ANCHOR: [number, number, number] = [0.65, 1.05, -1.18];
 
-export const ROOM_CAMERAS: Record<RoomId, CameraPose> = {
+export const ROOM_CAMERAS: Record<
+  'overview' | 'living_room' | 'hall' | 'kitchen' | 'bedroom' | 'courtyard',
+  CameraPose
+> = {
   overview: {
     position: [-12.8, 7.6, 17.2],
     target: [0.35, 2.35, 0.1],
@@ -53,7 +56,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     colorTempK: 3400,
     anchor3d: [-4.85, 2.95, -0.45],
     pinRooms: ['living_room'],
-    name: { zh: '客厅线性主灯槽', en: 'Living Linear Cove' },
+    name: { zh: '客厅顶灯', en: 'Living Ceiling Light' },
     lastChangedBy: 'admin',
   },
   {
@@ -67,7 +70,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     colorTempK: 2800,
     anchor3d: [-6.48, 2.05, -1.9],
     pinRooms: ['overview', 'living_room'],
-    name: { zh: '客厅弧形落地灯', en: 'Sculptural Floor Lamp' },
+    name: { zh: '客厅落地灯', en: 'Living Floor Lamp' },
     lastChangedBy: 'admin',
   },
   {
@@ -81,7 +84,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     positionPct: 100,
     anchor3d: [-3.25, 1.95, 3.12],
     pinRooms: ['living_room'],
-    name: { zh: '客厅电动纱帘', en: 'Living Sheer Drapery' },
+    name: { zh: '客厅纱帘', en: 'Living Sheer Curtains' },
     lastChangedBy: 'admin',
   },
   {
@@ -96,7 +99,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     unit: '°C',
     anchor3d: [-4.85, 2.75, -3.78],
     pinRooms: ['living_room'],
-    name: { zh: '客厅隐蔽温控新风', en: 'Living Climate Diffuser' },
+    name: { zh: '客厅空调新风', en: 'Living Air Conditioning' },
     lastChangedBy: 'session:morning',
   },
   {
@@ -111,7 +114,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     unit: '°C',
     anchor3d: [-4.15, 0.58, 0.05],
     pinRooms: [],
-    name: { zh: '客厅温湿度传感器', en: 'Living Temp Sensor' },
+    name: { zh: '客厅室温', en: 'Living Room Temp' },
     lastChangedBy: 'ha',
   },
   {
@@ -122,13 +125,13 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     placement: 'room',
     highRisk: true,
     highRiskReason: {
-      zh: 'lock 域属于高风险设备（含上锁与解锁），主会话与默认子代理均须人工批准',
-      en: 'lock devices are high risk (both lock & unlock require explicit approval)',
+      zh: '关系到家里门禁安全，每次上锁或开锁前都会先问你',
+      en: 'Door locks affect home security and always ask for your confirmation first',
     },
     state: 'unlocked',
     anchor3d: [1.18, 1.24, 3.28],
     pinRooms: ['overview', 'hall'],
-    name: { zh: '玄关枢轴门智能锁', en: 'Front Pivot Door Lock' },
+    name: { zh: '玄关大门锁', en: 'Front Door Lock' },
     lastChangedBy: 'admin',
   },
   {
@@ -141,7 +144,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     state: 'off',
     anchor3d: [0.78, 2.95, 1.55],
     pinRooms: ['hall'],
-    name: { zh: '玄关毫米波存在传感', en: 'Hall mmWave Presence' },
+    name: { zh: '玄关人感', en: 'Hallway Motion' },
     lastChangedBy: 'ha',
   },
   {
@@ -152,13 +155,13 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     placement: 'room',
     highRisk: true,
     highRiskReason: {
-      zh: 'alarm_control_panel 撤防属于高风险操作，需管理员实时批准',
-      en: 'alarm_control_panel disarming is high risk and awaits approval',
+      zh: '关掉居家安防前，必须得到你的明确同意',
+      en: 'Disarming home security always waits for your explicit approval',
     },
     state: 'disarmed',
     anchor3d: [2.38, 1.48, 1.55],
     pinRooms: ['hall'],
-    name: { zh: '全屋安防主机', en: 'Home Security Panel' },
+    name: { zh: '居家安防', en: 'Home Security' },
     lastChangedBy: 'admin',
   },
   {
@@ -172,7 +175,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     colorTempK: 3100,
     anchor3d: [5.1, 2.32, -0.25],
     pinRooms: ['overview', 'kitchen'],
-    name: { zh: '岛台黄铜线性吊灯', en: 'Island Linear Pendant' },
+    name: { zh: '餐桌吊灯', en: 'Dining Pendant Light' },
     lastChangedBy: 'admin',
   },
   {
@@ -184,7 +187,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     state: 'on',
     anchor3d: [6.05, 1.32, -3.45],
     pinRooms: ['kitchen'],
-    name: { zh: '意式浓缩咖啡机', en: 'Espresso Machine' },
+    name: { zh: '咖啡机', en: 'Coffee Machine' },
     lastChangedBy: 'admin',
   },
   {
@@ -199,7 +202,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     unit: 'kW',
     anchor3d: [7.28, 1.55, -2.1],
     pinRooms: ['kitchen'],
-    name: { zh: '全屋实时总功率', en: 'Whole-Home Load Meter' },
+    name: { zh: '全屋当前用电', en: 'Whole-Home Power' },
     lastChangedBy: 'ha',
   },
   {
@@ -213,7 +216,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     colorTempK: 3000,
     anchor3d: [-3.4, 4.38, -3.02],
     pinRooms: ['overview', 'bedroom'],
-    name: { zh: '主卧床头暖光球灯', en: 'Suite Bedside Pendants' },
+    name: { zh: '主卧床头灯', en: 'Bedroom Bedside Lamp' },
     lastChangedBy: 'admin',
   },
   {
@@ -227,7 +230,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     colorTempK: 2400,
     anchor3d: [-3.4, 3.55, -0.95],
     pinRooms: ['bedroom'],
-    name: { zh: '主卧悬浮床底夜灯', en: 'Under-Bed Warm Cove' },
+    name: { zh: '床底夜灯', en: 'Under-Bed Nightlight' },
     lastChangedBy: 'admin',
   },
   {
@@ -241,7 +244,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     positionPct: 100,
     anchor3d: [-1.85, 4.92, 2.76],
     pinRooms: ['bedroom'],
-    name: { zh: '主卧全景电动遮光帘', en: 'Master Blackout Drapery' },
+    name: { zh: '主卧遮光帘', en: 'Bedroom Blackout Curtains' },
     lastChangedBy: 'admin',
   },
   {
@@ -256,7 +259,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     unit: '°C',
     anchor3d: [-3.4, 5.88, -3.72],
     pinRooms: ['bedroom'],
-    name: { zh: '主卧微风静音空调', en: 'Master Whisper Climate' },
+    name: { zh: '主卧静音空调', en: 'Bedroom Whisper AC' },
     lastChangedBy: 'admin',
   },
   {
@@ -268,14 +271,14 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     deviceClass: 'garage',
     highRisk: true,
     highRiskReason: {
-      zh: 'device_class 为 garage/gate/door 的门类对所有开关动作均执行高风险审批',
-      en: 'cover with device_class=garage is high risk for every cover service',
+      zh: '车库门连着室外，每次开关前都会先向你确认',
+      en: 'Garage doors open outdoors and always ask before moving',
     },
     state: 'closed',
     positionPct: 0,
     anchor3d: [9.5, 1.48, 2.38],
     pinRooms: ['overview', 'courtyard'],
-    name: { zh: '红雪松格栅车库门', en: 'Cedar Slatted Garage Gate' },
+    name: { zh: '木格栅车库门', en: 'Cedar Garage Gate' },
     lastChangedBy: 'admin',
   },
   {
@@ -289,7 +292,7 @@ export const INITIAL_ENTITIES: HomeEntity[] = [
     colorTempK: 2700,
     anchor3d: [2.1, 0.68, 5.45],
     pinRooms: ['courtyard'],
-    name: { zh: '泽畔汀步景观灯', en: 'Pool Stepping Bollards' },
+    name: { zh: '庭院步道灯', en: 'Garden Path Lights' },
     lastChangedBy: 'ha_automation',
   },
 ];
@@ -298,187 +301,156 @@ export const SUB_AGENTS: SubAgentSpec[] = [
   {
     id: 'agt_night_watch',
     slug: 'night-watch',
-    revision: 4,
-    priority: 80,
-    respectManualMinutes: 30,
-    contextMode: 'isolated',
-    highRisk: 'deny',
-    dailyBudgetUsd: '0.15',
-    costTodayUsd: '0.0142',
-    runsCount: 42,
-    triggerKind: 'cron',
-    triggerExpr: '0 23 * * * (HA TZ)',
-    name: { zh: '夜间安全巡检', en: 'Night Security Watch' },
-    role: { zh: '只读安防审计 · 异常记忆对比', en: 'Read-Only Security Audit & Drift Memory' },
+    scheduleText: { zh: '每晚 23:00', en: 'Nightly at 23:00' },
+    name: { zh: '睡前门窗巡查', en: 'Nighttime Door Check' },
+    role: { zh: '替你看看门窗关好没，不乱动任何开关', en: 'Checks locks & gates gently before sleep' },
     summary: {
-      zh: '每晚 23:00 自动核查门锁、车库门与安防面板状态。仅授予 read 权限与高风险一律拒绝（deny），发现未锁门窗时向通知收件箱投递告警并将趋势写入记忆。',
-      en: 'Runs nightly at 23:00 to verify locks, garage gate, and alarm state. Strictly read-only with highRisk="deny"; writes recurring anomalies to persistent memory.',
+      zh: '到了晚上十一点，自动帮你看一眼玄关大门、车库门和居家安防的状态。如果发现哪扇门还开着，会轻声发一条提醒给你。',
+      en: 'Every night at 23:00, it checks your front door, garage gate, and alarm status—sending a gentle reminder if anything was left open.',
     },
-    tools: ['ha_overview', 'ha_get_states', 'ha_history', 'memory_list', 'memory_write'],
-    targetEntities: ['lock.front_door', 'cover.garage_door', 'alarm_control_panel.home_alarm'],
+    canDo: {
+      zh: '查看大门锁、车库门与安防是否关好，没关好时发提醒',
+      en: 'Check door locks, garage gate, and alarm state, and send reminders',
+    },
+    cannotDo: {
+      zh: '只看不碰，绝不会擅自开锁、开门或解除安防',
+      en: 'Read-only—never unlocks doors, opens gates, or disarms security',
+    },
     memoryNote: {
-      title: { zh: '2026-11 周五晚归习惯', en: 'Friday Late Arrival Pattern' },
+      title: { zh: '记得家人周五常常晚归', en: 'Remembers late Friday evenings' },
       body: {
-        zh: '过去连续 3 个周五 23:00 巡检时玄关门锁仍处于 unlocked，主人在 23:20 前后归家，提醒语气保持温和简短。',
-        en: 'Front door remained unlocked at 23:00 on the last 3 Fridays due to 23:20 return; keep reminder concise.',
+        zh: '过去连续三个周五晚上十一点前门都还开着，因为家人通常十一点二十分才回来。再发提醒时，语气会简短温和，不吵人。',
+        en: 'Noticed the front door is often still open at 23:00 on Fridays when someone gets home around 23:20—so it keeps reminders brief and calm.',
       },
     },
-    ruleSnippet: `{
-  "id": "read-security",
-  "effect": "allow",
-  "access": "read",
-  "targets": { "domains": ["lock", "cover", "alarm_control_panel"] }
-}`,
+    targetEntities: ['lock.front_door', 'cover.garage_door', 'alarm_control_panel.home_alarm'],
   },
   {
     id: 'agt_away_check',
     slug: 'away-check',
-    revision: 7,
-    priority: 50,
-    respectManualMinutes: 30,
-    contextMode: 'isolated',
-    highRisk: 'deny',
-    dailyBudgetUsd: '0.25',
-    costTodayUsd: '0.0218',
-    runsCount: 68,
-    triggerKind: 'ha_state',
-    triggerExpr: 'person.* → not_home (for 10m)',
-    name: { zh: '离家节能值守', en: 'Away Presence Guardian' },
-    role: { zh: '状态触发 · 受限 turn_off 控制', en: 'State Triggered · Scoped turn_off Only' },
-    summary: {
-      zh: '全员离家持续 10 分钟后自动关闭遗忘的照明与咖啡机开关（自动排除冰箱与网络常开设备），禁止调用 turn_on 或触碰任何门锁安防。',
-      en: 'Triggered 10m after everyone leaves home; turns off forgotten lights and coffee machine while excluding always-on appliances and never touching locks.',
+    scheduleText: { zh: '全家出门 10 分钟后', en: '10m after everyone leaves' },
+    name: { zh: '离家电器收尾', en: 'Away Energy Saver' },
+    role: {
+      zh: '关掉忘关的灯和咖啡机，绝不碰冰箱和网络',
+      en: 'Shuts off forgotten lights while sparing essentials',
     },
-    tools: ['ha_search_entities', 'ha_get_states', 'ha_call_service', 'memory_list'],
+    summary: {
+      zh: '确认全家人都离开家十分钟后，把忘关的客厅灯、餐桌吊灯和咖啡机顺手关掉；冰箱、路由器、鱼缸这类长开电器永远不动。',
+      en: 'Ten minutes after everyone leaves home, it turns off forgotten lights and the coffee machine while never touching always-on appliances.',
+    },
+    canDo: {
+      zh: '在大家离家后，关闭遗忘的照明灯与咖啡机开关',
+      en: 'Turn off forgotten lights and the coffee machine once you leave',
+    },
+    cannotDo: {
+      zh: '绝不会逆向开灯，也不会触碰门锁或长开插座',
+      en: 'Never turns devices back on, and never touches locks or essential outlets',
+    },
+    memoryNote: {
+      title: { zh: '记着哪些电器永远不断电', en: 'Always-on household exceptions' },
+      body: {
+        zh: '家里路由器、冰箱和鱼缸增氧泵需要一直通电；只有早上煮完咖啡忘关的咖啡机，出门后记得顺手断电。',
+        en: 'Always keeps the router, refrigerator, and aquarium pump running—only shuts off the coffee machine when left on after morning rush.',
+      },
+    },
     targetEntities: [
       'light.living_ceiling',
       'light.living_lamp',
       'light.kitchen_pendant',
       'switch.coffee_machine',
     ],
-    memoryNote: {
-      title: { zh: '常开设备白名单', en: 'Always-On Exclusions' },
-      body: {
-        zh: 'switch.nas_rack、switch.fridge_circuit 与鱼缸增氧泵永不关闭；意式咖啡机离家必关。',
-        en: 'Never turn off NAS rack or fridge circuit; always shut off switch.coffee_machine when away.',
-      },
-    },
-    ruleSnippet: `{
-  "id": "lights-switches-off",
-  "effect": "allow",
-  "access": "control",
-  "targets": { "domains": ["light", "switch"] },
-  "services": ["turn_off"]
-}`,
   },
   {
     id: 'agt_energy_report',
     slug: 'energy-report',
-    revision: 3,
-    priority: 40,
-    respectManualMinutes: 30,
-    contextMode: 'continuous',
-    highRisk: 'deny',
-    dailyBudgetUsd: '0.20',
-    costTodayUsd: '0.0185',
-    runsCount: 31,
-    triggerKind: 'cron',
-    triggerExpr: '0 21 * * * (HA TZ)',
-    name: { zh: '每日能耗精算师', en: 'Daily Energy Analyst' },
-    role: { zh: '连续上下文压缩 · 长期统计趋势', en: 'Continuous Compacted Context · Long-Term Stats' },
-    summary: {
-      zh: '每晚 21:00 调用 ha_statistics 分析全屋负荷曲线，与前 7 天记忆基线比对空调与厨房热负荷，上下文达 80% 时由辅助模型自动无损摘要压缩。',
-      en: 'Queries ha_statistics every evening at 21:00 to benchmark HVAC & kitchen load against 7-day baselines, with automatic 80% context compaction.',
+    scheduleText: { zh: '每晚 21:00', en: 'Nightly at 21:00' },
+    name: { zh: '家里用电小账本', en: 'Daily Home Energy Note' },
+    role: {
+      zh: '把枯燥的用电数字，整理成几句家常小结',
+      en: 'Turns raw watt readings into plain daily takeaways',
     },
-    tools: ['ha_statistics', 'ha_get_states', 'memory_list', 'memory_write'],
-    targetEntities: ['sensor.home_power_kw', 'climate.living_thermostat', 'climate.bedroom_ac'],
+    summary: {
+      zh: '每晚九点帮你看一遍今天的用电起伏，对比最近一周的日常，用平实的语言告诉你客厅与主卧空调哪段更费电。',
+      en: 'Reviews your home’s daily electricity use at 21:00 and compares it against the past week in plain, readable language.',
+    },
+    canDo: {
+      zh: '读取用电度数与房间温度变化，总结成晚间小报告',
+      en: 'Read power usage and room temperatures to prepare a brief summary',
+    },
+    cannotDo: {
+      zh: '只做记录和提醒，绝不会自己去关你的空调或电器',
+      en: 'Observe and report only—never switches off your AC or appliances',
+    },
     memoryNote: {
-      title: { zh: '11 月基准日均耗电', en: 'November Daily Baseline' },
+      title: { zh: '这阵子家里的用电习惯', en: 'Recent household energy baseline' },
       body: {
-        zh: '秋末日均 14.6 kWh；当二层主卧与客厅同时制热超过 4 小时，晚峰功率约上升 1.1 kW。',
-        en: 'Late-autumn baseline is 14.6 kWh/day; concurrent HVAC heating adds ~1.1 kW to evening peak.',
+        zh: '秋末家里平均每天大约 14.6 度电；如果客厅和主卧空调晚上同时开超过四个小时，夜间用电会明显高出一截。',
+        en: 'Late-autumn average is ~14.6 kWh/day; running both living room and bedroom AC together for 4+ hours noticeably lifts the evening load.',
       },
     },
-    ruleSnippet: `{
-  "id": "read-energy-sensors",
-  "effect": "allow",
-  "access": "read",
-  "targets": { "domains": ["sensor", "climate"] }
-}`,
+    targetEntities: ['sensor.home_power_kw', 'climate.living_thermostat', 'climate.bedroom_ac'],
   },
 ];
 
 export const ARBITRATION_CASES: ArbitrationCase[] = [
   {
     id: 'manual_hold',
-    title: { zh: '人工优先保护窗（30 分钟）', en: 'Human Priority Hold (30 min)' },
-    badge: '409 conflict_manual',
-    httpCode: '409 Conflict',
-    principal: 'agent:away-check@r7/run:01k8m',
-    targetEntity: 'light.living_lamp',
-    signalKind: 'conflict',
+    title: { zh: '家人刚按过开关，绝不抢着关', en: 'Never fights you over a wall switch' },
+    badge: { zh: '家人优先', en: 'Family First' },
+    verdictTag: { zh: '自动退让半小时', en: 'Steps Back · 30 min' },
+    scenarioLabel: { zh: '场景 · 客厅落地灯', en: 'Living Floor Lamp' },
     description: {
-      zh: '家人在物理墙面开关手动点亮客厅落地灯（HA context.user_id 非藏泽账号）。2 分钟后子代理试图将其关闭。',
-      en: 'A family member manually turned on the floor lamp at the wall switch (non-Cangze HA user_id). Two minutes later, away-check tries to turn it off.',
+      zh: '家人在墙面开关上亲手点亮了客厅落地灯。两分钟后，后台的离家小帮手正准备例行把灯关掉。',
+      en: 'Someone in the house just switched on the living room lamp at the wall. Two minutes later, the away helper tries to turn it off.',
     },
     gatewayVerdict: {
-      zh: 'HaGateway 仲裁拦截：light.living_lamp 2 分钟前由人工操作修改，在 respectManualMinutes=30 保护期内拒绝子代理覆盖，并记入审计日志。',
-      en: 'Blocked by CoordinationService: light.living_lamp was changed by a person 2 min ago; protected for 30 min.',
+      zh: '中枢会识别出灯刚由人亲手按亮，在接下来 30 分钟内直接挡回帮手的关灯动作——家里永远听人的，绝不和你抢开关。',
+      en: 'The hub sees a person just used the switch and protects it for 30 minutes—humans always come first.',
     },
-    auditDecision: 'conflict',
   },
   {
     id: 'policy_cap',
-    title: { zh: '默认拒绝与参数范围硬约束', en: 'Default-Deny & Brightness Cap' },
-    badge: '403 policy_denied',
-    httpCode: '403 Forbidden',
-    principal: 'agent:night-watch@r4/run:01k8p',
-    targetEntity: 'lock.front_door',
-    signalKind: 'conflict',
+    title: { zh: '没答应过的事，绝不会越界', en: 'Helpers stay strictly inside their lane' },
+    badge: { zh: '权责分明', en: 'Strict Boundaries' },
+    verdictTag: { zh: '越界直接拦下', en: 'Blocked by Hub' },
+    scenarioLabel: { zh: '场景 · 玄关大门锁', en: 'Front Door Lock' },
     description: {
-      zh: '夜间安全巡检子代理仅被授予 read 权限且 highRisk="deny"，若模型产生幻觉尝试调用 lock.unlock 或超范围调亮灯光。',
-      en: 'night-watch holds read-only rules and highRisk="deny". Suppose the model hallucinates a call to lock.unlock.',
+      zh: '「睡前门窗巡查」只被允许看一眼门关没关。万一 AI 某次会错了意，想顺手去开锁或大幅调亮卧室灯。',
+      en: 'Suppose the Night Check helper—which only has permission to look—misunderstands and tries to unlock the front door.',
     },
     gatewayVerdict: {
-      zh: 'beforeToolCall 与 HaGateway 双重拦截：权限由中枢后端按修订快照强制执行，绝不依赖提示词自觉；越权调用被立即拒绝并落盘审计。',
-      en: 'Double-blocked at beforeToolCall & HaGateway: subagent permissions are enforced by the hub, never by prompt obedience.',
+      zh: '权限边界由中枢硬件规则锁死，而不是靠叮嘱 AI “自觉”。没有获得允许的操作，根本发不到你家的门锁和家电上。',
+      en: 'Permissions are enforced by the hub itself, never by trusting AI promises. Unapproved actions simply cannot reach your home.',
     },
-    auditDecision: 'denied',
   },
   {
     id: 'loop_guard',
-    title: { zh: '防抖与事件链深度熔断', en: 'Flap & Loop Chain Circuit Breaker' },
-    badge: 'maxChainDepth = 3',
-    httpCode: 'Loop Suppressed',
-    principal: 'agent:away-check@r7',
-    targetEntity: 'switch.coffee_machine',
-    signalKind: 'read',
+    title: { zh: '安静稳当，不会反复开关折腾人', en: 'Calm and steady, never endless loops' },
+    badge: { zh: '防折腾保护', en: 'Anti-Loop Guard' },
+    verdictTag: { zh: '自动止住连环触发', en: 'Loop Prevented' },
+    scenarioLabel: { zh: '场景 · 咖啡机与客厅灯', en: 'Appliances & Lights' },
     description: {
-      zh: '子代理 A 修改实体引发 HA state_changed 事件，可能再次命中自身触发器或连环唤醒子代理 B → C → D。',
-      en: 'Subagent A mutates an entity, emitting an HA state_changed event that could re-trigger itself or cascade A → B → C → D.',
+      zh: '如果一个帮手刚关掉某台电器，引发的状态变化不小心又唤醒了另一个帮手，很容易变成你关我开的死循环。',
+      en: 'If turning off an appliance triggers a status change that wakes another helper, poorly built automations can bounce back and forth.',
     },
     gatewayVerdict: {
-      zh: 'CoordinationService 追踪每次写入的 HA context_id：自身产生的状态变化永不重触发同一代理；跨代理触发链超过 3 层自动丢弃；单实体每分钟限写 6 次。',
-      en: 'Hub traces HA context_id origins: self-caused events never re-trigger the same agent, chains deeper than 3 drop, and flap rate caps at 6/min.',
+      zh: '中枢分得清哪次变动是自己人引起的，绝不自己反复触发自己，还会自动限制短时间连环动作，让家里安安静静。',
+      en: 'The hub remembers what it changed itself, stops self-retriggering, and caps rapid changes so your home stays peaceful.',
     },
-    auditDecision: 'allowed',
   },
   {
     id: 'session_delegate',
-    title: { zh: '主会话派发任务与耐久回报收件箱', en: 'Main Session Delegation & Durable Inbox' },
-    badge: 'agent_run → notice',
-    httpCode: '200 Dispatched',
-    principal: 'session:evening → agent:night-watch@r4',
-    targetEntity: 'cover.garage_door',
-    signalKind: 'allow',
+    title: { zh: '托帮手查的事，办完一定有回音', en: 'Delegated checks always report back' },
+    badge: { zh: '事事有交代', en: 'Clear Follow-Up' },
+    verdictTag: { zh: '结果回到对话框', en: 'Replied in Chat' },
+    scenarioLabel: { zh: '场景 · 睡前门窗确认', en: 'Checking Doors' },
     description: {
-      zh: '主会话通过 agent_run 委派「夜间安全巡检」核查全屋门窗。子代理独立运行完毕后，将结构化结果投递回持久报告收件箱。',
-      en: 'A main session dispatches night-watch via agent_run. Once finished, the terminal outcome lands in the durable report inbox and wakes the session.',
+      zh: '你在聊天里顺口问一句“帮我让巡查帮手看看今晚车库门和前门锁好没”，主对话会请它去核实。',
+      en: 'Ask in chat for your Night Check helper to verify the garage and front door while you keep chatting.',
     },
     gatewayVerdict: {
-      zh: '报告等待主会话当前回复结束后转为 notice 条目并自动续写一轮（单次用户消息间最多自动续写 8 次），且任何无人值守高风险委派仍需管理员显式批准。',
-      en: 'Report waits until active reply ends, appends as a notice entry, and triggers at most 8 bounded continuations.',
+      zh: '它查完之后会把结果温和地写回同一个聊天窗口告诉你，不必自己到处翻页面查状态；真要落锁还是会等你点头。',
+      en: 'As soon as it finishes checking, the answer appears right back in your conversation—and locking anything still waits for your say-so.',
     },
-    auditDecision: 'allowed',
   },
 ];

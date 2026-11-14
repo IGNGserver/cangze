@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Copy, Cpu, ExternalLink, Lock, Server } from 'lucide-react';
+import { Check, Copy, Cpu, ExternalLink, Home, Lock, Server } from 'lucide-react';
 import { useState } from 'react';
 import { COPY, tr } from '../i18n/copy.ts';
 import type { Lang, SectionId } from '../types/home.ts';
@@ -15,55 +15,15 @@ curl -fsSL "https://github.com/IGNGserver/cangze/releases/download/v\${VERSION}/
 docker compose up -d
 docker compose logs cangze | grep -i bootstrap`;
 
-const INVARIANTS: Array<{
-  code: string;
-  title: { zh: string; en: string };
-  desc: { zh: string; en: string };
-}> = [
-  {
-    code: 'INV-01',
-    title: { zh: 'HaGateway 唯一写出口与双重鉴权', en: 'Single Write Gateway & Double Guard' },
-    desc: {
-      zh: '任何对 Home Assistant 的写操作必须携带 Principal 经过 HaGateway，并在工具层 beforeToolCall 与网关内部双重调用 PolicyEngine。',
-      en: 'Every HA write carries a Principal through HaGateway and enforces PolicyEngine both in beforeToolCall and inside the gateway.',
-    },
-  },
-  {
-    code: 'INV-02',
-    title: { zh: '鉴权前递归展开显式实体', en: 'Pre-Auth Recursive Target Expansion' },
-    desc: {
-      zh: 'area / floor / device / label 与嵌套群组在权限评估前递归展开为叶子 entity_id，环路群组直接拒绝，最终仅向 HA 发送显式实体列表。',
-      en: 'Area, floor, device, label, and nested group targets expand to explicit leaf entity_ids prior to authorization; cyclic groups fail closed.',
-    },
-  },
-  {
-    code: 'INV-03',
-    title: { zh: '子代理默认拒绝与禁止自提权', en: 'Default-Deny & Zero Self-Escalation' },
-    desc: {
-      zh: '子代理仅能看见和调用规则允许的实体与工具；永不授予 agent_* 管理工具，杜绝创建子代理或篡改自身定义与权限。',
-      en: 'Subagents default-deny on both reads and writes and can never hold agent_* management tools or alter their own permissions.',
-    },
-  },
-  {
-    code: 'INV-04',
-    title: { zh: '只追加修订与凭据密文存储', en: 'Append-Only Revisions & Encrypted Secrets' },
-    desc: {
-      zh: 'agent_revisions 与 SQLite 迁移均为只追加；所有 LLM Key 与 HA Token 仅以 AES-256-GCM 密文落盘，重启绝不重放中断的设备写操作。',
-      en: 'Immutable append-only agent_revisions & SQL migrations; AES-256-GCM secrets at rest; restarts never replay interrupted device writes.',
-    },
-  },
-];
-
 const PROVIDERS = [
-  'OpenAI',
-  'Anthropic',
-  'DeepSeek',
-  'Qwen 通义千问',
-  'Google Gemini',
-  'Ollama (Local)',
-  'vLLM',
-  'LM Studio',
-  'OpenAI / Anthropic Compatible Gateways',
+  { id: 'deepseek', zh: 'DeepSeek', en: 'DeepSeek' },
+  { id: 'qwen', zh: '通义千问 Qwen', en: 'Qwen (DashScope)' },
+  { id: 'openai', zh: 'OpenAI', en: 'OpenAI' },
+  { id: 'claude', zh: 'Anthropic Claude', en: 'Anthropic Claude' },
+  { id: 'gemini', zh: 'Google Gemini', en: 'Google Gemini' },
+  { id: 'ollama', zh: 'Ollama（家里本地跑）', en: 'Ollama (Local at home)' },
+  { id: 'lmstudio', zh: 'LM Studio', en: 'LM Studio' },
+  { id: 'vllm', zh: 'vLLM / 各类兼容接口', en: 'vLLM / OpenAI-compatible' },
 ];
 
 export function ArchitectureDeploySection({ lang, onJumpSection }: ArchitectureDeploySectionProps) {
@@ -80,7 +40,11 @@ export function ArchitectureDeploySection({ lang, onJumpSection }: ArchitectureD
   };
 
   return (
-    <section id="deploy" data-section="deploy" className="cz-section cz-wide-section cz-deploy-section">
+    <section
+      id="deploy"
+      data-section="deploy"
+      className="cz-editorial-section cz-editorial-oat cz-deploy-section"
+    >
       <div className="cz-wide-container">
         <div className="cz-wide-header">
           <div>
@@ -90,52 +54,16 @@ export function ArchitectureDeploySection({ lang, onJumpSection }: ArchitectureD
           </div>
         </div>
 
-        {/* End-to-End Architecture Execution Pipeline */}
-        <div className="cz-pipeline-card cz-glass-panel">
-          <div className="cz-pipeline-label cz-mono">
-            {lang === 'zh'
-              ? '端到端受控执行链路 · Node 24 + Fastify 5 + SQLite (WAL) + Pi Agent'
-              : 'Controlled Execution Pipeline · Node 24 + Fastify 5 + SQLite (WAL) + Pi Agent'}
-          </div>
-          <div className="cz-pipeline-track">
-            {[
-              { step: 'Principal', sub: 'admin · session · agent@rev' },
-              { step: 'AgentRunner', sub: 'pi-agent-core · beforeToolCall' },
-              { step: 'Target Expand', sub: 'area/floor/group → leaf ids' },
-              { step: 'Coordination', sub: 'manual 30m · prio · lease' },
-              { step: 'Policy & Approval', sub: 'default-deny · high-risk gate' },
-              { step: 'HaGateway', sub: 'Home Assistant WS / REST' },
-            ].map((node, idx, arr) => (
-              <div key={node.step} className="cz-pipe-item">
-                <div className="cz-pipe-node">
-                  <strong>{node.step}</strong>
-                  <span className="cz-mono">{node.sub}</span>
-                </div>
-                {idx < arr.length - 1 && <ArrowRight size={15} className="cz-pipe-arrow" />}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 4 Core Architectural Invariant Cards */}
-        <div className="cz-invariants-grid">
-          {INVARIANTS.map((inv) => (
-            <div key={inv.code} className="cz-inv-card cz-glass-panel">
-              <span className="cz-inv-code cz-mono">{inv.code}</span>
-              <h3>{tr(inv.title, lang)}</h3>
-              <p>{tr(inv.desc, lang)}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Quickstart Terminal + Provider Matrix */}
         <div className="cz-deploy-grid">
-          <div className="cz-terminal-card cz-glass-panel">
+          {/* Left: One-click Copy Command + Plain 3-Step Guide */}
+          <div className="cz-terminal-card cz-warm-card">
             <div className="cz-terminal-head">
               <div className="cz-terminal-title">
-                <Server size={15} className="cz-accent-icon" />
+                <Server size={16} className="cz-hearth-icon" />
                 <strong>
-                  {lang === 'zh' ? 'Docker Compose 快速部署（v0.4.2）' : 'Docker Compose Quickstart (v0.4.2)'}
+                  {lang === 'zh'
+                    ? '复制这几行命令，在家里 NAS 或主机上运行'
+                    : 'Copy & run on your home NAS or mini PC'}
                 </strong>
               </div>
               <button
@@ -146,7 +74,7 @@ export function ArchitectureDeploySection({ lang, onJumpSection }: ArchitectureD
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
                 <span>
-                  {copied ? (lang === 'zh' ? '已复制' : 'Copied') : lang === 'zh' ? '复制命令' : 'Copy'}
+                  {copied ? (lang === 'zh' ? '已复制' : 'Copied') : lang === 'zh' ? '一键复制' : 'Copy'}
                 </span>
               </button>
             </div>
@@ -160,59 +88,62 @@ export function ArchitectureDeploySection({ lang, onJumpSection }: ArchitectureD
                 <span className="cz-step-num">1</span>
                 <p>
                   {lang === 'zh'
-                    ? '本机打开 http://127.0.0.1:38417（默认仅绑定回环），输入容器日志打印的一次性引导码并设置管理员密钥。'
-                    : 'Open http://127.0.0.1:38417, enter the one-time bootstrap code from container logs, and set your admin key.'}
+                    ? '启动后，在浏览器打开这台机器的 38417 端口（本机可直接点 http://localhost:38417），输入屏幕打印的配对码，设一个登录密码。'
+                    : 'Open port 38417 in your browser (e.g. http://localhost:38417), enter the setup code shown in logs, and choose your admin password.'}
                 </p>
               </div>
               <div>
                 <span className="cz-step-num">2</span>
                 <p>
                   {lang === 'zh'
-                    ? '填入 Home Assistant 地址与专用账号的长期访问令牌（无需在 HA 安装任何插件或自定义组件）。'
-                    : 'Enter your Home Assistant URL and a dedicated user’s long-lived access token — zero HA add-ons required.'}
+                    ? '按照欢迎向导，填好你家 Home Assistant 的网址和长期访问令牌——不用安装任何插件，就能自动认出全屋房间与设备。'
+                    : 'Enter your Home Assistant address and access token in the welcome guide—zero add-ons needed to recognize your rooms and devices.'}
                 </p>
               </div>
               <div>
                 <span className="cz-step-num">3</span>
                 <p>
                   {lang === 'zh'
-                    ? '镜像：ghcr.io/igngserver/cangze:0.4.2（支持 linux/amd64 与 linux/arm64，附带 SLSA 来源证明与 SBOM）。'
-                    : 'Multi-arch image ghcr.io/igngserver/cangze:0.4.2 (amd64 & arm64) with SLSA provenance and SBOM.'}
+                    ? '选一个你喜欢的对话模型就能开始用；日常使用会定期存好加密备份，以后换设备也能轻松迁移。'
+                    : 'Pick any AI model you like and start chatting right away, with encrypted backups ready whenever you upgrade hardware.'}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="cz-providers-card cz-glass-panel">
+          {/* Right: Supported Models + Family Commitments */}
+          <div className="cz-providers-card cz-warm-card">
             <div className="cz-providers-head">
-              <Cpu size={16} className="cz-accent-icon" />
+              <Cpu size={17} className="cz-hearth-icon" />
               <h3>
-                {lang === 'zh' ? '自由选择云端前沿模型或纯本地推理' : 'Cloud Frontier or 100% Local Models'}
+                {lang === 'zh'
+                  ? '云端顺手的大模型，或家里本地免费跑的模型都支持'
+                  : 'Use familiar cloud models or run 100% locally at home'}
               </h3>
             </div>
             <p className="cz-providers-desc">
               {lang === 'zh'
-                ? '基于 pi-ai 统一适配层，支持对话主模型与低成本辅助模型（标题生成 / 上下文摘要压缩）分离配置，支持自动发现兼容端点模型列表与视觉多模态输入。'
-                : 'Built on pi-ai: pair a reasoning chat model with a lightweight utility model for titles & compaction, or run completely offline via Ollama / vLLM.'}
+                ? '可以按自己预算自由搭配：聊家常挑一个聪明稳重的模型，整理标题和长对话用便宜轻快的模型；如果家里有显卡或 Mac，接上本地 Ollama 连网络都不用出。'
+                : 'Pair your favorite reasoning model with an economical helper model—or point it to Ollama on your home machine so everything stays completely offline.'}
             </p>
             <div className="cz-provider-pills">
               {PROVIDERS.map((p) => (
-                <span key={p} className="cz-provider-pill">
-                  {p}
+                <span key={p.id} className="cz-provider-pill">
+                  {tr(p, lang)}
                 </span>
               ))}
             </div>
 
             <div className="cz-privacy-pledge">
-              <Lock size={15} />
+              <Lock size={16} />
               <div>
                 <strong>
-                  {lang === 'zh' ? 'Apache-2.0 开源 · 零遥测承诺' : 'Apache-2.0 Open Source · Zero Telemetry'}
+                  {lang === 'zh' ? '三个让全家人放心的坚持' : 'Three simple promises for your family'}
                 </strong>
                 <p>
                   {lang === 'zh'
-                    ? '藏泽不收集任何遥测或分析数据。所有对话树、家庭拓扑、子代理记忆与加密密钥仅保存在你自己的 /data 数据卷中。'
-                    : 'Cangze collects zero telemetry. Every conversation, home topology, memory note, and encrypted secret stays solely in your /data volume.'}
+                    ? '家里作息和设备数据绝不上传给陌生人；原有开关和自动化照常好用；全部代码开源，不收月费也不弹广告。'
+                    : 'Zero telemetry or cloud snooping, complete respect for your existing wall switches, and 100% free open-source code.'}
                 </p>
               </div>
             </div>
@@ -224,11 +155,20 @@ export function ArchitectureDeploySection({ lang, onJumpSection }: ArchitectureD
                 rel="noreferrer"
                 className="cz-doc-link"
               >
-                <span>GitHub · IGNGserver/cangze</span>
+                <span>
+                  {lang === 'zh'
+                    ? '想了解底层安全机制与详细文档？前往 GitHub'
+                    : 'Read technical docs on GitHub'}
+                </span>
                 <ExternalLink size={13} />
               </a>
-              <button type="button" className="cz-doc-link" onClick={() => onJumpSection('hero')}>
-                <span>{lang === 'zh' ? '回到顶部 3D 泽居' : 'Back to 3D Residence'}</span>
+              <button
+                type="button"
+                className="cz-doc-link is-secondary"
+                onClick={() => onJumpSection('hero')}
+              >
+                <Home size={13} />
+                <span>{lang === 'zh' ? '回到顶部看看房子' : 'Back to Home Overview'}</span>
               </button>
             </div>
           </div>
@@ -236,16 +176,16 @@ export function ArchitectureDeploySection({ lang, onJumpSection }: ArchitectureD
 
         <footer className="cz-footer">
           <div className="cz-footer-brand">
-            <img src="./brand/cangze-ridge.svg" alt="" width={24} height={24} />
-            <span>藏泽 Cangze · v0.4.2</span>
+            <img src="./brand/cangze-ridge.svg" alt="" width={24} height={24} className="cz-footer-logo" />
+            <span>{lang === 'zh' ? '藏泽 Cangze' : 'Cangze'}</span>
             <span className="cz-footer-quote">「夫藏舟于壑，藏山于泽，谓之固矣。」</span>
           </div>
-          <div className="cz-footer-meta cz-mono">
-            <span>Apache-2.0 License</span>
+          <div className="cz-footer-meta">
+            <span>{lang === 'zh' ? 'Apache-2.0 开源软件' : 'Apache-2.0 Open Source'}</span>
             <span>·</span>
-            <span>Home Assistant WebSocket &amp; REST</span>
+            <span>{lang === 'zh' ? '连接你的 Home Assistant' : 'Made for Home Assistant'}</span>
             <span>·</span>
-            <span>Fluent 2 Design System</span>
+            <span>{lang === 'zh' ? '隐私只留在自己家里' : 'Private by Default'}</span>
           </div>
         </footer>
       </div>

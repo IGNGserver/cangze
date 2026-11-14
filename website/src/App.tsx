@@ -7,66 +7,55 @@ import { ProductShowcaseSection } from './components/ProductShowcaseSection.tsx'
 import { ResidenceViewport } from './components/ResidenceViewport.tsx';
 import { SpatialExplorerSection } from './components/SpatialExplorerSection.tsx';
 import { SubAgentNetworkSection } from './components/SubAgentNetworkSection.tsx';
-import { AGENTS_XRAY_CAMERA, HUB_CORE_ANCHOR, INITIAL_ENTITIES, ROOM_CAMERAS } from './data/homeState.ts';
+import { INITIAL_ENTITIES, ROOM_CAMERAS } from './data/homeState.ts';
 import type {
-  ArbitrationCase,
-  AuditEntry,
   CameraPose,
   HomeEntity,
   Lang,
   RoomId,
   ScenarioStatus,
   SectionId,
-  SignalArcEvent,
-  StreamEventItem,
-  SubAgentSpec,
   TimeOfDay,
 } from './types/home.ts';
-
-function nowTimeStr(): string {
-  const d = new Date();
-  return d.toTimeString().slice(0, 8);
-}
 
 const INITIAL_STEPS: BedtimeStepLog[] = [
   {
     id: 'step-overview',
-    tool: 'ha_overview · ha_get_states',
-    summary: 'floors: 2 · areas: 5 · 14 entities',
+    label: { zh: '看一眼家里状态', en: 'Checking what is still on' },
+    summary: { zh: '上下两层 · 看看灯和门窗', en: 'Both floors · lights & doors' },
     detail: {
-      zh: '读取全屋实时快照：一层客厅/岛台照明开启、咖啡机待机通电、主卧窗帘开启、玄关门锁处于 unlocked。',
-      en: 'Read live home snapshot: downstairs lights & espresso switch on, master drapery open, lock.front_door unlocked.',
+      zh: '看到楼下客厅和餐厅的灯还亮着，咖啡机还没关，主卧窗帘拉开了，玄关大门暂时没锁。',
+      en: 'Living and dining lights are still on, the coffee maker is on, bedroom curtains are open, and the front door is unlocked.',
     },
     state: 'running',
   },
   {
     id: 'step-downstairs',
-    tool: 'ha_call_service',
-    summary: 'light.turn_off → area_id: living_room, kitchen · switch.turn_off → switch.coffee_machine',
+    label: { zh: '收拾楼下灯光与电器', en: 'Turning off downstairs' },
+    summary: { zh: '客厅灯、吊灯与咖啡机已关', en: 'Living lights & coffee maker off' },
     detail: {
-      zh: 'HaGateway 将区域目标展开为显式实体并熄灭客厅线性灯槽、弧形落地灯、岛台吊灯，关闭意式咖啡机电源。',
-      en: 'Expanded area targets to leaf entity_ids; dimmed off living cove, floor lamp, kitchen pendant, and espresso machine.',
+      zh: '把客厅顶灯、落地灯、餐桌吊灯和咖啡机一起关掉，让一楼慢慢暗下来。',
+      en: 'Switched off the living ceiling light, floor lamp, dining pendant, and coffee maker downstairs.',
     },
     state: 'running',
   },
   {
     id: 'step-bedroom',
-    tool: 'ha_call_service',
-    summary:
-      'cover.close_cover → cover.bedroom_curtain · climate.set_temperature → 22.5°C · light.turn_on → light.bedroom_nightlight (22%)',
+    label: { zh: '安顿楼上主卧', en: 'Preparing the bedroom' },
+    summary: { zh: '拉好遮光帘 · 夜灯微亮 · 空调 22.5°C', en: 'Curtains closed · 22% nightlight · 22.5°C' },
     detail: {
-      zh: '摄像机升入二层悬挑主卧：全景遮光帘平滑闭合，床头主灯熄灭，悬浮床底 2400K 暖光夜灯点亮至 22%，静音空调设为 22.5°C。',
-      en: 'Glided to cantilevered Master Suite: closed blackout drapery, warmed 2400K under-bed cove to 22%, set AC to 22.5°C.',
+      zh: '拉合主卧遮光帘、熄灭床头亮灯，把床底柔光夜灯调到柔和的 22%，静音空调设在舒服的 22.5°C。',
+      en: 'Closed the bedroom blackout curtains, dimmed off the bright bedside lamp, warmed the under-bed nightlight to 22%, and set AC to 22.5°C.',
     },
     state: 'running',
   },
   {
     id: 'step-lock',
-    tool: 'ha_call_service',
-    summary: 'lock.lock → lock.front_door [HIGH RISK]',
+    label: { zh: '玄关大门锁门确认', en: 'Front door lock check' },
+    summary: { zh: '停下来等你点头', en: 'Waiting for your okay' },
     detail: {
-      zh: 'PolicyEngine.classifyWrite 命中高风险域 lock（上锁与解锁均需人工确认），运行进入 waiting_approval 并挂起等待你的决定。',
-      en: 'PolicyEngine classified lock.lock on lock.front_door as high-risk; run entered waiting_approval awaiting human decision.',
+      zh: '锁大门涉及家里安全，系统按规矩先暂停下来，等你亲手确认再动作。',
+      en: 'Door locks always wait for your direct confirmation before taking action.',
     },
     state: 'waiting_approval',
   },
@@ -74,60 +63,20 @@ const INITIAL_STEPS: BedtimeStepLog[] = [
 
 export function App() {
   const [lang, setLang] = useState<Lang>('zh');
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('dusk');
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('day');
+  const [userPickedTod, setUserPickedTod] = useState(false);
   const [entities, setEntities] = useState<HomeEntity[]>(() => INITIAL_ENTITIES.map((e) => ({ ...e })));
   const [activeRoom, setActiveRoom] = useState<RoomId>('overview');
   const [activeSection, setActiveSection] = useState<SectionId>('hero');
   const [roamMode, setRoamMode] = useState(false);
-
-  // Stream & Audit state
-  const seqRef = useRef(1042);
-  const [latestStream, setLatestStream] = useState<StreamEventItem>({
-    seq: 1042,
-    topic: 'ha.registry',
-    summary: 'connected · 17 entities synced',
-    time: nowTimeStr(),
-  });
-  const [audits, setAudits] = useState<AuditEntry[]>([
-    {
-      id: 'aud-init',
-      time: nowTimeStr(),
-      principal: 'system',
-      action: 'ha.connect',
-      target: 'ws://homeassistant.lan:8123',
-      decision: 'allowed',
-      reason: { zh: 'WebSocket 实时总线已同步', en: 'WebSocket state stream synchronized' },
-    },
-  ]);
-  const [latestSignal, setLatestSignal] = useState<SignalArcEvent | null>(null);
 
   // Bedtime Scenario State
   const [scenarioStatus, setScenarioStatus] = useState<ScenarioStatus>('idle');
   const [stepIndex, setStepIndex] = useState(0);
   const [steps, setSteps] = useState<BedtimeStepLog[]>(INITIAL_STEPS);
   const [countdownSec, setCountdownSec] = useState(299);
-  const [selectedModel, setSelectedModel] = useState('anthropic / claude-sonnet-4 · thinking: medium');
+  const [selectedModel, setSelectedModel] = useState('claude');
   const timersRef = useRef<number[]>([]);
-
-  const pushStream = useCallback((topic: string, summary: string) => {
-    seqRef.current += 1;
-    setLatestStream({
-      seq: seqRef.current,
-      topic,
-      summary,
-      time: nowTimeStr(),
-    });
-  }, []);
-
-  const fireArc = useCallback((to: [number, number, number], kind: SignalArcEvent['kind']) => {
-    setLatestSignal({
-      id: `sig-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      from: HUB_CORE_ANCHOR,
-      to,
-      kind,
-      createdAt: Date.now(),
-    });
-  }, []);
 
   const clearScenarioTimers = useCallback(() => {
     for (const id of timersRef.current) {
@@ -138,7 +87,7 @@ export function App() {
 
   useEffect(() => clearScenarioTimers, [clearScenarioTimers]);
 
-  // Countdown tick while waiting_approval
+  // Countdown tick while waiting for user confirmation
   useEffect(() => {
     if (scenarioStatus !== 'waiting_approval') return;
     const iv = window.setInterval(() => {
@@ -147,11 +96,11 @@ export function App() {
     return () => window.clearInterval(iv);
   }, [scenarioStatus]);
 
-  // Scroll section tracking for cinematic choreography
+  // Scroll section tracking
   useEffect(() => {
     const sectionIds: SectionId[] = ['hero', 'explore', 'bedtime', 'agents', 'product', 'deploy'];
     const handleScroll = () => {
-      const viewportMid = window.innerHeight * 0.44;
+      const viewportMid = window.innerHeight * 0.42;
       let current: SectionId = 'hero';
       for (const id of sectionIds) {
         const el = document.getElementById(id);
@@ -169,52 +118,28 @@ export function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Sync camera room automatically when scrolling between narrative acts (unless scenario is actively steering)
+  // Sync camera room & gentle day/dusk mood automatically when scrolling between upper chapters
   useEffect(() => {
     if (roamMode || scenarioStatus === 'running' || scenarioStatus === 'waiting_approval') return;
     if (activeSection === 'hero') {
       setActiveRoom('overview');
+      if (!userPickedTod && scenarioStatus === 'idle') setTimeOfDay('day');
     } else if (activeSection === 'explore') {
       setActiveRoom((prev) => (prev === 'overview' ? 'living_room' : prev));
+      if (!userPickedTod && scenarioStatus === 'idle') setTimeOfDay('day');
     } else if (activeSection === 'bedtime') {
       if (scenarioStatus === 'completed' || scenarioStatus === 'denied_completed') {
         setActiveRoom('hall');
       } else {
         setActiveRoom('bedroom');
       }
-    } else if (activeSection === 'agents') {
-      setActiveRoom('overview');
+      if (!userPickedTod && scenarioStatus === 'idle') setTimeOfDay('dusk');
     }
-  }, [activeSection, roamMode, scenarioStatus]);
+  }, [activeSection, roamMode, scenarioStatus, userPickedTod]);
 
-  // Compute active CameraPose, Framing Offset & Backdrop Veil Opacity
   const cameraPose: CameraPose = useMemo(() => {
-    if (activeSection === 'agents' && activeRoom === 'overview' && !roamMode) {
-      return AGENTS_XRAY_CAMERA;
-    }
     return ROOM_CAMERAS[activeRoom] ?? ROOM_CAMERAS.overview;
-  }, [activeRoom, activeSection, roamMode]);
-
-  const offsetRatioX = useMemo(() => {
-    if (roamMode) return 0;
-    if (activeSection === 'explore' || activeSection === 'agents') {
-      // Narrative column sits on the RIGHT -> shift 3D house center onto the LEFT unobstructed stage
-      return 0.19;
-    }
-    if (activeSection === 'bedtime') {
-      // Narrative column sits on the LEFT -> shift 3D house center onto the RIGHT unobstructed stage
-      return -0.19;
-    }
-    return 0;
-  }, [activeSection, roamMode]);
-
-  const veilOpacity = useMemo(() => {
-    if (roamMode) return 0;
-    if (activeSection === 'product') return 0.78;
-    if (activeSection === 'deploy') return 0.84;
-    if (activeSection === 'hero') return 0.16;
-    return 0.1;
-  }, [activeSection, roamMode]);
+  }, [activeRoom]);
 
   const jumpToSection = useCallback((id: SectionId) => {
     const el = document.getElementById(id);
@@ -224,145 +149,101 @@ export function App() {
     setActiveSection(id);
   }, []);
 
-  const handleSelectRoom = useCallback(
-    (room: RoomId) => {
-      setActiveRoom(room);
-      pushStream('ui.camera', `focus → ${room}`);
-    },
-    [pushStream],
-  );
+  const handleChangeTime = useCallback((tod: TimeOfDay) => {
+    setUserPickedTod(true);
+    setTimeOfDay(tod);
+  }, []);
 
-  // Interactive Direct Device Controls (Spatial Explorer & 3D Pins)
-  const handleToggleEntity = useCallback(
-    (entityId: string) => {
-      setEntities((prev) =>
-        prev.map((e) => {
-          if (e.id !== entityId) return e;
-          fireArc(e.anchor3d, e.highRisk ? 'approval' : 'allow');
-          if (e.domain === 'lock') {
-            const next = e.state === 'locked' ? 'unlocked' : 'locked';
-            pushStream('ha.state_changed', `${e.id} → ${next} (admin)`);
-            setAudits((a) => [
-              {
-                id: `aud-${Date.now()}`,
-                time: nowTimeStr(),
-                principal: 'admin',
-                action: `lock.${next === 'locked' ? 'lock' : 'unlock'}`,
-                target: e.id,
-                decision: 'allowed',
-                reason: { zh: '管理员直接控制确认', en: 'Direct administrator control' },
-              },
-              ...a,
-            ]);
-            return { ...e, state: next, lastChangedBy: 'admin' };
-          }
-          if (e.domain === 'cover') {
-            const nextOpen = e.state === 'closed';
-            const nextState = nextOpen ? 'open' : 'closed';
-            pushStream('ha.state_changed', `${e.id} → ${nextState}`);
-            return { ...e, state: nextState, positionPct: nextOpen ? 100 : 0, lastChangedBy: 'admin' };
-          }
-          if (e.domain === 'climate') {
-            const nextTemp = (e.temperature ?? 23) >= 25 ? 22.0 : (e.temperature ?? 23) + 0.5;
-            pushStream('ha.state_changed', `${e.id} → ${nextTemp.toFixed(1)}°C`);
-            return { ...e, temperature: nextTemp, lastChangedBy: 'admin' };
-          }
-          const nextOn = e.state !== 'on';
-          pushStream('ha.state_changed', `${e.id} → ${nextOn ? 'on' : 'off'}`);
-          return {
-            ...e,
-            state: nextOn ? 'on' : 'off',
-            brightnessPct: nextOn ? Math.max(e.brightnessPct || 0, 68) : e.brightnessPct,
-            lastChangedBy: 'admin',
-          };
-        }),
-      );
-    },
-    [fireArc, pushStream],
-  );
+  const handleSelectRoom = useCallback((room: RoomId) => {
+    setActiveRoom(room);
+  }, []);
 
-  const handleSetLightBrightness = useCallback(
-    (entityId: string, pct: number) => {
-      setEntities((prev) =>
-        prev.map((e) => {
-          if (e.id !== entityId) return e;
-          fireArc(e.anchor3d, 'allow');
-          pushStream('ha.state_changed', `${e.id} brightness_pct=${pct}%`);
-          return { ...e, state: 'on', brightnessPct: pct, lastChangedBy: 'admin' };
-        }),
-      );
-    },
-    [fireArc, pushStream],
-  );
+  // Interactive Direct Device Controls
+  const handleToggleEntity = useCallback((entityId: string) => {
+    setEntities((prev) =>
+      prev.map((e) => {
+        if (e.id !== entityId) return e;
+        if (e.domain === 'lock') {
+          const next = e.state === 'locked' ? 'unlocked' : 'locked';
+          return { ...e, state: next, lastChangedBy: 'admin' };
+        }
+        if (e.domain === 'cover') {
+          const nextOpen = e.state === 'closed';
+          const nextState = nextOpen ? 'open' : 'closed';
+          return { ...e, state: nextState, positionPct: nextOpen ? 100 : 0, lastChangedBy: 'admin' };
+        }
+        if (e.domain === 'climate') {
+          const nextTemp = (e.temperature ?? 23) >= 25 ? 22.0 : (e.temperature ?? 23) + 0.5;
+          return { ...e, temperature: nextTemp, lastChangedBy: 'admin' };
+        }
+        const nextOn = e.state !== 'on';
+        return {
+          ...e,
+          state: nextOn ? 'on' : 'off',
+          brightnessPct: nextOn ? Math.max(e.brightnessPct || 0, 68) : e.brightnessPct,
+          lastChangedBy: 'admin',
+        };
+      }),
+    );
+  }, []);
 
-  const handleStepClimate = useCallback(
-    (entityId: string, delta: number) => {
-      setEntities((prev) =>
-        prev.map((e) => {
-          if (e.id !== entityId) return e;
-          const next = Math.min(28, Math.max(17, (e.temperature ?? 23) + delta));
-          fireArc(e.anchor3d, 'allow');
-          pushStream('ha.state_changed', `${e.id} → ${next.toFixed(1)}°C`);
-          return {
-            ...e,
-            state: next <= 23 ? 'cool' : 'heat_cool',
-            temperature: next,
-            lastChangedBy: 'admin',
-          };
-        }),
-      );
-    },
-    [fireArc, pushStream],
-  );
+  const handleSetLightBrightness = useCallback((entityId: string, pct: number) => {
+    setEntities((prev) =>
+      prev.map((e) => {
+        if (e.id !== entityId) return e;
+        return { ...e, state: 'on', brightnessPct: pct, lastChangedBy: 'admin' };
+      }),
+    );
+  }, []);
 
-  const handleCoverCommand = useCallback(
-    (entityId: string, cmd: 'open' | 'stop' | 'close') => {
-      if (cmd === 'stop') {
-        pushStream('ha.call_service', `cover.stop_cover → ${entityId}`);
-        return;
-      }
-      setEntities((prev) =>
-        prev.map((e) => {
-          if (e.id !== entityId) return e;
-          const open = cmd === 'open';
-          fireArc(e.anchor3d, e.highRisk ? 'approval' : 'allow');
-          pushStream('ha.state_changed', `${e.id} → ${open ? 'open' : 'closed'}`);
-          return {
-            ...e,
-            state: open ? 'open' : 'closed',
-            positionPct: open ? 100 : 0,
-            lastChangedBy: 'admin',
-          };
-        }),
-      );
-    },
-    [fireArc, pushStream],
-  );
+  const handleStepClimate = useCallback((entityId: string, delta: number) => {
+    setEntities((prev) =>
+      prev.map((e) => {
+        if (e.id !== entityId) return e;
+        const next = Math.min(28, Math.max(17, (e.temperature ?? 23) + delta));
+        return {
+          ...e,
+          state: next <= 23 ? 'cool' : 'heat_cool',
+          temperature: next,
+          lastChangedBy: 'admin',
+        };
+      }),
+    );
+  }, []);
 
-  // ============================================================================
-  // ACT III: "帮我准备睡觉" Multi-Step AI Routine + Lock Approval Gate
-  // ============================================================================
+  const handleCoverCommand = useCallback((entityId: string, cmd: 'open' | 'stop' | 'close') => {
+    if (cmd === 'stop') return;
+    setEntities((prev) =>
+      prev.map((e) => {
+        if (e.id !== entityId) return e;
+        const open = cmd === 'open';
+        return {
+          ...e,
+          state: open ? 'open' : 'closed',
+          positionPct: open ? 100 : 0,
+          lastChangedBy: 'admin',
+        };
+      }),
+    );
+  }, []);
+
+  // Multi-Step Goodnight Routine + Gentle Door Lock Confirmation
   const startBedtimeScenario = useCallback(() => {
     clearScenarioTimers();
     setRoamMode(false);
     setTimeOfDay('dusk');
 
-    // Ensure starting state has downstairs lights on and front door unlocked so every transition is vivid
     setEntities(INITIAL_ENTITIES.map((e) => ({ ...e })));
     setSteps(INITIAL_STEPS.map((s) => ({ ...s })));
     setCountdownSec(299);
     setScenarioStatus('running');
     setStepIndex(0);
     setActiveRoom('overview');
-    fireArc([-4.85, 2.95, -0.45], 'read');
-    pushStream('session:01k9bed', 'run started · ha_overview');
 
-    // Step 2 @ 950ms: Turn off downstairs lights & coffee machine
     const t1 = window.setTimeout(() => {
       setSteps((prev) => prev.map((s, idx) => (idx === 0 ? { ...s, state: 'done' } : s)));
       setStepIndex(1);
       setActiveRoom('living_room');
-      fireArc([-6.48, 2.05, -1.9], 'allow');
       setEntities((prev) =>
         prev.map((e) => {
           if (
@@ -371,78 +252,58 @@ export function App() {
             e.id === 'light.kitchen_pendant' ||
             e.id === 'switch.coffee_machine'
           ) {
-            return { ...e, state: 'off', lastChangedBy: 'session:01k9bed' };
+            return { ...e, state: 'off', lastChangedBy: 'session:evening' };
           }
           if (e.id === 'cover.living_curtain') {
-            return { ...e, state: 'closed', positionPct: 0, lastChangedBy: 'session:01k9bed' };
+            return { ...e, state: 'closed', positionPct: 0, lastChangedBy: 'session:evening' };
           }
           return e;
         }),
       );
-      pushStream('session:01k9bed', 'light.turn_off → living_room, kitchen');
-      setAudits((a) => [
-        {
-          id: `aud-down-${Date.now()}`,
-          time: nowTimeStr(),
-          principal: 'session:01k9bed',
-          action: 'light.turn_off',
-          target: 'light.living_*, light.kitchen_pendant',
-          decision: 'allowed',
-          reason: { zh: '区域递归展开通过', en: 'Area targets expanded & allowed' },
-        },
-        ...a,
-      ]);
     }, 950);
 
-    // Step 3 @ 2150ms: Glide upstairs to Master Suite, close blackout curtain, turn on 22% 2400K nightlight, set AC 22.5°C
     const t2 = window.setTimeout(() => {
       setSteps((prev) => prev.map((s, idx) => (idx === 1 ? { ...s, state: 'done' } : s)));
       setStepIndex(2);
       setActiveRoom('bedroom');
       setTimeOfDay('night');
-      fireArc([-3.4, 3.55, -0.95], 'allow');
       setEntities((prev) =>
         prev.map((e) => {
           if (e.id === 'light.bedroom_light') {
-            return { ...e, state: 'off', lastChangedBy: 'session:01k9bed' };
+            return { ...e, state: 'off', lastChangedBy: 'session:evening' };
           }
           if (e.id === 'light.bedroom_nightlight') {
-            return { ...e, state: 'on', brightnessPct: 22, lastChangedBy: 'session:01k9bed' };
+            return { ...e, state: 'on', brightnessPct: 22, lastChangedBy: 'session:evening' };
           }
           if (e.id === 'cover.bedroom_curtain') {
-            return { ...e, state: 'closed', positionPct: 0, lastChangedBy: 'session:01k9bed' };
+            return { ...e, state: 'closed', positionPct: 0, lastChangedBy: 'session:evening' };
           }
           if (e.id === 'climate.bedroom_ac') {
-            return { ...e, state: 'cool', temperature: 22.5, lastChangedBy: 'session:01k9bed' };
+            return { ...e, state: 'cool', temperature: 22.5, lastChangedBy: 'session:evening' };
           }
           return e;
         }),
       );
-      pushStream('session:01k9bed', 'bedroom drapery closed · nightlight 22% · 22.5°C');
     }, 2150);
 
-    // Step 4 @ 3450ms: Swoop to Entrance Hall -> PAUSE at lock.front_door (waiting_approval!)
     const t3 = window.setTimeout(() => {
       setSteps((prev) => prev.map((s, idx) => (idx === 2 ? { ...s, state: 'done' } : s)));
       setStepIndex(3);
       setActiveRoom('hall');
       setScenarioStatus('waiting_approval');
-      fireArc([1.18, 1.24, 3.28], 'approval');
-      pushStream('approvals', 'pending apr_01k9lock · lock.lock → lock.front_door');
     }, 3450);
 
     timersRef.current.push(t1, t2, t3);
-  }, [clearScenarioTimers, fireArc, pushStream]);
+  }, [clearScenarioTimers]);
 
   const decideBedtimeApproval = useCallback(
     (approve: boolean) => {
       if (scenarioStatus !== 'waiting_approval') return;
       if (approve) {
-        fireArc([1.18, 1.24, 3.28], 'allow');
         setEntities((prev) =>
           prev.map((e) => {
             if (e.id === 'lock.front_door') {
-              return { ...e, state: 'locked', lastChangedBy: 'session:01k9bed (approved)' };
+              return { ...e, state: 'locked', lastChangedBy: 'admin' };
             }
             if (e.id === 'light.courtyard_path') {
               return { ...e, state: 'on', brightnessPct: 22 };
@@ -452,39 +313,12 @@ export function App() {
         );
         setSteps((prev) => prev.map((s, idx) => (idx === 3 ? { ...s, state: 'approved' } : s)));
         setScenarioStatus('completed');
-        pushStream('approvals', 'apr_01k9lock approved → lock.front_door locked');
-        setAudits((a) => [
-          {
-            id: `aud-apr-${Date.now()}`,
-            time: nowTimeStr(),
-            principal: 'session:01k9bed',
-            action: 'lock.lock (apr_01k9lock)',
-            target: 'lock.front_door',
-            decision: 'approved',
-            reason: { zh: '高风险门锁操作获人工批准', en: 'High-risk lock approved by admin' },
-          },
-          ...a,
-        ]);
       } else {
-        fireArc([1.18, 1.24, 3.28], 'conflict');
         setSteps((prev) => prev.map((s, idx) => (idx === 3 ? { ...s, state: 'denied' } : s)));
         setScenarioStatus('denied_completed');
-        pushStream('approvals', 'apr_01k9lock denied → 403 approval_rejected');
-        setAudits((a) => [
-          {
-            id: `aud-den-${Date.now()}`,
-            time: nowTimeStr(),
-            principal: 'session:01k9bed',
-            action: 'lock.lock (apr_01k9lock)',
-            target: 'lock.front_door',
-            decision: 'rejected',
-            reason: { zh: '用户拒绝高风险门锁操作', en: 'User denied high-risk lock write' },
-          },
-          ...a,
-        ]);
       }
     },
-    [fireArc, pushStream, scenarioStatus],
+    [scenarioStatus],
   );
 
   const resetBedtimeScenario = useCallback(() => {
@@ -495,63 +329,15 @@ export function App() {
     setStepIndex(0);
     setTimeOfDay('dusk');
     setActiveRoom('overview');
-    pushStream('ha.registry', 'home reset to evening baseline');
-  }, [clearScenarioTimers, pushStream]);
-
-  // ============================================================================
-  // ACT IV: Sub-Agent Spatial Signal Arcs & Conflict Arbitration Pulses
-  // ============================================================================
-  const handleDispatchAgentPulse = useCallback(
-    (agent: SubAgentSpec) => {
-      setActiveRoom('overview');
-      const map = new Map(entities.map((e) => [e.id, e]));
-      agent.targetEntities.forEach((eid, idx) => {
-        const ent = map.get(eid);
-        if (!ent) return;
-        const tid = window.setTimeout(() => {
-          fireArc(ent.anchor3d, agent.slug === 'away-check' ? 'allow' : 'read');
-        }, idx * 240);
-        timersRef.current.push(tid);
-      });
-      pushStream(
-        `run:${agent.slug}`,
-        `dispatched rev r${agent.revision} → ${agent.targetEntities.length} entities`,
-      );
-    },
-    [entities, fireArc, pushStream],
-  );
-
-  const handleTriggerArbitration = useCallback(
-    (arb: ArbitrationCase) => {
-      const target = entities.find((e) => e.id === arb.targetEntity);
-      if (target) {
-        setActiveRoom('overview');
-        fireArc(target.anchor3d, arb.signalKind);
-      }
-      pushStream('coordination', `${arb.badge} · ${arb.targetEntity}`);
-      setAudits((a) => [
-        {
-          id: `aud-arb-${Date.now()}`,
-          time: nowTimeStr(),
-          principal: arb.principal,
-          action: arb.badge,
-          target: arb.targetEntity,
-          decision: arb.auditDecision,
-          reason: arb.title,
-        },
-        ...a,
-      ]);
-    },
-    [entities, fireArc, pushStream],
-  );
+  }, [clearScenarioTimers]);
 
   return (
-    <div className="cz-app-root" data-lang={lang}>
+    <div className="cz-app-root" data-lang={lang} data-roam={roamMode ? 'true' : 'false'}>
       <Navbar
         lang={lang}
         onToggleLang={() => setLang((l) => (l === 'zh' ? 'en' : 'zh'))}
         timeOfDay={timeOfDay}
-        onChangeTime={setTimeOfDay}
+        onChangeTime={handleChangeTime}
         activeSection={activeSection}
         onJumpSection={jumpToSection}
         roamMode={roamMode}
@@ -559,72 +345,85 @@ export function App() {
         pendingApprovalCount={scenarioStatus === 'waiting_approval' ? 1 : 0}
       />
 
-      {/* Persistent Full-Viewport Real-Time 3D Smart Residence Stage */}
-      <ResidenceViewport
-        lang={lang}
-        timeOfDay={timeOfDay}
-        entities={entities}
-        activeRoom={activeRoom}
-        cameraPose={cameraPose}
-        offsetRatioX={offsetRatioX}
-        roamMode={roamMode}
-        veilOpacity={veilOpacity}
-        waitingLockApproval={scenarioStatus === 'waiting_approval'}
-        latestSignal={latestSignal}
-        latestStreamEvent={latestStream}
-        onSelectRoom={handleSelectRoom}
-        onPinAction={(entityId) => {
-          if (entityId === 'lock.front_door' && scenarioStatus === 'waiting_approval') {
-            jumpToSection('bedtime');
-            return;
-          }
-          handleToggleEntity(entityId);
-        }}
-      />
+      <main className="cz-main">
+        {/* Upper Half: Two-Column Warm Home Story + Framed Interactive 3D Stage */}
+        <div className="cz-home-showcase-shell">
+          <div className="cz-home-showcase-inner">
+            <div className={`cz-narrative-flow ${roamMode ? 'is-roam-hidden' : ''}`}>
+              <HeroSection
+                lang={lang}
+                entities={entities}
+                onJumpSection={jumpToSection}
+                onStartBedtimeDemo={startBedtimeScenario}
+              />
 
-      {/* Choreographed Scroll Narrative Overlay */}
-      <main className={`cz-scroll-main ${roamMode ? 'is-hidden' : ''}`}>
-        <HeroSection
-          lang={lang}
-          entities={entities}
-          onJumpSection={jumpToSection}
-          onStartBedtimeDemo={startBedtimeScenario}
-        />
+              <SpatialExplorerSection
+                lang={lang}
+                activeRoom={activeRoom}
+                entities={entities}
+                onSelectRoom={handleSelectRoom}
+                onToggleEntity={handleToggleEntity}
+                onSetLightBrightness={handleSetLightBrightness}
+                onStepClimate={handleStepClimate}
+                onCoverCommand={handleCoverCommand}
+              />
 
-        <SpatialExplorerSection
-          lang={lang}
-          activeRoom={activeRoom}
-          entities={entities}
-          onSelectRoom={handleSelectRoom}
-          onToggleEntity={handleToggleEntity}
-          onSetLightBrightness={handleSetLightBrightness}
-          onStepClimate={handleStepClimate}
-          onCoverCommand={handleCoverCommand}
-        />
+              <BedtimeScenarioSection
+                lang={lang}
+                status={scenarioStatus}
+                stepIndex={stepIndex}
+                steps={steps}
+                countdownSec={countdownSec}
+                selectedModel={selectedModel}
+                onChangeModel={setSelectedModel}
+                onStartScenario={startBedtimeScenario}
+                onResetScenario={resetBedtimeScenario}
+                onDecideApproval={decideBedtimeApproval}
+              />
+            </div>
 
-        <BedtimeScenarioSection
-          lang={lang}
-          status={scenarioStatus}
-          stepIndex={stepIndex}
-          steps={steps}
-          countdownSec={countdownSec}
-          selectedModel={selectedModel}
-          onChangeModel={setSelectedModel}
-          onStartScenario={startBedtimeScenario}
-          onResetScenario={resetBedtimeScenario}
-          onDecideApproval={decideBedtimeApproval}
-          recentAudits={audits}
-        />
+            <aside className={`cz-stage-column ${roamMode ? 'is-roam-expanded' : ''}`}>
+              <div className="cz-stage-frame">
+                <ResidenceViewport
+                  lang={lang}
+                  timeOfDay={timeOfDay}
+                  entities={entities}
+                  activeRoom={activeRoom}
+                  cameraPose={cameraPose}
+                  offsetRatioX={0}
+                  roamMode={roamMode}
+                  veilOpacity={0}
+                  waitingLockApproval={scenarioStatus === 'waiting_approval'}
+                  latestSignal={null}
+                  onSelectRoom={handleSelectRoom}
+                  onPinAction={(entityId) => {
+                    if (entityId === 'lock.front_door' && scenarioStatus === 'waiting_approval') {
+                      jumpToSection('bedtime');
+                      return;
+                    }
+                    handleToggleEntity(entityId);
+                  }}
+                />
+              </div>
+              {!roamMode && (
+                <div className="cz-stage-caption">
+                  <span>
+                    {lang === 'zh'
+                      ? '这是一个能点能逛的小家：点下方房间或屋里的设备标签就能直接试看；点右上角「自由逛逛」可 360° 转动房子。'
+                      : 'Interactive home preview: pick a room below or tap any badge inside the house, or click “Explore 3D” above to orbit freely.'}
+                  </span>
+                </div>
+              )}
+            </aside>
+          </div>
+        </div>
 
-        <SubAgentNetworkSection
-          lang={lang}
-          onDispatchAgentPulse={handleDispatchAgentPulse}
-          onTriggerArbitration={handleTriggerArbitration}
-        />
-
-        <ProductShowcaseSection lang={lang} />
-
-        <ArchitectureDeploySection lang={lang} onJumpSection={jumpToSection} />
+        {/* Lower Half: Full-Width Warm Linen & Oat Editorial Chapters */}
+        <div className={`cz-editorial-lower ${roamMode ? 'is-roam-hidden' : ''}`}>
+          <SubAgentNetworkSection lang={lang} />
+          <ProductShowcaseSection lang={lang} />
+          <ArchitectureDeploySection lang={lang} onJumpSection={jumpToSection} />
+        </div>
       </main>
     </div>
   );

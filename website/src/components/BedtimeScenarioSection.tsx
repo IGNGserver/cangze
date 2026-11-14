@@ -1,9 +1,8 @@
 import {
   Bell,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock,
+  Lock,
   Play,
   RotateCcw,
   Send,
@@ -13,12 +12,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { COPY, tr } from '../i18n/copy.ts';
-import type { AuditEntry, Lang, ScenarioStatus } from '../types/home.ts';
+import type { Lang, ScenarioStatus } from '../types/home.ts';
 
 export interface BedtimeStepLog {
   id: string;
-  tool: string;
-  summary: string;
+  label: { zh: string; en: string };
+  summary: { zh: string; en: string };
   detail: { zh: string; en: string };
   state: 'done' | 'running' | 'waiting_approval' | 'approved' | 'denied';
 }
@@ -34,14 +33,13 @@ interface BedtimeScenarioSectionProps {
   onStartScenario: () => void;
   onResetScenario: () => void;
   onDecideApproval: (approve: boolean) => void;
-  recentAudits: AuditEntry[];
 }
 
-const MODELS = [
-  'anthropic / claude-sonnet-4 · thinking: medium',
-  'deepseek / deepseek-v3 · thinking: off',
-  'qwen / qwen-max · thinking: low',
-  'ollama / qwen3:32b (Local LAN) · $0.00',
+const MODEL_CHOICES = [
+  { id: 'claude', zh: 'Claude · 细腻稳重', en: 'Claude · Thoughtful' },
+  { id: 'deepseek', zh: 'DeepSeek · 响应轻快', en: 'DeepSeek · Quick & Crisp' },
+  { id: 'qwen', zh: '通义千问 · 中文顺畅', en: 'Qwen · Fluent Everyday' },
+  { id: 'local', zh: '家里本地模型 · 断网可用', en: 'Local Model · Offline Ready' },
 ];
 
 export function BedtimeScenarioSection({
@@ -55,7 +53,6 @@ export function BedtimeScenarioSection({
   onStartScenario,
   onResetScenario,
   onDecideApproval,
-  recentAudits,
 }: BedtimeScenarioSectionProps) {
   const mins = String(Math.floor(countdownSec / 60)).padStart(2, '0');
   const secs = String(countdownSec % 60).padStart(2, '0');
@@ -67,27 +64,20 @@ export function BedtimeScenarioSection({
     }
   }, [status]);
 
-  const approvalArgs = {
-    domain: 'lock',
-    service: 'lock',
-    entityIds: ['lock.front_door'],
-    data: {},
-  };
-
   return (
-    <section id="bedtime" data-section="bedtime" className="cz-section cz-split-section is-left">
-      <div className="cz-narrative-column cz-glass-panel">
-        <div className="cz-section-tag">{tr(COPY.bedtime.tag, lang)}</div>
-        <h2 className="cz-section-title">{tr(COPY.bedtime.title, lang)}</h2>
-        <p className="cz-section-desc">{tr(COPY.bedtime.desc, lang)}</p>
+    <section id="bedtime" data-section="bedtime" className="cz-story-section">
+      <div className="cz-bedtime-panel">
+        <div className="cz-section-tag is-warm-night">{tr(COPY.bedtime.tag, lang)}</div>
+        <h2 className="cz-section-title is-warm-night">{tr(COPY.bedtime.title, lang)}</h2>
+        <p className="cz-section-desc is-warm-night">{tr(COPY.bedtime.desc, lang)}</p>
 
-        {/* Scenario Control Bar */}
+        {/* Scenario Action Bar */}
         <div className="cz-demo-action-bar">
           {status === 'idle' ? (
             <button
               type="button"
               data-testid="run-bedtime-btn"
-              className="cz-btn cz-btn-warm cz-btn-full"
+              className="cz-btn cz-btn-amber-glow cz-btn-full"
               onClick={onStartScenario}
             >
               <Play size={15} />
@@ -109,18 +99,18 @@ export function BedtimeScenarioSection({
                       ? tr(COPY.bedtime.runningBadge, lang)
                       : status === 'completed'
                         ? lang === 'zh'
-                          ? '晚安场景已完成（门锁已批准上锁）'
-                          : 'Bedtime Routine Complete (Lock Approved)'
+                          ? '晚安准备好了（大门已锁好）'
+                          : 'All set for sleep (front door locked)'
                         : lang === 'zh'
-                          ? '晚安场景已完成（门锁按你指示保持未锁）'
-                          : 'Routine Complete (Lock Left Unlocked per Denial)'}
+                          ? '晚安准备好了（按你的意思大门未上锁）'
+                          : 'All set for sleep (door left unlocked)'}
                 </span>
               </div>
 
               <button
                 type="button"
                 data-testid="reset-bedtime-btn"
-                className="cz-btn cz-btn-ghost cz-btn-sm"
+                className="cz-btn cz-btn-night-ghost cz-btn-sm"
                 onClick={onResetScenario}
               >
                 <RotateCcw size={14} />
@@ -130,16 +120,12 @@ export function BedtimeScenarioSection({
           )}
         </div>
 
-        {/* Authentic Fluent 2 Cangze Session Window */}
+        {/* Warm Home Conversation Card */}
         <div className="cz-session-window" data-testid="session-window">
-          {/* Session Top Chrome */}
           <div className="cz-session-topbar">
             <div className="cz-session-title-group">
-              <img src="./brand/cangze-ridge.svg" alt="" width={20} height={20} />
-              <strong>{lang === 'zh' ? '晚安准备 · 主会话' : 'Evening Wind-Down · Session'}</strong>
-              <span className="cz-branch-pill cz-mono" title="Conversation tree branch">
-                <ChevronLeft size={11} /> 2/2 <ChevronRight size={11} />
-              </span>
+              <img src="./brand/cangze-ridge.svg" alt="" width={20} height={20} className="cz-session-logo" />
+              <strong>{lang === 'zh' ? '晚安对话' : 'Goodnight Chat'}</strong>
             </div>
 
             <div className="cz-session-topbar-right">
@@ -147,16 +133,16 @@ export function BedtimeScenarioSection({
                 className="cz-model-select"
                 value={selectedModel}
                 onChange={(e) => onChangeModel(e.target.value)}
-                aria-label="Session Model"
+                aria-label="Conversation Style"
               >
-                {MODELS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                {MODEL_CHOICES.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {lang === 'zh' ? m.zh : m.en}
                   </option>
                 ))}
               </select>
 
-              <div className="cz-bell-wrap" title={lang === 'zh' ? '通知中心' : 'Notification Center'}>
+              <div className="cz-bell-wrap" title={lang === 'zh' ? '提醒中心' : 'Reminders'}>
                 <Bell size={15} />
                 {status === 'waiting_approval' && (
                   <span className="cz-bell-badge" data-testid="approval-bell-badge">
@@ -167,14 +153,12 @@ export function BedtimeScenarioSection({
             </div>
           </div>
 
-          {/* Chat Message Stream */}
           <div className="cz-session-body">
-            {/* User Bubble */}
             <div className="cz-user-bubble-row">
               <div className="cz-user-bubble">
                 {lang === 'zh'
                   ? '帮我准备睡觉，关掉楼下灯和咖啡机，拉上主卧窗帘留一盏夜灯，顺便把前门锁好。'
-                  : 'Help me get ready for bed: turn off downstairs lights & coffee machine, close bedroom curtains with a soft nightlight, and lock the front door.'}
+                  : 'Help me get ready for bed: turn off downstairs lights and the coffee maker, close bedroom curtains with a soft nightlight, and lock the front door.'}
               </div>
             </div>
 
@@ -182,13 +166,12 @@ export function BedtimeScenarioSection({
               <div className="cz-session-idle-prompt">
                 <p>
                   {lang === 'zh'
-                    ? '点击上方「发送指令」按钮，实时观看 3D 住宅摄像机穿梭各房间调光拉帘，并在触达玄关智能门锁时触发藏泽审批拦截。'
-                    : 'Click “Send” above to watch the 3D camera glide room-to-room adjusting lights and drapery, then pause at the front door lock for human approval.'}
+                    ? '点一下上面的「发送」按钮，看看房子里的灯光、窗帘和空调如何一步步安顿下来，以及门锁前它如何礼貌地停下来问你。'
+                    : 'Tap “Send” above to watch the lights, curtains, and climate wind down room by room—and see how it pauses politely to ask before locking your front door.'}
                 </p>
               </div>
             ) : (
               <div className="cz-assistant-stream">
-                {/* Tool Execution Chain */}
                 <div className="cz-tool-chain">
                   {steps.map((step, idx) => {
                     if (idx > stepIndex) return null;
@@ -200,15 +183,15 @@ export function BedtimeScenarioSection({
                           ) : step.state === 'denied' ? (
                             <XCircle size={14} />
                           ) : step.state === 'waiting_approval' ? (
-                            <ShieldAlert size={14} />
+                            <Lock size={14} />
                           ) : (
                             <Clock size={14} />
                           )}
                         </span>
                         <div className="cz-tool-content">
                           <div className="cz-tool-head">
-                            <span className="cz-tool-name">{step.tool}</span>
-                            <span className="cz-tool-summary cz-mono">{step.summary}</span>
+                            <span className="cz-tool-name">{tr(step.label, lang)}</span>
+                            <span className="cz-tool-summary">{tr(step.summary, lang)}</span>
                           </div>
                           <p className="cz-tool-detail">{tr(step.detail, lang)}</p>
                         </div>
@@ -217,7 +200,7 @@ export function BedtimeScenarioSection({
                   })}
                 </div>
 
-                {/* Exact Fluent 2 ApprovalCard when paused on lock.front_door */}
+                {/* Human-Friendly Confirmation Card */}
                 {status === 'waiting_approval' && (
                   <div
                     ref={approvalCardRef}
@@ -232,48 +215,40 @@ export function BedtimeScenarioSection({
                     <div className="cz-approval-main">
                       <div className="cz-approval-head">
                         <strong id="approval-card-title">
-                          {lang === 'zh' ? '需要你的批准' : 'Your approval is needed'}
+                          {lang === 'zh' ? '要帮你把玄关大门锁上吗？' : 'Lock the front door now?'}
                         </strong>
-                        <span className="cz-mono cz-approval-id">
-                          apr_01k9lock · Principal: session:evening
+                        <span className="cz-approval-tag">
+                          {lang === 'zh' ? '涉及门锁安全' : 'Door Security'}
                         </span>
                       </div>
                       <p className="cz-approval-summary">
-                        <code>lock.lock → lock.front_door</code> —{' '}
                         {lang === 'zh'
-                          ? 'lock 域设备属于高风险操作（含上锁与解锁），主会话已挂起等待确认'
-                          : 'lock devices are high risk; session execution is suspended awaiting your decision'}
+                          ? '锁门和开门都关系到家里安全，藏泽已经停下来等你确认，不会擅自替你操作。'
+                          : 'Locking and unlocking doors always wait for your direct okay—nothing changes until you say so.'}
                       </p>
 
-                      <details className="cz-approval-details">
-                        <summary>
-                          {lang === 'zh' ? '查看实际操作参数（经脱敏校验）' : 'Inspect exact tool arguments'}
-                        </summary>
-                        <pre className="cz-code-pre cz-mono">{JSON.stringify(approvalArgs, null, 2)}</pre>
-                      </details>
-
                       <div className="cz-approval-footer">
-                        <span className="cz-approval-timer cz-mono">
+                        <span className="cz-approval-timer">
                           {lang === 'zh'
-                            ? `${mins}:${secs} 内未批准将自动过期取消`
+                            ? `${mins}:${secs} 内不操作会自动取消`
                             : `Auto-cancels in ${mins}:${secs}`}
                         </span>
                         <div className="cz-approval-btns">
                           <button
                             type="button"
                             data-testid="approve-lock-btn"
-                            className="cz-fluent-btn-primary"
+                            className="cz-warm-confirm-btn"
                             onClick={() => onDecideApproval(true)}
                           >
-                            {lang === 'zh' ? '批准执行' : 'Approve'}
+                            {lang === 'zh' ? '锁好大门' : 'Lock Door'}
                           </button>
                           <button
                             type="button"
                             data-testid="deny-lock-btn"
-                            className="cz-fluent-btn-default"
+                            className="cz-warm-cancel-btn"
                             onClick={() => onDecideApproval(false)}
                           >
-                            {lang === 'zh' ? '拒绝' : 'Deny'}
+                            {lang === 'zh' ? '先不用锁' : 'Leave Unlocked'}
                           </button>
                         </div>
                       </div>
@@ -281,20 +256,20 @@ export function BedtimeScenarioSection({
                   </div>
                 )}
 
-                {/* Final Assistant Completion Reply */}
+                {/* Warm Final Reply */}
                 {(status === 'completed' || status === 'denied_completed') && (
                   <div className="cz-assistant-final" data-testid="bedtime-final-reply">
                     {status === 'completed' ? (
                       <p>
                         {lang === 'zh'
-                          ? '已为你安顿好全屋睡眠环境：一层客厅、岛台吊灯与咖啡机均已关闭；二层主卧遮光帘已闭合，微风空调调至 22.5°C，悬浮床底夜灯保留 22% 暖光；玄关门锁经你批准已可靠上锁。晚安。'
-                          : 'Everything is set for sleep: downstairs lights and espresso machine are off; master blackout drapery is closed, climate is set to 22.5°C with 22% warm under-bed cove lighting, and lock.front_door is securely locked following your approval. Goodnight.'}
+                          ? '家里已经帮你安顿好了：楼下客厅、餐桌吊灯和咖啡机都已关闭；主卧遮光帘已拉合，空调调至舒服的 22.5°C，床底夜灯留了一点柔柔的暖光；玄关大门也按你的确认锁好了。晚安，好梦。'
+                          : 'Everything is settled for sleep: downstairs lights and the coffee maker are off; bedroom curtains are closed with a soft 22% under-bed nightlight and 22.5°C climate; and the front door is locked as you confirmed. Goodnight.'}
                       </p>
                     ) : (
                       <p>
                         {lang === 'zh'
-                          ? '公区照明与咖啡机已关闭，二层主卧遮光帘、22.5°C 静音空调与 22% 床底夜灯已就绪。由于你拒绝了门锁操作（403 approval_rejected），lock.front_door 保持未上锁状态并已记入审计日志。'
-                          : 'Downstairs lights & coffee machine are off, and the master suite curtains, 22.5°C climate, and 22% nightlight are ready. Per your denial (403 approval_rejected), lock.front_door was left unlocked and recorded in audit_log.'}
+                          ? '楼下灯光和咖啡机已关闭，主卧遮光帘、22.5°C 轻风空调和床底小夜灯都已为你备好。按你的意思，玄关大门保持未上锁状态。晚安。'
+                          : 'Downstairs lights and the coffee maker are off, and your bedroom curtains, 22.5°C climate, and soft nightlight are ready. As requested, the front door was left unlocked. Goodnight.'}
                       </p>
                     )}
                   </div>
@@ -303,16 +278,15 @@ export function BedtimeScenarioSection({
             )}
           </div>
 
-          {/* Composer Footer */}
           <div className="cz-session-composer">
             <span className="cz-composer-hint">
               {status === 'running'
                 ? lang === 'zh'
-                  ? '回复进行中，新消息可选择「立即插话 steer」或「排在之后 follow-up」'
-                  : 'Run active — new prompts queue as steer or follow-up'
+                  ? '正在帮你处理，随时可以插话补充一句'
+                  : 'Handling this now—feel free to chime in anytime'
                 : lang === 'zh'
-                  ? '跨设备草稿实时同步（drafts 乐观修订校验）'
-                  : 'Multi-device composer draft synced via optimistic revision'}
+                  ? '手机和电脑上的草稿会自动同步，随时接着聊'
+                  : 'Your unfinished notes stay synced across phone and desktop'}
             </span>
             <button
               type="button"
@@ -324,23 +298,6 @@ export function BedtimeScenarioSection({
             </button>
           </div>
         </div>
-
-        {/* Live Audit Log Mini-Ledger */}
-        {recentAudits.length > 0 && (
-          <div className="cz-mini-audit">
-            <div className="cz-mini-audit-head cz-mono">
-              <span>audit_log · SQLite WAL</span>
-              <span>{lang === 'zh' ? '最新决策流水' : 'Latest Persisted Decisions'}</span>
-            </div>
-            {recentAudits.slice(0, 3).map((a) => (
-              <div key={a.id} className="cz-mini-audit-row cz-mono">
-                <span className={`cz-decision-tag is-${a.decision}`}>{a.decision}</span>
-                <span>{a.principal}</span>
-                <span>{a.target}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </section>
   );

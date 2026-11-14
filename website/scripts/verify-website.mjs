@@ -1,9 +1,22 @@
 /* global document, requestAnimationFrame, HTMLImageElement */
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
+
+function getFreePort() {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.listen(0, '127.0.0.1', () => {
+      const addr = srv.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      srv.close((err) => (err ? reject(err) : resolve(port)));
+    });
+    srv.on('error', reject);
+  });
+}
 
 function resolveCachedChromiumExecutable() {
   if (existsSync(chromium.executablePath())) return undefined;
@@ -27,15 +40,35 @@ function resolveCachedChromiumExecutable() {
 }
 
 /**
- * Automated End-to-End Static Hosting, SEO, Visual, Interactive, Mobile & Performance Verification
+ * Automated End-to-End Static Hosting, SEO, Visual, Interactive, Mobile & Copy Verification
  * for the Cangze Official Website (website/).
  */
 
-const PORT = 4289;
-const BASE_URL = `http://127.0.0.1:${PORT}`;
 const DIST_DIR = join(process.cwd(), 'dist');
 const IS_CI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 const OUT_DIR = process.env.WEBSITE_SCREENSHOT_DIR || join(process.cwd(), 'test-results', 'visual-audit');
+
+const FORBIDDEN_TECHNICAL_TERMS = [
+  'beforeToolCall',
+  'HaGateway',
+  'HaRegistry',
+  'PolicyEngine',
+  'CoordinationService',
+  'SQLite WAL',
+  'AES-256-GCM',
+  'baseRevision',
+  'agent_revisions',
+  'agent_memory',
+  '409 conflict_manual',
+  '403 policy_denied',
+  '403 approval_rejected',
+  'waiting_approval',
+  'maxChainDepth',
+  'cap_drop',
+  'INV-01',
+  'placement="room"',
+  '127.0.0.1:38417',
+];
 
 mkdirSync(OUT_DIR, { recursive: true });
 
@@ -119,10 +152,12 @@ function waitForServer(url, timeoutMs = 15000) {
 async function runVerification() {
   verifyStaticBundle();
 
+  const port = await getFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
   const viteBin = join(process.cwd(), 'node_modules', 'vite', 'bin', 'vite.js');
   const server = spawn(
     process.execPath,
-    [viteBin, 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
+    [viteBin, 'preview', '--port', String(port), '--host', '127.0.0.1', '--strictPort'],
     {
       stdio: 'ignore',
       detached: process.platform !== 'win32',
@@ -133,8 +168,8 @@ async function runVerification() {
   let browser;
 
   try {
-    await waitForServer(BASE_URL);
-    process.stdout.write(`[verify] Preview server ready at ${BASE_URL}\n`);
+    await waitForServer(baseUrl);
+    process.stdout.write(`[verify] Preview server ready at ${baseUrl}\n`);
 
     browser = await chromium.launch({
       headless: true,
@@ -155,7 +190,7 @@ async function runVerification() {
     };
 
     // =========================================================================
-    // 1. DESKTOP FULL VISUAL, SEO & INTERACTIVE AUDIT (1440 x 900)
+    // 1. DESKTOP FULL VISUAL, SEO, COPY & INTERACTIVE AUDIT (1440 x 900)
     // =========================================================================
     const desktopCtx = await browser.newContext({
       viewport: { width: 1440, height: 900 },
@@ -176,7 +211,7 @@ async function runVerification() {
     });
 
     const t0 = Date.now();
-    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    await page.goto(baseUrl, { waitUntil: 'networkidle' });
     const loadMs = Date.now() - t0;
 
     // Verify SEO, OpenGraph, Bing verification & JSON-LD metadata in DOM
@@ -195,6 +230,18 @@ async function runVerification() {
       !seoMeta.hasJsonLd
     ) {
       throw new Error(`Invalid SEO/OpenGraph metadata: ${JSON.stringify(seoMeta)}`);
+    }
+
+    // Verify rendered copy avoids backend jargon (excluding the copyable Docker Compose command block)
+    const visibleCopyText = await page.evaluate(() => {
+      const clone = document.body.cloneNode(true);
+      clone.querySelectorAll('[data-testid="deploy-code-block"]').forEach((n) => n.remove());
+      return clone.textContent || '';
+    });
+    for (const term of FORBIDDEN_TECHNICAL_TERMS) {
+      if (visibleCopyText.includes(term)) {
+        throw new Error(`Found forbidden technical jargon in visible page copy: ${term}`);
+      }
     }
 
     // Wait for cangze-residence.glb to finish loading into Three.js
@@ -229,18 +276,18 @@ async function runVerification() {
         }),
     );
 
-    await snap(page, '01-hero-dusk.png');
+    await snap(page, '01-hero-daylight.png');
 
     // 2. Test 3D Roam Mode & Time-of-Day Lighting Presets
     await page.getByTestId('toggle-roam-btn').click();
     await page.waitForTimeout(650);
-    await snap(page, '02-roam-3d-dusk.png');
-
-    await page.getByTestId('tod-day').click();
-    await page.waitForTimeout(450);
-    await snap(page, '03-roam-3d-daylight.png');
+    await snap(page, '02-roam-3d-daylight.png');
 
     await page.getByTestId('tod-dusk').click();
+    await page.waitForTimeout(450);
+    await snap(page, '03-roam-3d-dusk.png');
+
+    await page.getByTestId('tod-day').click();
     await page.getByTestId('toggle-roam-btn').click();
     await page.waitForTimeout(400);
 
@@ -258,43 +305,41 @@ async function runVerification() {
     await page.getByTestId('climate-dec-climate.bedroom_ac').click();
     await snap(page, '05-explore-master-suite.png');
 
-    // 4. Test AI Bedtime Routine ("帮我准备睡觉") -> Pause at Lock Approval -> Approve!
+    // 4. Test AI Bedtime Routine ("帮我准备睡觉") -> Pause at Lock Confirmation -> Approve!
     await scrollToStart(page, '#bedtime');
     await page.waitForTimeout(400);
     await page.getByTestId('run-bedtime-btn').click();
 
-    // Wait for waiting_approval state and ApprovalCard
     await page.waitForSelector('[data-testid="approval-card"]', { timeout: 8000 });
     await page.waitForSelector('[data-testid="approval-bell-badge"]', { timeout: 3000 });
     await page.waitForTimeout(500);
     await snap(page, '06-bedtime-approval-pause.png');
 
-    // Approve high-risk lock.lock
     await page.getByTestId('approve-lock-btn').click();
     await page.waitForSelector('[data-testid="bedtime-final-reply"]', { timeout: 4000 });
     await page.waitForTimeout(500);
     await snap(page, '07-bedtime-approved-complete.png');
 
-    // Also test Reset -> Deny flow quickly to verify both branches work cleanly
+    // Test Reset -> Deny flow cleanly
     await page.getByTestId('reset-bedtime-btn').click();
     await page.getByTestId('run-bedtime-btn').click();
     await page.waitForSelector('[data-testid="deny-lock-btn"]', { timeout: 8000 });
     await page.getByTestId('deny-lock-btn').click();
     await page.waitForSelector('[data-testid="bedtime-final-reply"]', { timeout: 4000 });
     const deniedText = await page.getByTestId('bedtime-final-reply').textContent();
-    if (!deniedText || !deniedText.includes('403 approval_rejected')) {
-      throw new Error('Expected denial reply to mention 403 approval_rejected');
+    if (!deniedText || (!deniedText.includes('未上锁') && !deniedText.toLowerCase().includes('unlocked'))) {
+      throw new Error('Expected denial reply to clearly indicate the door remained unlocked');
     }
 
-    // 5. Test Sub-Agent Network & Conflict Arbitration Simulator
+    // 5. Test Home Helpers & House Rules Showcase
     await scrollToStart(page, '#agents');
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(500);
     await page.getByTestId('agent-tab-away-check').click();
     await page.getByTestId('arb-policy_cap').click();
-    await page.waitForTimeout(450);
-    await snap(page, '08-subagents-arbitration.png');
+    await page.waitForTimeout(350);
+    await snap(page, '08-helpers-house-rules.png');
 
-    // 6. Test Authentic Product Workbench (Real Screenshots + Light/Dark + 6 Tabs)
+    // 6. Test Product Showcase (Default Light Mode + Dark Mode Switch)
     await scrollToStart(page, '#product');
     await page.waitForTimeout(500);
     const imgLoaded = await page.evaluate(() => {
@@ -304,17 +349,27 @@ async function runVerification() {
     if (!imgLoaded) {
       throw new Error('Product screenshot failed to load natural dimensions');
     }
-    await snap(page, '09-product-workbench-dark.png');
+    await snap(page, '09-product-workbench-light.png');
 
-    await page.getByTestId('ui-theme-light').click();
+    await page.getByTestId('ui-theme-dark').click();
     await page.getByTestId('product-tab-devices').click();
     await page.waitForTimeout(350);
-    await snap(page, '10-product-devices-light.png');
+    await snap(page, '10-product-devices-dark.png');
 
     // 7. Test Bilingual Switch (EN) & Deploy Quickstart Section
     await page.getByTestId('toggle-lang-btn').click();
     await scrollToStart(page, '#deploy');
     await page.waitForTimeout(450);
+    const englishCopyText = await page.evaluate(() => {
+      const clone = document.body.cloneNode(true);
+      clone.querySelectorAll('[data-testid="deploy-code-block"]').forEach((n) => n.remove());
+      return clone.textContent || '';
+    });
+    for (const term of FORBIDDEN_TECHNICAL_TERMS) {
+      if (englishCopyText.includes(term)) {
+        throw new Error(`Found forbidden technical jargon in English copy: ${term}`);
+      }
+    }
     await snap(page, '11-deploy-english.png');
 
     await desktopCtx.close();
@@ -336,7 +391,7 @@ async function runVerification() {
       }
     });
 
-    await mPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+    await mPage.goto(baseUrl, { waitUntil: 'networkidle' });
     await mPage.waitForSelector('[data-testid="residence-stage"][data-model-loaded="true"]', {
       timeout: 15000,
     });
