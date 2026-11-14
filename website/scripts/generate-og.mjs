@@ -60,10 +60,11 @@ async function generateOgImage() {
   mkdirSync(dirname(OUT_FILE), { recursive: true });
   const logoB64 = readFileSync(join(WEBSITE_ROOT, 'public', 'brand', 'logo.png')).toString('base64');
 
+  const viteBin = join(WEBSITE_ROOT, 'node_modules', 'vite', 'bin', 'vite.js');
   const server = spawn(
-    'npx',
-    ['vite', 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
-    { cwd: WEBSITE_ROOT, stdio: 'pipe' },
+    process.execPath,
+    [viteBin, 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
+    { cwd: WEBSITE_ROOT, stdio: 'ignore', detached: process.platform !== 'win32' },
   );
 
   let browser;
@@ -147,11 +148,23 @@ async function generateOgImage() {
     process.stdout.write(`[generate-og] Wrote 1200x630 OpenGraph image to ${OUT_FILE}\n`);
   } finally {
     if (browser) await browser.close();
-    server.kill('SIGTERM');
+    try {
+      if (server.pid && process.platform !== 'win32') {
+        process.kill(-server.pid, 'SIGTERM');
+      } else {
+        server.kill('SIGTERM');
+      }
+    } catch {
+      // server already exited
+    }
   }
 }
 
-generateOgImage().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+generateOgImage()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

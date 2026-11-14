@@ -119,11 +119,13 @@ function waitForServer(url, timeoutMs = 15000) {
 async function runVerification() {
   verifyStaticBundle();
 
+  const viteBin = join(process.cwd(), 'node_modules', 'vite', 'bin', 'vite.js');
   const server = spawn(
-    'npx',
-    ['vite', 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
+    process.execPath,
+    [viteBin, 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
     {
-      stdio: 'pipe',
+      stdio: 'ignore',
+      detached: process.platform !== 'win32',
     },
   );
 
@@ -367,7 +369,15 @@ async function runVerification() {
     );
   } finally {
     if (browser) await browser.close();
-    server.kill('SIGTERM');
+    try {
+      if (server.pid && process.platform !== 'win32') {
+        process.kill(-server.pid, 'SIGTERM');
+      } else {
+        server.kill('SIGTERM');
+      }
+    } catch {
+      // server already exited
+    }
   }
 }
 
@@ -375,7 +385,11 @@ async function page_waitForMobileReady(mPage) {
   await mPage.waitForTimeout(600);
 }
 
-runVerification().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+runVerification()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
