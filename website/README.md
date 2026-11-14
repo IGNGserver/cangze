@@ -1,6 +1,6 @@
 # Cangze Official Website (`website/`)
 
-Immersive 3D architectural and interactive product website for **藏泽 (Cangze)** — the open-source, self-hosted AI hub for Home Assistant.
+Immersive 3D architectural and interactive product website for **藏泽 (Cangze)** (<https://cangze.igng.net/>) — the open-source, self-hosted AI hub for Home Assistant.
 
 ## Highlights
 
@@ -9,6 +9,7 @@ Immersive 3D architectural and interactive product website for **藏泽 (Cangze)
 - **AI Bedtime Automation & High-Risk Approval Gate**: Demonstrates `"帮我准备睡觉"` step-by-step across rooms and pauses automatically in `waiting_approval` when reaching `lock.lock → lock.front_door`, rendering the authentic Fluent 2 `ApprovalCard`.
 - **Sub-Agent Collaboration & Coordination Lab**: Visualizes immutable `agent_revisions`, `agent_memory`, default-deny `PolicyEngine` rules, and `CoordinationService` guards (`409 conflict_manual`, `403 policy_denied`, `maxChainDepth: 3`) with 3D spatial signal arcs.
 - **Authentic Fluent 2 Console & Quickstart**: Showcases real dark/light product screenshots, the 8 architectural invariants, and one-click `v0.4.2` Docker Compose deployment.
+- **Hosting & CI/CD**: Deployed to Cloudflare Pages Direct Upload (`cangze-website` → <https://cangze.igng.net/>) via `.github/workflows/website.yml`. Full hosting, headers, SEO, and rollback details are in [`docs/HOSTING.md`](./docs/HOSTING.md).
 
 ## Development & Scratch Build
 
@@ -17,8 +18,10 @@ Per repository and device rules, run dependency installation, builds, and browse
 ```bash
 scripts/scratch-sync.sh
 cd "${BUILD_SCRATCH_ROOT:-$HOME/.build}/cangze/$(basename "$(git rev-parse --show-toplevel)")/website"
-pnpm install
+pnpm install --frozen-lockfile --ignore-workspace
 pnpm run generate:model
 pnpm run build
-node scripts/verify-website.mjs
+pnpm run generate:og
+pnpm run build
+pnpm run verify
 ```

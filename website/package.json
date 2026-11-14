@@ -8,10 +8,12 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "generate:model": "node scripts/generate-residence-glb.mjs",
+    "generate:og": "node scripts/generate-og.mjs",
     "dev": "vite --port 4173",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
+    "verify": "node scripts/verify-website.mjs",
     "verify:visual": "node scripts/verify-website.mjs"
   },
   "dependencies": {

@@ -1,6 +1,6 @@
 /* global document, requestAnimationFrame, HTMLImageElement */
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
@@ -27,15 +27,59 @@ function resolveCachedChromiumExecutable() {
 }
 
 /**
- * Automated End-to-End Visual, Interactive, Mobile & Performance Verification
+ * Automated End-to-End Static Hosting, SEO, Visual, Interactive, Mobile & Performance Verification
  * for the Cangze Official Website (website/).
  */
 
 const PORT = 4289;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+const DIST_DIR = join(process.cwd(), 'dist');
 const OUT_DIR = process.env.WEBSITE_SCREENSHOT_DIR || join(process.cwd(), 'test-results', 'visual-audit');
 
 mkdirSync(OUT_DIR, { recursive: true });
+
+function verifyStaticBundle() {
+  const requiredFiles = [
+    'index.html',
+    '404.html',
+    '_headers',
+    'robots.txt',
+    'sitemap.xml',
+    'og/og.png',
+    'models/cangze-residence.glb',
+    'brand/favicon.png',
+    'brand/logo.png',
+  ];
+
+  for (const rel of requiredFiles) {
+    const full = join(DIST_DIR, rel);
+    if (!existsSync(full)) {
+      throw new Error(`Missing required static bundle artifact: dist/${rel}`);
+    }
+    if (statSync(full).size === 0) {
+      throw new Error(`Empty static bundle artifact: dist/${rel}`);
+    }
+  }
+
+  const headersText = readFileSync(join(DIST_DIR, '_headers'), 'utf8');
+  if (!headersText.includes('immutable') || !headersText.includes('X-Content-Type-Options: nosniff')) {
+    throw new Error('dist/_headers is missing immutable caching or security headers');
+  }
+
+  const robotsText = readFileSync(join(DIST_DIR, 'robots.txt'), 'utf8');
+  if (!robotsText.includes('https://cangze.igng.net/sitemap.xml')) {
+    throw new Error('dist/robots.txt does not reference https://cangze.igng.net/sitemap.xml');
+  }
+
+  const sitemapText = readFileSync(join(DIST_DIR, 'sitemap.xml'), 'utf8');
+  if (!sitemapText.includes('<loc>https://cangze.igng.net/</loc>')) {
+    throw new Error('dist/sitemap.xml does not contain canonical https://cangze.igng.net/ entry');
+  }
+
+  process.stdout.write(
+    '[verify] Static bundle, _headers, 404.html, robots.txt, sitemap.xml, and OG card verified.\n',
+  );
+}
 
 function waitForServer(url, timeoutMs = 15000) {
   const start = Date.now();
@@ -61,6 +105,8 @@ function waitForServer(url, timeoutMs = 15000) {
 }
 
 async function runVerification() {
+  verifyStaticBundle();
+
   const server = spawn(
     'npx',
     ['vite', 'preview', '--port', String(PORT), '--host', '127.0.0.1', '--strictPort'],
@@ -95,7 +141,7 @@ async function runVerification() {
     };
 
     // =========================================================================
-    // 1. DESKTOP FULL VISUAL & INTERACTIVE AUDIT (1440 x 900)
+    // 1. DESKTOP FULL VISUAL, SEO & INTERACTIVE AUDIT (1440 x 900)
     // =========================================================================
     const desktopCtx = await browser.newContext({
       viewport: { width: 1440, height: 900 },
@@ -118,6 +164,24 @@ async function runVerification() {
     const t0 = Date.now();
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
     const loadMs = Date.now() - t0;
+
+    // Verify SEO, OpenGraph, Bing verification & JSON-LD metadata in DOM
+    const seoMeta = await page.evaluate(() => ({
+      canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+      ogUrl: document.querySelector('meta[property="og:url"]')?.getAttribute('content'),
+      ogImage: document.querySelector('meta[property="og:image"]')?.getAttribute('content'),
+      bing: document.querySelector('meta[name="msvalidate.01"]')?.getAttribute('content'),
+      hasJsonLd: Boolean(document.querySelector('script[type="application/ld+json"]')?.textContent),
+    }));
+    if (
+      seoMeta.canonical !== 'https://cangze.igng.net/' ||
+      seoMeta.ogUrl !== 'https://cangze.igng.net/' ||
+      seoMeta.ogImage !== 'https://cangze.igng.net/og/og.png' ||
+      !seoMeta.bing ||
+      !seoMeta.hasJsonLd
+    ) {
+      throw new Error(`Invalid SEO/OpenGraph metadata: ${JSON.stringify(seoMeta)}`);
+    }
 
     // Wait for cangze-residence.glb to finish loading into Three.js
     await page.waitForSelector('[data-testid="residence-stage"][data-model-loaded="true"]', {
