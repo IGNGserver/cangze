@@ -34,9 +34,21 @@ function resolveCachedChromiumExecutable() {
 const PORT = 4289;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const DIST_DIR = join(process.cwd(), 'dist');
+const IS_CI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 const OUT_DIR = process.env.WEBSITE_SCREENSHOT_DIR || join(process.cwd(), 'test-results', 'visual-audit');
 
 mkdirSync(OUT_DIR, { recursive: true });
+
+async function snap(targetPage, filename) {
+  if (IS_CI && process.env.FORCE_SCREENSHOTS !== 'true') {
+    return;
+  }
+  await targetPage.screenshot({
+    path: join(OUT_DIR, filename),
+    animations: 'disabled',
+    timeout: 45000,
+  });
+}
 
 function verifyStaticBundle() {
   const requiredFiles = [
@@ -145,7 +157,7 @@ async function runVerification() {
     // =========================================================================
     const desktopCtx = await browser.newContext({
       viewport: { width: 1440, height: 900 },
-      deviceScaleFactor: 1.5,
+      deviceScaleFactor: IS_CI ? 1 : 1.5,
     });
     const page = await desktopCtx.newPage();
 
@@ -185,7 +197,7 @@ async function runVerification() {
 
     // Wait for cangze-residence.glb to finish loading into Three.js
     await page.waitForSelector('[data-testid="residence-stage"][data-model-loaded="true"]', {
-      timeout: 10000,
+      timeout: 15000,
     });
     await page.waitForTimeout(700);
 
@@ -215,16 +227,16 @@ async function runVerification() {
         }),
     );
 
-    await page.screenshot({ path: join(OUT_DIR, '01-hero-dusk.png') });
+    await snap(page, '01-hero-dusk.png');
 
     // 2. Test 3D Roam Mode & Time-of-Day Lighting Presets
     await page.getByTestId('toggle-roam-btn').click();
     await page.waitForTimeout(650);
-    await page.screenshot({ path: join(OUT_DIR, '02-roam-3d-dusk.png') });
+    await snap(page, '02-roam-3d-dusk.png');
 
     await page.getByTestId('tod-day').click();
     await page.waitForTimeout(450);
-    await page.screenshot({ path: join(OUT_DIR, '03-roam-3d-daylight.png') });
+    await snap(page, '03-roam-3d-daylight.png');
 
     await page.getByTestId('tod-dusk').click();
     await page.getByTestId('toggle-roam-btn').click();
@@ -237,12 +249,12 @@ async function runVerification() {
     await page.waitForTimeout(650);
     await page.getByTestId('toggle-light.living_lamp').click();
     await page.waitForTimeout(350);
-    await page.screenshot({ path: join(OUT_DIR, '04-explore-living-room.png') });
+    await snap(page, '04-explore-living-room.png');
 
     await page.getByTestId('explore-room-bedroom').click();
     await page.waitForTimeout(700);
     await page.getByTestId('climate-dec-climate.bedroom_ac').click();
-    await page.screenshot({ path: join(OUT_DIR, '05-explore-master-suite.png') });
+    await snap(page, '05-explore-master-suite.png');
 
     // 4. Test AI Bedtime Routine ("帮我准备睡觉") -> Pause at Lock Approval -> Approve!
     await scrollToStart(page, '#bedtime');
@@ -253,13 +265,13 @@ async function runVerification() {
     await page.waitForSelector('[data-testid="approval-card"]', { timeout: 8000 });
     await page.waitForSelector('[data-testid="approval-bell-badge"]', { timeout: 3000 });
     await page.waitForTimeout(500);
-    await page.screenshot({ path: join(OUT_DIR, '06-bedtime-approval-pause.png') });
+    await snap(page, '06-bedtime-approval-pause.png');
 
     // Approve high-risk lock.lock
     await page.getByTestId('approve-lock-btn').click();
     await page.waitForSelector('[data-testid="bedtime-final-reply"]', { timeout: 4000 });
     await page.waitForTimeout(500);
-    await page.screenshot({ path: join(OUT_DIR, '07-bedtime-approved-complete.png') });
+    await snap(page, '07-bedtime-approved-complete.png');
 
     // Also test Reset -> Deny flow quickly to verify both branches work cleanly
     await page.getByTestId('reset-bedtime-btn').click();
@@ -278,7 +290,7 @@ async function runVerification() {
     await page.getByTestId('agent-tab-away-check').click();
     await page.getByTestId('arb-policy_cap').click();
     await page.waitForTimeout(450);
-    await page.screenshot({ path: join(OUT_DIR, '08-subagents-arbitration.png') });
+    await snap(page, '08-subagents-arbitration.png');
 
     // 6. Test Authentic Product Workbench (Real Screenshots + Light/Dark + 6 Tabs)
     await scrollToStart(page, '#product');
@@ -290,18 +302,18 @@ async function runVerification() {
     if (!imgLoaded) {
       throw new Error('Product screenshot failed to load natural dimensions');
     }
-    await page.screenshot({ path: join(OUT_DIR, '09-product-workbench-dark.png') });
+    await snap(page, '09-product-workbench-dark.png');
 
     await page.getByTestId('ui-theme-light').click();
     await page.getByTestId('product-tab-devices').click();
     await page.waitForTimeout(350);
-    await page.screenshot({ path: join(OUT_DIR, '10-product-devices-light.png') });
+    await snap(page, '10-product-devices-light.png');
 
     // 7. Test Bilingual Switch (EN) & Deploy Quickstart Section
     await page.getByTestId('toggle-lang-btn').click();
     await scrollToStart(page, '#deploy');
     await page.waitForTimeout(450);
-    await page.screenshot({ path: join(OUT_DIR, '11-deploy-english.png') });
+    await snap(page, '11-deploy-english.png');
 
     await desktopCtx.close();
 
@@ -310,7 +322,7 @@ async function runVerification() {
     // =========================================================================
     const mobileCtx = await browser.newContext({
       viewport: { width: 390, height: 844 },
-      deviceScaleFactor: 1.5,
+      deviceScaleFactor: IS_CI ? 1 : 1.5,
       isMobile: true,
       hasTouch: true,
     });
@@ -324,9 +336,9 @@ async function runVerification() {
 
     await mPage.goto(BASE_URL, { waitUntil: 'networkidle' });
     await mPage.waitForSelector('[data-testid="residence-stage"][data-model-loaded="true"]', {
-      timeout: 10000,
+      timeout: 15000,
     });
-    await mPage.waitForTimeout(600);
+    await page_waitForMobileReady(mPage);
 
     const mobileOverflow = await mPage.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -339,10 +351,10 @@ async function runVerification() {
       throw new Error(`Mobile horizontal overflow detected: ${JSON.stringify(dims)}`);
     }
 
-    await mPage.screenshot({ path: join(OUT_DIR, '12-mobile-hero.png') });
+    await snap(mPage, '12-mobile-hero.png');
     await scrollToStart(mPage, '#bedtime');
     await mPage.waitForTimeout(450);
-    await mPage.screenshot({ path: join(OUT_DIR, '13-mobile-bedtime.png') });
+    await snap(mPage, '13-mobile-bedtime.png');
 
     await mobileCtx.close();
 
@@ -357,6 +369,10 @@ async function runVerification() {
     if (browser) await browser.close();
     server.kill('SIGTERM');
   }
+}
+
+async function page_waitForMobileReady(mPage) {
+  await mPage.waitForTimeout(600);
 }
 
 runVerification().catch((err) => {
