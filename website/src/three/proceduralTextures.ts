@@ -29,57 +29,59 @@ export interface ArchitecturalTexturePack {
 }
 
 export function createArchitecturalTextures(): ArchitecturalTexturePack {
-  // 1. Oiled Walnut Wood Grain + Roughness
+  // 1. Neutral High-Value Wood Grain + Roughness (tinted cleanly via glTF COLOR_0)
   const [wCanvas, wCtx] = makeCanvas(256, 256);
   const [wrCanvas, wrCtx] = makeCanvas(256, 256);
-  wCtx.fillStyle = '#6c452b';
+  wCtx.fillStyle = '#ece8e2';
   wCtx.fillRect(0, 0, 256, 256);
-  wrCtx.fillStyle = '#888888';
+  wrCtx.fillStyle = '#8a8a8a';
   wrCtx.fillRect(0, 0, 256, 256);
 
   for (let y = 0; y < 256; y++) {
-    const wave = Math.sin(y * 0.11) * 10 + Math.sin(y * 0.37) * 4;
-    const tone = Math.floor(wave);
-    wCtx.fillStyle = `rgb(${106 + tone}, ${68 + Math.floor(tone * 0.65)}, ${43 + Math.floor(tone * 0.45)})`;
+    const wave = Math.sin(y * 0.12) * 11 + Math.sin(y * 0.41) * 5 + Math.cos(y * 0.05) * 6;
+    const v = Math.max(204, Math.min(252, Math.round(234 + wave)));
+    wCtx.fillStyle = `rgb(${v}, ${Math.max(198, v - 3)}, ${Math.max(190, v - 8)})`;
     wCtx.fillRect(0, y, 256, 1);
-    const rVal = 128 - Math.floor(wave * 1.4);
+    const rVal = Math.max(96, Math.min(180, Math.round(136 - wave * 1.6)));
     wrCtx.fillStyle = `rgb(${rVal}, ${rVal}, ${rVal})`;
     wrCtx.fillRect(0, y, 256, 1);
   }
-  for (let i = 0; i < 160; i++) {
+  for (let i = 0; i < 240; i++) {
     const x = (i * 73) % 256;
     const y = (i * 41) % 256;
-    wCtx.fillStyle = i % 2 === 0 ? 'rgba(38, 20, 10, 0.14)' : 'rgba(155, 108, 72, 0.1)';
-    wCtx.fillRect(x, y, 42, 1.5);
+    const len = 24 + (i % 4) * 12;
+    wCtx.fillStyle = i % 3 === 0 ? 'rgba(135, 118, 100, 0.16)' : 'rgba(255, 252, 246, 0.14)';
+    wCtx.fillRect(x, y, len, 1.2);
   }
 
   const walnutColor = new THREE.CanvasTexture(wCanvas);
   walnutColor.colorSpace = THREE.SRGBColorSpace;
   walnutColor.wrapS = walnutColor.wrapT = THREE.RepeatWrapping;
-  walnutColor.repeat.set(2, 2);
+  walnutColor.repeat.set(1, 1);
 
   const walnutRoughness = new THREE.CanvasTexture(wrCanvas);
   walnutRoughness.wrapS = walnutRoughness.wrapT = THREE.RepeatWrapping;
-  walnutRoughness.repeat.set(2, 2);
+  walnutRoughness.repeat.set(1, 1);
 
-  // 2. Honed Travertine Stone Veins & Subtle Pores
+  // 2. Neutral High-Value Architectural Stone Veins & Pores (tinted cleanly via glTF COLOR_0)
   const [tCanvas, tCtx] = makeCanvas(256, 256);
   const [tbCanvas, tbCtx] = makeCanvas(256, 256);
-  tCtx.fillStyle = '#dad0be';
+  tCtx.fillStyle = '#f2efe9';
   tCtx.fillRect(0, 0, 256, 256);
   tbCtx.fillStyle = '#909090';
   tbCtx.fillRect(0, 0, 256, 256);
 
   for (let y = 0; y < 256; y += 2) {
-    const drift = Math.sin(y * 0.06) * 8 + Math.cos(y * 0.19) * 5;
-    tCtx.fillStyle = `rgba(${212 + Math.floor(drift)}, ${201 + Math.floor(drift)}, ${183 + Math.floor(drift)}, 0.45)`;
+    const drift = Math.sin(y * 0.065) * 9 + Math.cos(y * 0.21) * 5;
+    const v = Math.max(222, Math.min(252, Math.round(240 + drift)));
+    tCtx.fillStyle = `rgba(${v}, ${v - 2}, ${v - 6}, 0.55)`;
     tCtx.fillRect(0, y, 256, 2);
   }
   // Architectural ashlar stone joint lines
-  tCtx.strokeStyle = 'rgba(120, 110, 96, 0.22)';
+  tCtx.strokeStyle = 'rgba(145, 138, 128, 0.18)';
   tCtx.lineWidth = 1;
-  tbCtx.strokeStyle = 'rgba(45, 45, 45, 0.55)';
-  tbCtx.lineWidth = 1.5;
+  tbCtx.strokeStyle = 'rgba(52, 52, 52, 0.45)';
+  tbCtx.lineWidth = 1.2;
   for (const jy of [64, 128, 192]) {
     tCtx.beginPath();
     tCtx.moveTo(0, jy);
@@ -90,36 +92,40 @@ export function createArchitecturalTextures(): ArchitecturalTexturePack {
     tbCtx.lineTo(256, jy);
     tbCtx.stroke();
   }
-  for (let i = 0; i < 220; i++) {
+  for (let i = 0; i < 280; i++) {
     const px = (i * 97) % 256;
     const py = (i * 53) % 256;
-    tbCtx.fillStyle = i % 3 === 0 ? '#686868' : '#ababab';
+    tbCtx.fillStyle = i % 3 === 0 ? '#6c6c6c' : '#ababab';
     tbCtx.fillRect(px, py, 3, 1.5);
+    tCtx.fillStyle = i % 4 === 0 ? 'rgba(160, 154, 144, 0.12)' : 'rgba(255, 253, 250, 0.12)';
+    tCtx.fillRect(px, py, 4, 1.5);
   }
 
   const travertineColor = new THREE.CanvasTexture(tCanvas);
   travertineColor.colorSpace = THREE.SRGBColorSpace;
   travertineColor.wrapS = travertineColor.wrapT = THREE.RepeatWrapping;
-  travertineColor.repeat.set(2, 2);
+  travertineColor.repeat.set(1, 1);
 
   const travertineBump = new THREE.CanvasTexture(tbCanvas);
   travertineBump.wrapS = travertineBump.wrapT = THREE.RepeatWrapping;
-  travertineBump.repeat.set(2, 2);
+  travertineBump.repeat.set(1, 1);
 
-  // 3. Woven Bouclé Linen Bump
+  // 3. Finer Woven Bouclé Linen Bump
   const [lCanvas, lCtx] = makeCanvas(128, 128);
   lCtx.fillStyle = '#808080';
   lCtx.fillRect(0, 0, 128, 128);
-  for (let y = 0; y < 128; y += 4) {
-    for (let x = 0; x < 128; x += 4) {
-      const bright = (x + y) % 8 === 0 ? 168 : 108;
+  for (let y = 0; y < 128; y += 2) {
+    for (let x = 0; x < 128; x += 2) {
+      const weave = ((x >> 1) + (y >> 1)) % 2 === 0 ? 156 : 108;
+      const micro = ((x * 7 + y * 13) % 19) - 9;
+      const bright = Math.max(70, Math.min(190, weave + micro));
       lCtx.fillStyle = `rgb(${bright}, ${bright}, ${bright})`;
-      lCtx.fillRect(x, y, 3, 3);
+      lCtx.fillRect(x, y, 2, 2);
     }
   }
   const linenBump = new THREE.CanvasTexture(lCanvas);
   linenBump.wrapS = linenBump.wrapT = THREE.RepeatWrapping;
-  linenBump.repeat.set(8, 8);
+  linenBump.repeat.set(4, 4);
 
   // 4. Courtyard Reflecting Water ("泽") Ripple Normal-like Bump Map
   const [wtCanvas, wtCtx] = makeCanvas(256, 256);
